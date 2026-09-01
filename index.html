@@ -1,4 +1,4 @@
-```html
+ ```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -23,7 +23,8 @@
     }
 
     button,
-    input {
+    input,
+    textarea {
       font-family: inherit;
     }
 
@@ -87,7 +88,8 @@
       margin-top: 14px;
     }
 
-    input {
+    input,
+    textarea {
       width: 100%;
       background: #0d0d0d;
       border: 1px solid #333;
@@ -98,7 +100,13 @@
       outline: none;
     }
 
-    input:focus {
+    textarea {
+      min-height: 90px;
+      resize: vertical;
+    }
+
+    input:focus,
+    textarea:focus {
       border-color: #666;
     }
 
@@ -176,13 +184,15 @@
       color: #72e889;
     }
 
-    .status.pending {
+    .status.pending,
+    .status.requested {
       background: #382f14;
       color: #e7c85d;
     }
 
     .status.rejected,
-    .status.inactive {
+    .status.inactive,
+    .status.withdrawn {
       background: #351818;
       color: #ff7777;
     }
@@ -411,6 +421,60 @@
       font-size: 12px;
       flex-shrink: 0;
     }
+
+    .competition-admin-card {
+      background: #111;
+      border: 1px solid #292929;
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 12px;
+    }
+
+    .participant-card {
+      background: #0d0d0d;
+      border: 1px solid #252525;
+      border-radius: 10px;
+      padding: 14px;
+      margin-top: 10px;
+    }
+
+    .participant-name {
+      font-size: 16px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .detail-box {
+      background: #151515;
+      border: 1px solid #252525;
+      border-radius: 8px;
+      padding: 9px;
+    }
+
+    .detail-label {
+      color: #777;
+      font-size: 10px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .detail-value {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .admin-edit-box {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #292929;
+    }
   </style>
 </head>
 
@@ -546,7 +610,9 @@
 
       <div id="adminHomeButton" class="card hidden" style="margin-top:15px;">
         <h3>ADMINISTRATION</h3>
-        <p class="muted small">Manage members and payment confirmations.</p>
+        <p class="muted small">
+          Manage members, payments and competitions.
+        </p>
         <button onclick="openAdminPanel()">OPEN ADMIN PANEL</button>
       </div>
 
@@ -1579,10 +1645,6 @@
     }
 
 
-    /*
-      Refresh Events when opened.
-    */
-
     if (section === "events") {
 
       loadEvents();
@@ -1953,9 +2015,7 @@
                 </div>
 
                 <span
-                  class="status ${
-                    escapeHtml(status)
-                  }"
+                  class="status ${escapeHtml(status)}"
                 >
                   ${escapeHtml(status)}
                 </span>
@@ -2077,10 +2137,6 @@
       return;
     }
 
-
-    /*
-      Reset placeholder first.
-    */
 
     if (
       !currentMember ||
@@ -2496,10 +2552,6 @@
     }
 
 
-    /*
-      Load current member's registrations.
-    */
-
     let registrations = [];
 
 
@@ -2549,44 +2601,13 @@
               );
 
 
-            let participationButton =
+            let participationContent =
               "";
 
 
-            if (registration) {
+            if (!registration) {
 
-              const statusText =
-                registration.status ||
-                "requested";
-
-
-              participationButton = `
-
-                <div
-                  class="message"
-                  style="
-                    margin-top:15px;
-                    padding:12px;
-                    background:#111;
-                    border:1px solid #292929;
-                    border-radius:9px;
-                  "
-                >
-
-                  Your participation request:
-                  <strong>
-                    ${escapeHtml(
-                      statusText
-                    )}
-                  </strong>
-
-                </div>
-
-              `;
-
-            } else {
-
-              participationButton = `
+              participationContent = `
 
                 <button
                   onclick="requestCompetitionParticipation(
@@ -2602,6 +2623,51 @@
                 ></div>
 
               `;
+
+            } else {
+
+              const status =
+                registration.status ||
+                "requested";
+
+
+              if (
+                status ===
+                "approved"
+              ) {
+
+                participationContent =
+                  renderApprovedCompetitionForm(
+                    competition,
+                    registration
+                  );
+
+              } else {
+
+                participationContent = `
+
+                  <div
+                    class="message"
+                    style="
+                      margin-top:15px;
+                      padding:12px;
+                      background:#111;
+                      border:1px solid #292929;
+                      border-radius:9px;
+                    "
+                  >
+
+                    Your participation request:
+                    <strong>
+                      ${escapeHtml(
+                        status
+                      )}
+                    </strong>
+
+                  </div>
+
+                `;
+              }
             }
 
 
@@ -2669,7 +2735,7 @@
                 }
 
 
-                ${participationButton}
+                ${participationContent}
 
               </div>
 
@@ -2678,6 +2744,127 @@
           }
         )
         .join("");
+  }
+
+
+  function renderApprovedCompetitionForm(
+    competition,
+    registration
+  ) {
+
+    return `
+
+      <div
+        style="
+          margin-top:18px;
+          padding-top:15px;
+          border-top:1px solid #292929;
+        "
+      >
+
+        <div
+          style="
+            font-weight:800;
+            margin-bottom:5px;
+          "
+        >
+          Participation approved
+        </div>
+
+        <div class="muted small">
+          Please enter your competition details.
+        </div>
+
+
+        <label>
+          Weight
+        </label>
+
+        <input
+          id="competitionWeight-${competition.id}"
+          type="number"
+          step="0.1"
+          placeholder="e.g. 77.5"
+          value="${escapeHtml(
+            registration.weight ?? ""
+          )}"
+        >
+
+
+        <label>
+          Division
+        </label>
+
+        <input
+          id="competitionDivision-${competition.id}"
+          type="text"
+          placeholder="e.g. Adult / NoGi"
+          value="${escapeHtml(
+            registration.division || ""
+          )}"
+        >
+
+
+        <label>
+          Age category
+        </label>
+
+        <input
+          id="competitionAge-${competition.id}"
+          type="text"
+          placeholder="e.g. Adult"
+          value="${escapeHtml(
+            registration.age_category || ""
+          )}"
+        >
+
+
+        <label>
+          Belt
+        </label>
+
+        <input
+          id="competitionBelt-${competition.id}"
+          type="text"
+          placeholder="e.g. Blue"
+          value="${escapeHtml(
+            registration.belt || ""
+          )}"
+        >
+
+
+        <label>
+          Experience
+        </label>
+
+        <input
+          id="competitionExperience-${competition.id}"
+          type="text"
+          placeholder="e.g. 2 years"
+          value="${escapeHtml(
+            registration.experience || ""
+          )}"
+        >
+
+
+        <button
+          onclick="saveCompetitionDetails(
+            '${registration.id}',
+            '${competition.id}'
+          )"
+        >
+          SAVE COMPETITION DETAILS
+        </button>
+
+
+        <div
+          id="competitionDetailsMessage-${competition.id}"
+          class="message"
+        ></div>
+
+      </div>
+
+    `;
   }
 
 
@@ -2710,10 +2897,6 @@
         "message";
     }
 
-
-    /*
-      Check existing registration.
-    */
 
     const {
       data: existing,
@@ -2767,10 +2950,6 @@
     }
 
 
-    /*
-      Create participation request.
-    */
-
     const {
       error
     } = await supabaseClient
@@ -2822,6 +3001,181 @@
 
 
   /* =========================
+     ATHLETE COMPETITION DETAILS
+  ========================= */
+
+  async function saveCompetitionDetails(
+    registrationId,
+    competitionId
+  ) {
+
+    if (
+      !currentUser ||
+      !currentMember
+    ) {
+      return;
+    }
+
+
+    const message =
+      document.getElementById(
+        "competitionDetailsMessage-" +
+        competitionId
+      );
+
+
+    if (message) {
+
+      message.textContent =
+        "Saving...";
+
+      message.className =
+        "message";
+    }
+
+
+    const weightValue =
+      document
+        .getElementById(
+          "competitionWeight-" +
+          competitionId
+        )
+        .value
+        .trim();
+
+
+    const division =
+      document
+        .getElementById(
+          "competitionDivision-" +
+          competitionId
+        )
+        .value
+        .trim();
+
+
+    const ageCategory =
+      document
+        .getElementById(
+          "competitionAge-" +
+          competitionId
+        )
+        .value
+        .trim();
+
+
+    const belt =
+      document
+        .getElementById(
+          "competitionBelt-" +
+          competitionId
+        )
+        .value
+        .trim();
+
+
+    const experience =
+      document
+        .getElementById(
+          "competitionExperience-" +
+          competitionId
+        )
+        .value
+        .trim();
+
+
+    const weight =
+      weightValue === ""
+        ? null
+        : Number(weightValue);
+
+
+    if (
+      weight !== null &&
+      (
+        Number.isNaN(weight) ||
+        weight < 0
+      )
+    ) {
+
+      if (message) {
+
+        message.textContent =
+          "Please enter a valid weight.";
+
+        message.className =
+          "message error";
+      }
+
+      return;
+    }
+
+
+    const {
+      error
+    } = await supabaseClient
+      .from("competition_registrations")
+      .update({
+
+        weight:
+          weight,
+
+        division:
+          division || null,
+
+        age_category:
+          ageCategory || null,
+
+        belt:
+          belt || null,
+
+        experience:
+          experience || null
+
+      })
+      .eq(
+        "id",
+        registrationId
+      )
+      .eq(
+        "member_id",
+        currentMember.id
+      );
+
+
+    if (error) {
+
+      console.error(error);
+
+      if (message) {
+
+        message.textContent =
+          "Could not save competition details: " +
+          error.message;
+
+        message.className =
+          "message error";
+      }
+
+      return;
+    }
+
+
+    if (message) {
+
+      message.textContent =
+        "Competition details saved successfully.";
+
+      message.className =
+        "message success-text";
+    }
+
+
+    await loadEvents();
+  }
+
+
+  /* =========================
      ADMIN PANEL
   ========================= */
 
@@ -2848,11 +3202,29 @@
     element.innerHTML = `
 
       <div class="empty">
-        Loading...
+        Loading admin panel...
       </div>
 
     `;
 
+
+    await loadAdminPayments(
+      element
+    );
+
+    await loadAdminCompetitions(
+      element
+    );
+  }
+
+
+  /* =========================
+     ADMIN PAYMENTS
+  ========================= */
+
+  async function loadAdminPayments(
+    element
+  ) {
 
     const {
       data: payments,
@@ -2885,13 +3257,13 @@
 
       console.error(error);
 
-      element.innerHTML = `
+      element.innerHTML += `
 
         <div class="card">
 
           <div class="message error">
 
-            Could not load admin data:
+            Could not load payment requests:
             ${escapeHtml(
               error.message
             )}
@@ -2907,16 +3279,197 @@
 
 
     if (
-      !payments ||
-      payments.length === 0
+      payments &&
+      payments.length > 0
     ) {
 
       element.innerHTML = `
 
         <div class="card">
 
+          <h3>
+            Pending payment requests
+          </h3>
+
+          <p class="muted small">
+            Confirm payments received from members.
+          </p>
+
+        </div>
+
+
+        ${
+          payments
+            .map(
+              function (payment) {
+
+                const member =
+                  payment.members ||
+                  {};
+
+
+                return `
+
+                  <div
+                    class="payment-item admin-payment"
+                  >
+
+                    <div class="payment-top">
+
+                      <div>
+
+                        <div
+                          style="
+                            font-weight:800;
+                            font-size:16px;
+                          "
+                        >
+                          ${escapeHtml(
+                            (member.first_name || "") +
+                            " " +
+                            (member.last_name || "")
+                          )}
+                        </div>
+
+                        <div class="muted small">
+                          ${escapeHtml(
+                            member.email || ""
+                          )}
+                        </div>
+
+                      </div>
+
+
+                      <div class="payment-amount">
+                        €${Number(
+                          payment.amount || 0
+                        ).toFixed(2)}
+                      </div>
+
+                    </div>
+
+
+                    <div
+                      class="payment-description"
+                    >
+
+                      Membership:
+                      ${escapeHtml(
+                        payment.payment_type || "-"
+                      )}
+
+                      <br>
+
+                      Requested:
+                      ${formatDate(
+                        payment.requested_at ||
+                        payment.created_at
+                      )}
+
+                      <br>
+
+                      Member number:
+                      ${escapeHtml(
+                        member.membership_number ||
+                        "-"
+                      )}
+
+                    </div>
+
+
+                    <div
+                      class="admin-actions"
+                    >
+
+                      <button
+                        class="success"
+                        onclick="approvePayment(
+                          '${payment.id}',
+                          '${payment.member_id}'
+                        )"
+                      >
+                        CONFIRM
+                      </button>
+
+
+                      <button
+                        class="danger"
+                        onclick="rejectPayment(
+                          '${payment.id}'
+                        )"
+                      >
+                        REJECT
+                      </button>
+
+                    </div>
+
+                  </div>
+
+                `;
+
+              }
+            )
+            .join("")
+        }
+
+      `;
+
+    } else {
+
+      element.innerHTML = `
+
+        <div class="card">
+
+          <h3>
+            Payments
+          </h3>
+
           <div class="empty">
             No pending payment requests.
+          </div>
+
+        </div>
+
+      `;
+    }
+  }
+
+
+  /* =========================
+     ADMIN COMPETITIONS
+  ========================= */
+
+  async function loadAdminCompetitions(
+    element
+  ) {
+
+    const {
+      data: competitions,
+      error
+    } = await supabaseClient
+      .from("competitions")
+      .select("*")
+      .order(
+        "date",
+        {
+          ascending: true
+        }
+      );
+
+
+    if (error) {
+
+      console.error(error);
+
+      element.innerHTML += `
+
+        <div class="card">
+
+          <div class="message error">
+            Could not load competitions:
+            ${escapeHtml(
+              error.message
+            )}
           </div>
 
         </div>
@@ -2927,138 +3480,1583 @@
     }
 
 
-    element.innerHTML = `
+    element.innerHTML += `
 
       <div class="card">
 
         <h3>
-          Pending payment requests
+          Competitions
         </h3>
 
         <p class="muted small">
-          Confirm payments received from members.
+          Create competitions and manage participation requests.
         </p>
 
       </div>
 
 
-      ${
-        payments
-          .map(
-            function (payment) {
+      <div class="card">
 
-              const member =
-                payment.members ||
-                {};
+        <h3>
+          Create competition
+        </h3>
 
 
-              return `
+        <label>
+          Title
+        </label>
 
-                <div
-                  class="payment-item admin-payment"
-                >
-
-                  <div class="payment-top">
-
-                    <div>
-
-                      <div
-                        style="
-                          font-weight:800;
-                          font-size:16px;
-                        "
-                      >
-                        ${escapeHtml(
-                          (member.first_name || "") +
-                          " " +
-                          (member.last_name || "")
-                        )}
-                      </div>
-
-                      <div class="muted small">
-                        ${escapeHtml(
-                          member.email || ""
-                        )}
-                      </div>
-
-                    </div>
+        <input
+          id="adminCompetitionTitle"
+          type="text"
+          placeholder="e.g. Tatamy Brno"
+        >
 
 
-                    <div class="payment-amount">
-                      €${Number(
-                        payment.amount || 0
-                      ).toFixed(2)}
-                    </div>
+        <label>
+          Date
+        </label>
 
-                  </div>
-
-
-                  <div
-                    class="payment-description"
-                  >
-
-                    Membership:
-                    ${escapeHtml(
-                      payment.payment_type || "-"
-                    )}
-
-                    <br>
-
-                    Requested:
-                    ${formatDate(
-                      payment.requested_at ||
-                      payment.created_at
-                    )}
-
-                    <br>
-
-                    Member number:
-                    ${escapeHtml(
-                      member.membership_number ||
-                      "-"
-                    )}
-
-                  </div>
+        <input
+          id="adminCompetitionDate"
+          type="date"
+        >
 
 
-                  <div
-                    class="admin-actions"
-                  >
+        <label>
+          Location
+        </label>
 
-                    <button
-                      class="success"
-                      onclick="approvePayment(
-                        '${payment.id}',
-                        '${payment.member_id}'
-                      )"
-                    >
-                      CONFIRM
-                    </button>
+        <input
+          id="adminCompetitionLocation"
+          type="text"
+          placeholder="e.g. Brno, Czech Republic"
+        >
 
 
-                    <button
-                      class="danger"
-                      onclick="rejectPayment(
-                        '${payment.id}'
-                      )"
-                    >
-                      REJECT
-                    </button>
+        <label>
+          Description
+        </label>
 
-                  </div>
+        <textarea
+          id="adminCompetitionDescription"
+          placeholder="Competition information..."
+        ></textarea>
 
-                </div>
 
-              `;
+        <button
+          onclick="createCompetition()"
+        >
+          CREATE COMPETITION
+        </button>
 
-            }
-          )
-          .join("")
-      }
+
+        <div
+          id="adminCompetitionCreateMessage"
+          class="message"
+        ></div>
+
+      </div>
+
+
+      <div id="adminCompetitionsList"></div>
+
+    `;
+
+
+    const list =
+      document.getElementById(
+        "adminCompetitionsList"
+      );
+
+
+    if (
+      !competitions ||
+      competitions.length === 0
+    ) {
+
+      list.innerHTML = `
+
+        <div class="card">
+
+          <div class="empty">
+            No competitions created yet.
+          </div>
+
+        </div>
+
+      `;
+
+      return;
+    }
+
+
+    list.innerHTML =
+      competitions
+        .map(
+          function (competition) {
+
+            return renderAdminCompetition(
+              competition
+            );
+
+          }
+        )
+        .join("");
+  }
+
+
+  function renderAdminCompetition(
+    competition
+  ) {
+
+    return `
+
+      <div
+        class="competition-admin-card"
+        id="adminCompetition-${competition.id}"
+      >
+
+        <div
+          style="
+            font-size:11px;
+            color:#777;
+            text-transform:uppercase;
+            letter-spacing:1px;
+            margin-bottom:6px;
+          "
+        >
+          ${formatDate(
+            competition.date
+          )}
+        </div>
+
+
+        <div
+          style="
+            font-size:18px;
+            font-weight:800;
+            margin-bottom:5px;
+          "
+        >
+          ${escapeHtml(
+            competition.title
+          )}
+        </div>
+
+
+        ${
+          competition.location
+            ? `
+              <div class="muted small">
+                📍
+                ${escapeHtml(
+                  competition.location
+                )}
+              </div>
+            `
+            : ""
+        }
+
+
+        <div class="admin-actions">
+
+          <button
+            class="secondary"
+            onclick="toggleAdminCompetition(
+              '${competition.id}'
+            )"
+          >
+            OPEN
+          </button>
+
+        </div>
+
+
+        <div
+          id="adminCompetitionDetails-${competition.id}"
+          class="hidden"
+        >
+
+          <div class="admin-edit-box">
+
+            <h3>
+              Edit competition
+            </h3>
+
+
+            <label>
+              Title
+            </label>
+
+            <input
+              id="editCompetitionTitle-${competition.id}"
+              value="${escapeHtml(
+                competition.title || ""
+              )}"
+            >
+
+
+            <label>
+              Date
+            </label>
+
+            <input
+              id="editCompetitionDate-${competition.id}"
+              type="date"
+              value="${escapeHtml(
+                competition.date || ""
+              )}"
+            >
+
+
+            <label>
+              Location
+            </label>
+
+            <input
+              id="editCompetitionLocation-${competition.id}"
+              value="${escapeHtml(
+                competition.location || ""
+              )}"
+            >
+
+
+            <label>
+              Description
+            </label>
+
+            <textarea
+              id="editCompetitionDescription-${competition.id}"
+            >${escapeHtml(
+              competition.description || ""
+            )}</textarea>
+
+
+            <button
+              onclick="saveCompetition(
+                '${competition.id}'
+              )"
+            >
+              SAVE COMPETITION
+            </button>
+
+
+            <button
+              class="danger"
+              onclick="deleteCompetition(
+                '${competition.id}'
+              )"
+            >
+              DELETE COMPETITION
+            </button>
+
+
+            <div
+              id="editCompetitionMessage-${competition.id}"
+              class="message"
+            ></div>
+
+          </div>
+
+
+          <div
+            style="
+              margin-top:20px;
+              padding-top:15px;
+              border-top:1px solid #292929;
+            "
+          >
+
+            <h3>
+              Participants
+            </h3>
+
+            <div
+              id="adminParticipants-${competition.id}"
+              class="empty"
+            >
+              Loading participants...
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
 
     `;
   }
 
+
+  async function toggleAdminCompetition(
+    competitionId
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+
+    const container =
+      document.getElementById(
+        "adminCompetitionDetails-" +
+        competitionId
+      );
+
+
+    if (!container) {
+      return;
+    }
+
+
+    const isHidden =
+      container.classList.contains(
+        "hidden"
+      );
+
+
+    if (isHidden) {
+
+      container.classList.remove(
+        "hidden"
+      );
+
+      await loadAdminParticipants(
+        competitionId
+      );
+
+    } else {
+
+      container.classList.add(
+        "hidden"
+      );
+    }
+  }
+
+
+  async function loadAdminParticipants(
+    competitionId
+  ) {
+
+    const element =
+      document.getElementById(
+        "adminParticipants-" +
+        competitionId
+      );
+
+
+    if (!element) {
+      return;
+    }
+
+
+    element.innerHTML = `
+
+      <div class="empty">
+        Loading participants...
+      </div>
+
+    `;
+
+
+    const {
+      data,
+      error
+    } = await supabaseClient
+      .from("competition_registrations")
+      .select(`
+        *,
+        members (
+          id,
+          first_name,
+          last_name,
+          email,
+          membership_number
+        )
+      `)
+      .eq(
+        "competition_id",
+        competitionId
+      )
+      .order(
+        "created_at",
+        {
+          ascending: true
+        }
+      );
+
+
+    if (error) {
+
+      console.error(error);
+
+      element.innerHTML = `
+
+        <div class="message error">
+          Could not load participants:
+          ${escapeHtml(
+            error.message
+          )}
+        </div>
+
+      `;
+
+      return;
+    }
+
+
+    if (
+      !data ||
+      data.length === 0
+    ) {
+
+      element.innerHTML = `
+
+        <div class="empty">
+          No participation requests yet.
+        </div>
+
+      `;
+
+      return;
+    }
+
+
+    element.innerHTML =
+      data
+        .map(
+          function (registration) {
+
+            return renderAdminParticipant(
+              registration
+            );
+
+          }
+        )
+        .join("");
+  }
+
+
+  function renderAdminParticipant(
+    registration
+  ) {
+
+    const member =
+      registration.members ||
+      {};
+
+
+    const status =
+      registration.status ||
+      "requested";
+
+
+    return `
+
+      <div
+        class="participant-card"
+        id="participant-${registration.id}"
+      >
+
+        <div class="participant-name">
+
+          ${escapeHtml(
+            (member.first_name || "") +
+            " " +
+            (member.last_name || "")
+          )}
+
+        </div>
+
+
+        <div class="muted small">
+          ${escapeHtml(
+            member.email || ""
+          )}
+        </div>
+
+
+        <div class="muted small" style="margin-top:4px;">
+          Member number:
+          ${escapeHtml(
+            member.membership_number || "-"
+          )}
+        </div>
+
+
+        <div style="margin-top:10px;">
+
+          <span class="status ${escapeHtml(status)}">
+            ${escapeHtml(status)}
+          </span>
+
+        </div>
+
+
+        ${
+          status === "requested"
+            ? `
+
+              <div class="admin-actions">
+
+                <button
+                  class="success"
+                  onclick="approveCompetitionRegistration(
+                    '${registration.id}'
+                  )"
+                >
+                  APPROVE
+                </button>
+
+
+                <button
+                  class="danger"
+                  onclick="rejectCompetitionRegistration(
+                    '${registration.id}'
+                  )"
+                >
+                  REJECT
+                </button>
+
+              </div>
+
+            `
+            : ""
+        }
+
+
+        <div class="detail-grid">
+
+          <div class="detail-box">
+
+            <div class="detail-label">
+              Weight
+            </div>
+
+            <div class="detail-value">
+              ${
+                registration.weight !== null &&
+                registration.weight !== undefined
+                  ? escapeHtml(
+                      registration.weight
+                    ) + " kg"
+                  : "-"
+              }
+            </div>
+
+          </div>
+
+
+          <div class="detail-box">
+
+            <div class="detail-label">
+              Division
+            </div>
+
+            <div class="detail-value">
+              ${escapeHtml(
+                registration.division || "-"
+              )}
+            </div>
+
+          </div>
+
+
+          <div class="detail-box">
+
+            <div class="detail-label">
+              Age
+            </div>
+
+            <div class="detail-value">
+              ${escapeHtml(
+                registration.age_category || "-"
+              )}
+            </div>
+
+          </div>
+
+
+          <div class="detail-box">
+
+            <div class="detail-label">
+              Belt
+            </div>
+
+            <div class="detail-value">
+              ${escapeHtml(
+                registration.belt || "-"
+              )}
+            </div>
+
+          </div>
+
+
+          <div class="detail-box">
+
+            <div class="detail-label">
+              Experience
+            </div>
+
+            <div class="detail-value">
+              ${escapeHtml(
+                registration.experience || "-"
+              )}
+            </div>
+
+          </div>
+
+
+          <div class="detail-box">
+
+            <div class="detail-label">
+              Result
+            </div>
+
+            <div class="detail-value">
+              ${
+                registration.result_place
+                  ? escapeHtml(
+                      registration.result_place
+                    )
+                  : "-"
+              }
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <div class="admin-edit-box">
+
+          <h3>
+            Admin details
+          </h3>
+
+
+          <label>
+            Weight
+          </label>
+
+          <input
+            id="adminWeight-${registration.id}"
+            type="number"
+            step="0.1"
+            value="${escapeHtml(
+              registration.weight ?? ""
+            )}"
+          >
+
+
+          <label>
+            Division
+          </label>
+
+          <input
+            id="adminDivision-${registration.id}"
+            value="${escapeHtml(
+              registration.division || ""
+            )}"
+          >
+
+
+          <label>
+            Age category
+          </label>
+
+          <input
+            id="adminAge-${registration.id}"
+            value="${escapeHtml(
+              registration.age_category || ""
+            )}"
+          >
+
+
+          <label>
+            Belt
+          </label>
+
+          <input
+            id="adminBelt-${registration.id}"
+            value="${escapeHtml(
+              registration.belt || ""
+            )}"
+          >
+
+
+          <label>
+            Experience
+          </label>
+
+          <input
+            id="adminExperience-${registration.id}"
+            value="${escapeHtml(
+              registration.experience || ""
+            )}"
+          >
+
+
+          <label>
+            Result place
+          </label>
+
+          <input
+            id="adminResult-${registration.id}"
+            type="number"
+            min="1"
+            value="${escapeHtml(
+              registration.result_place ?? ""
+            )}"
+          >
+
+
+          <label>
+            Fights count
+          </label>
+
+          <input
+            id="adminFights-${registration.id}"
+            type="number"
+            min="0"
+            value="${escapeHtml(
+              registration.fights_count ?? ""
+            )}"
+          >
+
+
+          <label>
+            Wins count
+          </label>
+
+          <input
+            id="adminWins-${registration.id}"
+            type="number"
+            min="0"
+            value="${escapeHtml(
+              registration.wins_count ?? ""
+            )}"
+          >
+
+
+          <label>
+            Notes
+          </label>
+
+          <textarea
+            id="adminNotes-${registration.id}"
+          >${escapeHtml(
+            registration.notes || ""
+          )}</textarea>
+
+
+          <button
+            onclick="saveAdminParticipant(
+              '${registration.id}',
+              '${registration.competition_id}'
+            )"
+          >
+            SAVE PARTICIPANT
+          </button>
+
+
+          <div
+            id="adminParticipantMessage-${registration.id}"
+            class="message"
+          ></div>
+
+        </div>
+
+      </div>
+
+    `;
+  }
+
+
+  /* =========================
+     CREATE COMPETITION
+  ========================= */
+
+  async function createCompetition() {
+
+    if (!isAdmin) {
+      return;
+    }
+
+
+    const message =
+      document.getElementById(
+        "adminCompetitionCreateMessage"
+      );
+
+
+    const title =
+      document
+        .getElementById(
+          "adminCompetitionTitle"
+        )
+        .value
+        .trim();
+
+
+    const date =
+      document
+        .getElementById(
+          "adminCompetitionDate"
+        )
+        .value;
+
+
+    const location =
+      document
+        .getElementById(
+          "adminCompetitionLocation"
+        )
+        .value
+        .trim();
+
+
+    const description =
+      document
+        .getElementById(
+          "adminCompetitionDescription"
+        )
+        .value
+        .trim();
+
+
+    if (!title || !date) {
+
+      message.textContent =
+        "Title and date are required.";
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+
+    message.textContent =
+      "Creating competition...";
+
+    message.className =
+      "message";
+
+
+    const {
+      error
+    } = await supabaseClient
+      .from("competitions")
+      .insert({
+
+        title:
+          title,
+
+        date:
+          date,
+
+        location:
+          location || null,
+
+        description:
+          description || null,
+
+        created_by:
+          currentUser.id
+
+      });
+
+
+    if (error) {
+
+      console.error(error);
+
+      message.textContent =
+        "Could not create competition: " +
+        error.message;
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+
+    message.textContent =
+      "Competition created successfully.";
+
+    message.className =
+      "message success-text";
+
+
+    document
+      .getElementById(
+        "adminCompetitionTitle"
+      )
+      .value = "";
+
+
+    document
+      .getElementById(
+        "adminCompetitionDate"
+      )
+      .value = "";
+
+
+    document
+      .getElementById(
+        "adminCompetitionLocation"
+      )
+      .value = "";
+
+
+    document
+      .getElementById(
+        "adminCompetitionDescription"
+      )
+      .value = "";
+
+
+    await loadAdminPanel();
+  }
+
+
+  /* =========================
+     EDIT COMPETITION
+  ========================= */
+
+  async function saveCompetition(
+    competitionId
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+
+    const message =
+      document.getElementById(
+        "editCompetitionMessage-" +
+        competitionId
+      );
+
+
+    const title =
+      document
+        .getElementById(
+          "editCompetitionTitle-" +
+          competitionId
+        )
+        .value
+        .trim();
+
+
+    const date =
+      document
+        .getElementById(
+          "editCompetitionDate-" +
+          competitionId
+        )
+        .value;
+
+
+    const location =
+      document
+        .getElementById(
+          "editCompetitionLocation-" +
+          competitionId
+        )
+        .value
+        .trim();
+
+
+    const description =
+      document
+        .getElementById(
+          "editCompetitionDescription-" +
+          competitionId
+        )
+        .value
+        .trim();
+
+
+    if (!title || !date) {
+
+      message.textContent =
+        "Title and date are required.";
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+
+    message.textContent =
+      "Saving...";
+
+    message.className =
+      "message";
+
+
+    const {
+      error
+    } = await supabaseClient
+      .from("competitions")
+      .update({
+
+        title:
+          title,
+
+        date:
+          date,
+
+        location:
+          location || null,
+
+        description:
+          description || null
+
+      })
+      .eq(
+        "id",
+        competitionId
+      );
+
+
+    if (error) {
+
+      console.error(error);
+
+      message.textContent =
+        "Could not save competition: " +
+        error.message;
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+
+    message.textContent =
+      "Competition saved successfully.";
+
+    message.className =
+      "message success-text";
+
+
+    await loadAdminPanel();
+  }
+
+
+  /* =========================
+     DELETE COMPETITION
+  ========================= */
+
+  async function deleteCompetition(
+    competitionId
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+
+    const confirmed =
+      confirm(
+        "Delete this competition? All participation registrations will also be deleted."
+      );
+
+
+    if (!confirmed) {
+      return;
+    }
+
+
+    const {
+      error
+    } = await supabaseClient
+      .from("competitions")
+      .delete()
+      .eq(
+        "id",
+        competitionId
+      );
+
+
+    if (error) {
+
+      console.error(error);
+
+      alert(
+        "Could not delete competition: " +
+        error.message
+      );
+
+      return;
+    }
+
+
+    await loadAdminPanel();
+  }
+
+
+  /* =========================
+     APPROVE COMPETITION REGISTRATION
+  ========================= */
+
+  async function approveCompetitionRegistration(
+    registrationId
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+
+    const confirmed =
+      confirm(
+        "Approve this athlete for the competition?"
+      );
+
+
+    if (!confirmed) {
+      return;
+    }
+
+
+    const {
+      error
+    } = await supabaseClient
+      .from("competition_registrations")
+      .update({
+
+        status:
+          "approved"
+
+      })
+      .eq(
+        "id",
+        registrationId
+      );
+
+
+    if (error) {
+
+      console.error(error);
+
+      alert(
+        "Could not approve registration: " +
+        error.message
+      );
+
+      return;
+    }
+
+
+    const competitionId =
+      await getCompetitionIdForRegistration(
+        registrationId
+      );
+
+
+    if (competitionId) {
+
+      await loadAdminParticipants(
+        competitionId
+      );
+    }
+  }
+
+
+  /* =========================
+     REJECT COMPETITION REGISTRATION
+  ========================= */
+
+  async function rejectCompetitionRegistration(
+    registrationId
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+
+    const confirmed =
+      confirm(
+        "Reject this participation request?"
+      );
+
+
+    if (!confirmed) {
+      return;
+    }
+
+
+    const {
+      error
+    } = await supabaseClient
+      .from("competition_registrations")
+      .update({
+
+        status:
+          "rejected"
+
+      })
+      .eq(
+        "id",
+        registrationId
+      );
+
+
+    if (error) {
+
+      console.error(error);
+
+      alert(
+        "Could not reject registration: " +
+        error.message
+      );
+
+      return;
+    }
+
+
+    const competitionId =
+      await getCompetitionIdForRegistration(
+        registrationId
+      );
+
+
+    if (competitionId) {
+
+      await loadAdminParticipants(
+        competitionId
+      );
+    }
+  }
+
+
+  async function getCompetitionIdForRegistration(
+    registrationId
+  ) {
+
+    const {
+      data,
+      error
+    } = await supabaseClient
+      .from("competition_registrations")
+      .select(
+        "competition_id"
+      )
+      .eq(
+        "id",
+        registrationId
+      )
+      .maybeSingle();
+
+
+    if (error) {
+
+      console.error(error);
+
+      return null;
+    }
+
+
+    return data?.competition_id ||
+      null;
+  }
+
+
+  /* =========================
+     ADMIN SAVE PARTICIPANT
+  ========================= */
+
+  async function saveAdminParticipant(
+    registrationId,
+    competitionId
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+
+    const message =
+      document.getElementById(
+        "adminParticipantMessage-" +
+        registrationId
+      );
+
+
+    const weightValue =
+      document
+        .getElementById(
+          "adminWeight-" +
+          registrationId
+        )
+        .value
+        .trim();
+
+
+    const division =
+      document
+        .getElementById(
+          "adminDivision-" +
+          registrationId
+        )
+        .value
+        .trim();
+
+
+    const ageCategory =
+      document
+        .getElementById(
+          "adminAge-" +
+          registrationId
+        )
+        .value
+        .trim();
+
+
+    const belt =
+      document
+        .getElementById(
+          "adminBelt-" +
+          registrationId
+        )
+        .value
+        .trim();
+
+
+    const experience =
+      document
+        .getElementById(
+          "adminExperience-" +
+          registrationId
+        )
+        .value
+        .trim();
+
+
+    const resultValue =
+      document
+        .getElementById(
+          "adminResult-" +
+          registrationId
+        )
+        .value
+        .trim();
+
+
+    const fightsValue =
+      document
+        .getElementById(
+          "adminFights-" +
+          registrationId
+        )
+        .value
+        .trim();
+
+
+    const winsValue =
+      document
+        .getElementById(
+          "adminWins-" +
+          registrationId
+        )
+        .value
+        .trim();
+
+
+    const notes =
+      document
+        .getElementById(
+          "adminNotes-" +
+          registrationId
+        )
+        .value
+        .trim();
+
+
+    const weight =
+      weightValue === ""
+        ? null
+        : Number(weightValue);
+
+
+    const resultPlace =
+      resultValue === ""
+        ? null
+        : Number(resultValue);
+
+
+    const fightsCount =
+      fightsValue === ""
+        ? null
+        : Number(fightsValue);
+
+
+    const winsCount =
+      winsValue === ""
+        ? null
+        : Number(winsValue);
+
+
+    if (
+      weight !== null &&
+      (
+        Number.isNaN(weight) ||
+        weight < 0
+      )
+    ) {
+
+      message.textContent =
+        "Invalid weight.";
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+
+    if (
+      resultPlace !== null &&
+      (
+        Number.isNaN(resultPlace) ||
+        resultPlace < 1
+      )
+    ) {
+
+      message.textContent =
+        "Result place must be 1 or higher.";
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+
+    if (
+      fightsCount !== null &&
+      (
+        Number.isNaN(fightsCount) ||
+        fightsCount < 0
+      )
+    ) {
+
+      message.textContent =
+        "Fights count cannot be negative.";
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+
+    if (
+      winsCount !== null &&
+      (
+        Number.isNaN(winsCount) ||
+        winsCount < 0
+      )
+    ) {
+
+      message.textContent =
+        "Wins count cannot be negative.";
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+
+    message.textContent =
+      "Saving...";
+
+    message.className =
+      "message";
+
+
+    const {
+      error
+    } = await supabaseClient
+      .from("competition_registrations")
+      .update({
+
+        weight:
+          weight,
+
+        division:
+          division || null,
+
+        age_category:
+          ageCategory || null,
+
+        belt:
+          belt || null,
+
+        experience:
+          experience || null,
+
+        result_place:
+          resultPlace,
+
+        fights_count:
+          fightsCount,
+
+        wins_count:
+          winsCount,
+
+        notes:
+          notes || null
+
+      })
+      .eq(
+        "id",
+        registrationId
+      );
+
+
+    if (error) {
+
+      console.error(error);
+
+      message.textContent =
+        "Could not save participant: " +
+        error.message;
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+
+    message.textContent =
+      "Participant saved successfully.";
+
+    message.className =
+      "message success-text";
+
+
+    await loadAdminParticipants(
+      competitionId
+    );
+  }
+
+
+  /* =========================
+     APPROVE PAYMENT
+  ========================= */
 
   async function approvePayment(
     paymentId,
@@ -3185,6 +5183,10 @@
     await loadAdminPanel();
   }
 
+
+  /* =========================
+     REJECT PAYMENT
+  ========================= */
 
   async function rejectPayment(
     paymentId
@@ -3316,3 +5318,4 @@
 </body>
 </html>
 ```
+
