@@ -971,68 +971,69 @@
   // PAYMENT REQUEST
   // ==========================
 
+ 
   async function requestPaymentConfirmation() {
 
-    async function requestPaymentConfirmation() {
+if (!currentUser || !currentMember) {
+return;
+}
 
-  if (!currentUser || !currentMember) {
-    return;
-  }
+const message =
+document.getElementById("paymentRequestMessage");
 
-  const message =
-    document.getElementById("paymentRequestMessage");
+message.textContent = "Sending request...";
 
-  message.textContent = "Sending request...";
+const { error } =
+await supabaseClient
+.from("payments")
+.insert({
+member_id: currentMember.id,
 
-  const { error } =
-    await supabaseClient
-      .from("payments")
-      .insert({
+```
+    amount:
+      currentMembership
+        ? currentMembership.price
+        : 0,
 
-        member_id: currentMember.id,
+    payment_date:
+      new Date()
+        .toISOString()
+        .split("T")[0],
 
-        amount:
-          currentMembership
-            ? currentMembership.price
-            : 0,
+    payment_type:
+      currentMembership
+        ? currentMembership.type
+        : "membership",
 
-        payment_date: new Date()
-          .toISOString()
-          .split("T")[0],
+    description:
+      "Payment confirmation requested",
 
-        payment_type:
-          currentMembership
-            ? currentMembership.type
-            : "membership",
+    status: "pending",
 
-        description:
-          "Payment confirmation requested",
+    requested_at:
+      new Date().toISOString()
+  });
+```
 
-        status: "pending",
+if (error) {
 
-        requested_at: new Date()
-          .toISOString()
+```
+console.error(error);
 
-      });
+message.textContent =
+  "Could not send payment request: " +
+  error.message;
 
-
-  if (error) {
-
-    console.error(error);
-
-    message.textContent =
-      "Could not send payment request.";
-
-    return;
-
-  }
-
-
-  message.textContent =
-    "Payment confirmation request sent successfully.";
+return;
+```
 
 }
-  }
+
+message.textContent =
+"Payment confirmation request sent successfully.";
+
+}
+
 
 
   // ==========================
