@@ -1,1520 +1,1746 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
 
-  <meta charset="UTF-8">
+<meta charset="UTF-8">
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  >
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1.0"
+>
 
-  <title>CENTER MMA</title>
+<title>CENTER MMA</title>
 
-  <style>
+<style>
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
-    body {
-      font-family: Arial, sans-serif;
-      background: #111;
-      color: white;
-      min-height: 100vh;
-    }
+body {
+  font-family: Arial, sans-serif;
+  background: #111;
+  color: white;
+  min-height: 100vh;
+}
 
-    .container {
-      width: 100%;
-      max-width: 500px;
-      margin: auto;
-      padding: 25px 20px 100px;
-    }
+.container {
+  width: 100%;
+  max-width: 500px;
+  margin: auto;
+  padding: 25px 20px 110px;
+}
 
-    .logo {
-      text-align: center;
-      font-size: 38px;
-      font-weight: 900;
-      letter-spacing: 3px;
-      margin-bottom: 5px;
-    }
+.logo {
+  text-align: center;
+  font-size: 38px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  margin-bottom: 5px;
+}
 
-    .subtitle {
-      text-align: center;
-      color: #999;
-      font-size: 12px;
-      letter-spacing: 2px;
-      margin-bottom: 30px;
-    }
+.subtitle {
+  text-align: center;
+  color: #999;
+  font-size: 12px;
+  letter-spacing: 2px;
+  margin-bottom: 30px;
+}
 
-    .card {
-      background: #1c1c1c;
-      border: 1px solid #333;
-      border-radius: 16px;
-      padding: 25px 20px;
-      margin-bottom: 20px;
-    }
+.card {
+  background: #1c1c1c;
+  border: 1px solid #333;
+  border-radius: 16px;
+  padding: 25px 20px;
+  margin-bottom: 20px;
+}
 
-    h1 {
-      font-size: 24px;
-      margin-bottom: 10px;
-    }
+h1 {
+  font-size: 24px;
+  margin-bottom: 10px;
+}
 
-    h2 {
-      font-size: 18px;
-      margin-bottom: 15px;
-    }
+h2 {
+  font-size: 18px;
+  margin-bottom: 15px;
+}
 
-    label {
-      display: block;
-      color: #aaa;
-      font-size: 13px;
-      margin-bottom: 6px;
-    }
+label {
+  display: block;
+  color: #aaa;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
 
-    input {
-      width: 100%;
-      padding: 14px;
-      margin-bottom: 15px;
-      border-radius: 9px;
-      border: 1px solid #444;
-      background: #111;
-      color: white;
-      font-size: 15px;
-    }
+input {
+  width: 100%;
+  padding: 14px;
+  margin-bottom: 15px;
+  border-radius: 9px;
+  border: 1px solid #444;
+  background: #111;
+  color: white;
+  font-size: 15px;
+}
 
-    button {
-      width: 100%;
-      padding: 14px;
-      border: none;
-      border-radius: 9px;
-      background: white;
-      color: black;
-      font-size: 15px;
-      font-weight: bold;
-      cursor: pointer;
-      margin-top: 5px;
-    }
+button {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 9px;
+  background: white;
+  color: black;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 5px;
+}
 
-    button:hover {
-      opacity: 0.9;
-    }
+button:hover {
+  opacity: 0.9;
+}
 
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
-    .secondary {
-      background: transparent;
-      color: white;
-      border: 1px solid #555;
-      margin-top: 10px;
-    }
+.secondary {
+  background: transparent;
+  color: white;
+  border: 1px solid #555;
+  margin-top: 10px;
+}
 
-    .message {
-      text-align: center;
-      color: #aaa;
-      font-size: 14px;
-      margin-top: 15px;
-      line-height: 1.5;
-    }
+.danger {
+  background: #ff6b6b;
+  color: white;
+}
 
-    .hidden {
-      display: none;
-    }
+.success {
+  background: #65d17a;
+  color: black;
+}
 
-    .status-card {
-      text-align: center;
-      padding: 25px 15px;
-      border: 1px solid #333;
-      border-radius: 14px;
-      margin-bottom: 20px;
-    }
+.message {
+  text-align: center;
+  color: #aaa;
+  font-size: 14px;
+  margin-top: 15px;
+  line-height: 1.5;
+}
 
-    .status {
-      font-size: 20px;
-      font-weight: bold;
-      margin: 10px 0;
-    }
+.hidden {
+  display: none !important;
+}
 
-    .status.active {
-      color: #65d17a;
-    }
+.status-card {
+  text-align: center;
+  padding: 25px 15px;
+  border: 1px solid #333;
+  border-radius: 14px;
+  margin-bottom: 20px;
+}
 
-    .status.inactive {
-      color: #ff6b6b;
-    }
+.status {
+  font-size: 20px;
+  font-weight: bold;
+  margin: 10px 0;
+}
 
-    .status-text {
-      color: #aaa;
-      font-size: 14px;
-      line-height: 1.5;
-    }
+.status.active {
+  color: #65d17a;
+}
 
-    .dashboard-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
+.status.inactive {
+  color: #ff6b6b;
+}
 
-    .dashboard-item {
-      background: #181818;
-      border: 1px solid #333;
-      border-radius: 12px;
-      padding: 20px 10px;
-      text-align: center;
-      font-size: 14px;
-    }
+.status.pending {
+  color: #ffd166;
+}
 
-    .dashboard-item .icon {
-      font-size: 28px;
-      margin-bottom: 8px;
-    }
+.status-text {
+  color: #aaa;
+  font-size: 14px;
+  line-height: 1.5;
+}
 
-    .membership-info {
-      background: #181818;
-      border-radius: 12px;
-      padding: 18px;
-      margin-top: 15px;
-    }
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
 
-    .membership-row {
-      display: flex;
-      justify-content: space-between;
-      border-bottom: 1px solid #333;
-      padding: 10px 0;
-      font-size: 14px;
-    }
+.dashboard-item {
+  background: #181818;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 20px 10px;
+  text-align: center;
+  font-size: 14px;
+}
 
-    .membership-row:last-child {
-      border-bottom: none;
-    }
+.dashboard-item .icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
 
-    .membership-row span:first-child {
-      color: #888;
-    }
+.membership-info {
+  background: #181818;
+  border-radius: 12px;
+  padding: 18px;
+  margin-top: 15px;
+}
 
-    .logout {
-      margin-top: 20px;
-      background: transparent;
-      border: 1px solid #444;
-      color: #aaa;
-    }
+.membership-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  border-bottom: 1px solid #333;
+  padding: 10px 0;
+  font-size: 14px;
+}
 
-    .bottom-nav {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: #181818;
-      border-top: 1px solid #333;
-      padding: 12px 5px;
-    }
+.membership-row:last-child {
+  border-bottom: none;
+}
 
-    .nav-inner {
-      max-width: 500px;
-      margin: auto;
-      display: flex;
-      justify-content: space-around;
-    }
+.membership-row span:first-child {
+  color: #888;
+}
 
-    .nav-item {
-      text-align: center;
-      color: #777;
-      font-size: 11px;
-    }
+.logout {
+  margin-top: 20px;
+  background: transparent;
+  border: 1px solid #444;
+  color: #aaa;
+}
 
-    .nav-item.active {
-      color: white;
-    }
+.payment-item {
+  background: #181818;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 12px;
+}
 
-  </style>
+.payment-name {
+  font-size: 17px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.payment-detail {
+  color: #aaa;
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+
+.payment-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.payment-buttons button {
+  margin-top: 0;
+}
+
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 5px 9px;
+  border-radius: 20px;
+  background: #ffd166;
+  color: #111;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.empty {
+  text-align: center;
+  color: #777;
+  padding: 25px 10px;
+}
+
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #181818;
+  border-top: 1px solid #333;
+  padding: 12px 5px;
+  z-index: 10;
+}
+
+.nav-inner {
+  max-width: 500px;
+  margin: auto;
+  display: flex;
+  justify-content: space-around;
+}
+
+.nav-item {
+  text-align: center;
+  color: #777;
+  font-size: 11px;
+}
+
+.nav-item.active {
+  color: white;
+}
+
+</style>
 
 </head>
 
-
 <body>
-
 
 <div class="container">
 
-
-  <!-- ========================== -->
-  <!-- HEADER -->
-  <!-- ========================== -->
-
-  <div class="logo">
-    CENTER MMA
-  </div>
-
-  <div class="subtitle">
-    VIENNA • MMA • GRAPPLING
-  </div>
-
-
-  <!-- ========================== -->
-  <!-- LOGIN -->
-  <!-- ========================== -->
-
-  <div
-    id="loginBox"
-    class="card"
-  >
-
-    <h1>Login</h1>
-
-    <br>
-
-    <label>Email</label>
-
-    <input
-      id="loginEmail"
-      type="email"
-      placeholder="Email"
-    >
-
-    <label>Password</label>
-
-    <input
-      id="loginPassword"
-      type="password"
-      placeholder="Password"
-    >
-
-    <button onclick="login()">
-      LOGIN
-    </button>
-
-    <button
-      class="secondary"
-      onclick="showRegister()"
-    >
-      CREATE ACCOUNT
-    </button>
-
-    <div
-      id="loginMessage"
-      class="message"
-    ></div>
-
-  </div>
-
-
-  <!-- ========================== -->
-  <!-- REGISTRATION -->
-  <!-- ========================== -->
-
-  <div
-    id="registerBox"
-    class="card hidden"
-  >
-
-    <h1>Create Account</h1>
-
-    <br>
-
-    <label>Email</label>
-
-    <input
-      id="registerEmail"
-      type="email"
-      placeholder="Email"
-    >
-
-    <label>Password</label>
-
-    <input
-      id="registerPassword"
-      type="password"
-      placeholder="Password"
-    >
-
-    <label>Confirm Password</label>
-
-    <input
-      id="registerPassword2"
-      type="password"
-      placeholder="Confirm password"
-    >
-
-    <button onclick="register()">
-      REGISTER
-    </button>
-
-    <button
-      class="secondary"
-      onclick="showLogin()"
-    >
-      BACK TO LOGIN
-    </button>
-
-    <div
-      id="registerMessage"
-      class="message"
-    ></div>
-
-  </div>
-
-
-  <!-- ========================== -->
-  <!-- INACTIVE MEMBERSHIP -->
-  <!-- ========================== -->
-
-  <div
-    id="inactiveBox"
-    class="hidden"
-  >
-
-    <div class="status-card">
-
-      <h1>Membership</h1>
-
-      <div class="status inactive">
-        🔒 NOT ACTIVE
-      </div>
-
-      <div class="status-text">
-
-        Your membership is currently not active.
-
-        <br><br>
-
-        Please complete your membership payment.
-
-      </div>
-
-      <button
-        id="paymentRequestButton"
-        onclick="requestPaymentConfirmation()"
-      >
-        REQUEST PAYMENT CONFIRMATION
-      </button>
-
-      <div
-        id="paymentRequestMessage"
-        class="message"
-      ></div>
-
-    </div>
-
-
-    <!-- PROFILE -->
-
-    <div class="card">
-
-      <h2>Profile</h2>
-
-      <div
-        id="inactiveProfile"
-        class="status-text"
-      ></div>
-
-    </div>
-
-
-    <button
-      class="logout"
-      onclick="logout()"
-    >
-      LOGOUT
-    </button>
-
-  </div>
-
-
-  <!-- ========================== -->
-  <!-- ACTIVE DASHBOARD -->
-  <!-- ========================== -->
-
-  <div
-    id="dashboardBox"
-    class="hidden"
-  >
-
-    <div class="card">
-
-      <h1 id="welcomeText">
-        Welcome
-      </h1>
-
-      <div class="status active">
-        ✓ MEMBERSHIP ACTIVE
-      </div>
-
-      <div
-        id="membershipInfo"
-        class="membership-info"
-      ></div>
-
-    </div>
-
-
-    <div class="card">
-
-      <h2>My CENTER MMA</h2>
-
-      <div class="dashboard-grid">
-
-        <div class="dashboard-item">
-
-          <div class="icon">
-            📰
-          </div>
-
-          News
-
-        </div>
-
-
-        <div class="dashboard-item">
-
-          <div class="icon">
-            💬
-          </div>
-
-          Chat
-
-        </div>
-
-
-        <div class="dashboard-item">
-
-          <div class="icon">
-            🪪
-          </div>
-
-          Membership
-
-        </div>
-
-
-        <div class="dashboard-item">
-
-          <div class="icon">
-            🥋
-          </div>
-
-          Attendance
-
-        </div>
-
-
-        <div class="dashboard-item">
-
-          <div class="icon">
-            💳
-          </div>
-
-          Payments
-
-        </div>
-
-
-        <div class="dashboard-item">
-
-          <div class="icon">
-            👤
-          </div>
-
-          Profile
-
-        </div>
-
-      </div>
-
-    </div>
-
-
-    <button
-      class="logout"
-      onclick="logout()"
-    >
-      LOGOUT
-    </button>
-
-  </div>
-
-
+<div class="logo">
+CENTER MMA
+</div>
+
+<div class="subtitle">
+VIENNA • MMA • GRAPPLING
 </div>
 
 
-<!-- ========================== -->
-<!-- BOTTOM NAVIGATION -->
-<!-- ========================== -->
+<!-- LOGIN -->
 
-<div
-  id="bottomNav"
-  class="bottom-nav hidden"
+<div id="loginBox" class="card">
+
+<h1>Login</h1>
+
+<br>
+
+<label>Email</label>
+
+<input
+  id="loginEmail"
+  type="email"
+  placeholder="Email"
 >
 
-  <div class="nav-inner">
+<label>Password</label>
 
-    <div class="nav-item active">
-      🏠<br>
-      Home
-    </div>
+<input
+  id="loginPassword"
+  type="password"
+  placeholder="Password"
+>
 
-    <div class="nav-item">
-      🪪<br>
-      Membership
-    </div>
+<button onclick="login()">
+LOGIN
+</button>
 
-    <div class="nav-item">
-      🥋<br>
-      Attendance
-    </div>
+<button
+  class="secondary"
+  onclick="showRegister()"
+>
+CREATE ACCOUNT
+</button>
 
-    <div class="nav-item">
-      💳<br>
-      Payments
-    </div>
-
-    <div class="nav-item">
-      👤<br>
-      Profile
-    </div>
-
-  </div>
+<div id="loginMessage" class="message"></div>
 
 </div>
 
 
-<!-- ========================== -->
-<!-- SUPABASE -->
-<!-- ========================== -->
+<!-- REGISTER -->
+
+<div id="registerBox" class="card hidden">
+
+<h1>Create Account</h1>
+
+<br>
+
+<label>Email</label>
+
+<input
+  id="registerEmail"
+  type="email"
+  placeholder="Email"
+>
+
+<label>Password</label>
+
+<input
+  id="registerPassword"
+  type="password"
+  placeholder="Password"
+>
+
+<label>Confirm Password</label>
+
+<input
+  id="registerPassword2"
+  type="password"
+  placeholder="Confirm password"
+>
+
+<button onclick="register()">
+REGISTER
+</button>
+
+<button
+  class="secondary"
+  onclick="showLogin()"
+>
+BACK TO LOGIN
+</button>
+
+<div id="registerMessage" class="message"></div>
+
+</div>
+
+
+<!-- INACTIVE MEMBER -->
+
+<div id="inactiveBox" class="hidden">
+
+<div class="status-card">
+
+<h1>Membership</h1>
+
+<div class="status inactive">
+🔒 NOT ACTIVE
+</div>
+
+<div class="status-text">
+Your membership is currently not active.
+<br><br>
+Please complete your membership payment.
+</div>
+
+<button
+  id="requestPaymentButton"
+  onclick="requestPaymentConfirmation()"
+>
+REQUEST PAYMENT CONFIRMATION
+</button>
+
+<div
+  id="paymentRequestMessage"
+  class="message"
+></div>
+
+</div>
+
+
+<div class="card">
+
+<h2>Profile</h2>
+
+<div
+  id="inactiveProfile"
+  class="status-text"
+></div>
+
+</div>
+
+<button
+  class="logout"
+  onclick="logout()"
+>
+LOGOUT
+</button>
+
+</div>
+
+
+<!-- MEMBER DASHBOARD -->
+
+<div id="dashboardBox" class="hidden">
+
+<div class="card">
+
+<h1 id="welcomeText">
+Welcome
+</h1>
+
+<div class="status active">
+✓ MEMBERSHIP ACTIVE
+</div>
+
+<div
+  id="membershipInfo"
+  class="membership-info"
+></div>
+
+</div>
+
+
+<div class="card">
+
+<h2>My CENTER MMA</h2>
+
+<div class="dashboard-grid">
+
+<div class="dashboard-item">
+<div class="icon">📰</div>
+News
+</div>
+
+<div class="dashboard-item">
+<div class="icon">💬</div>
+Chat
+</div>
+
+<div class="dashboard-item">
+<div class="icon">🪪</div>
+Membership
+</div>
+
+<div class="dashboard-item">
+<div class="icon">🥋</div>
+Attendance
+</div>
+
+<div class="dashboard-item">
+<div class="icon">💳</div>
+Payments
+</div>
+
+<div class="dashboard-item">
+<div class="icon">👤</div>
+Profile
+</div>
+
+</div>
+
+</div>
+
+
+<button
+  id="adminButton"
+  class="secondary hidden"
+  onclick="showAdminPanel()"
+>
+👑 ADMIN PANEL
+</button>
+
+<button
+  class="logout"
+  onclick="logout()"
+>
+LOGOUT
+</button>
+
+</div>
+
+
+<!-- ADMIN PANEL -->
+
+<div id="adminBox" class="hidden">
+
+<div class="card">
+
+<div class="admin-header">
+
+<h1>Admin Panel</h1>
+
+<span class="badge">
+ADMIN
+</span>
+
+</div>
+
+<div class="status-text">
+Payment confirmation requests
+</div>
+
+</div>
+
+
+<div class="card">
+
+<h2>Pending Payments</h2>
+
+<div id="pendingPayments">
+
+<div class="empty">
+Loading...
+</div>
+
+</div>
+
+<div
+  id="adminMessage"
+  class="message"
+></div>
+
+</div>
+
+
+<button
+  class="secondary"
+  onclick="backToDashboard()"
+>
+← BACK TO DASHBOARD
+</button>
+
+<button
+  class="logout"
+  onclick="logout()"
+>
+LOGOUT
+</button>
+
+</div>
+
+</div>
+
+
+<!-- BOTTOM NAV -->
+
+<div id="bottomNav" class="bottom-nav hidden">
+
+<div class="nav-inner">
+
+<div
+  class="nav-item active"
+  onclick="backToDashboard()"
+>
+🏠<br>
+Home
+</div>
+
+<div class="nav-item">
+🪪<br>
+Membership
+</div>
+
+<div class="nav-item">
+🥋<br>
+Attendance
+</div>
+
+<div class="nav-item">
+💳<br>
+Payments
+</div>
+
+<div class="nav-item">
+👤<br>
+Profile
+</div>
+
+</div>
+
+</div>
+
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
 
 <script>
 
 
-// ==========================
-// SUPABASE CONFIG
-// ==========================
+/* ==========================
+   SUPABASE
+========================== */
 
 const SUPABASE_URL =
-  "https://klzyuczbvixodgvtsimq.supabase.co";
-
+"https://klzyuczbvixodgvtsimq.supabase.co";
 
 const SUPABASE_KEY =
-  "sb_publishable_hTRZXpcPQLvwjBpVUru1Jw_HN3Wua2E";
-
+"sb_publishable_hTRZXpcPQLvwjBpVUru1Jw_HN3Wua2E";
 
 const supabaseClient =
-  supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_KEY
-  );
+supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
 
-
-// ==========================
-// GLOBAL VARIABLES
-// ==========================
 
 let currentUser = null;
-
 let currentMember = null;
-
 let currentMembership = null;
 
 
-// ==========================
-// LOGIN
-// ==========================
+/* ==========================
+   LOGIN
+========================== */
 
 async function login() {
 
-  const email =
-    document.getElementById(
-      "loginEmail"
-    ).value.trim();
+const email =
+document.getElementById("loginEmail")
+.value
+.trim();
 
+const password =
+document.getElementById("loginPassword")
+.value;
 
-  const password =
-    document.getElementById(
-      "loginPassword"
-    ).value;
+const message =
+document.getElementById("loginMessage");
 
+if (!email || !password) {
 
-  const message =
-    document.getElementById(
-      "loginMessage"
-    );
+message.textContent =
+"Please enter email and password.";
 
+return;
 
-  if (!email || !password) {
+}
 
-    message.textContent =
-      "Please enter email and password.";
+message.textContent =
+"Logging in...";
 
-    return;
-  }
+const { data, error } =
+await supabaseClient.auth
+.signInWithPassword({
 
+email: email,
 
-  message.textContent =
-    "Logging in...";
+password: password
 
+});
 
-  const { data, error } =
-    await supabaseClient.auth
-      .signInWithPassword({
+if (error) {
 
-        email: email,
+message.textContent =
+error.message;
 
-        password: password
+return;
 
-      });
+}
 
+currentUser =
+data.user;
 
-  if (error) {
-
-    console.error(
-      "Login error:",
-      error
-    );
-
-
-    message.textContent =
-      error.message;
-
-    return;
-  }
-
-
-  currentUser =
-    data.user;
-
-
-  message.textContent =
-    "";
-
-
-  await checkMembership();
+await checkMembership();
 
 }
 
 
-// ==========================
-// REGISTRATION
-// ==========================
+/* ==========================
+   REGISTER
+========================== */
 
 async function register() {
 
-  const email =
-    document.getElementById(
-      "registerEmail"
-    ).value.trim();
+const email =
+document.getElementById("registerEmail")
+.value
+.trim();
+
+const password =
+document.getElementById("registerPassword")
+.value;
+
+const password2 =
+document.getElementById("registerPassword2")
+.value;
+
+const message =
+document.getElementById("registerMessage");
 
 
-  const password =
-    document.getElementById(
-      "registerPassword"
-    ).value;
+if (!email || !password) {
+
+message.textContent =
+"Please enter email and password.";
+
+return;
+
+}
+
+if (password !== password2) {
+
+message.textContent =
+"Passwords do not match.";
+
+return;
+
+}
+
+if (password.length < 6) {
+
+message.textContent =
+"Password must contain at least 6 characters.";
+
+return;
+
+}
+
+message.textContent =
+"Creating account...";
 
 
-  const password2 =
-    document.getElementById(
-      "registerPassword2"
-    ).value;
+const { data, error } =
+await supabaseClient.auth
+.signUp({
+
+email: email,
+
+password: password
+
+});
 
 
-  const message =
-    document.getElementById(
-      "registerMessage"
-    );
+if (error) {
 
+message.textContent =
+error.message;
 
-  if (!email || !password) {
-
-    message.textContent =
-      "Please enter email and password.";
-
-    return;
-  }
-
-
-  if (password !== password2) {
-
-    message.textContent =
-      "Passwords do not match.";
-
-    return;
-  }
-
-
-  if (password.length < 6) {
-
-    message.textContent =
-      "Password must contain at least 6 characters.";
-
-    return;
-  }
-
-
-  message.textContent =
-    "Creating account...";
-
-
-  const { data, error } =
-    await supabaseClient.auth
-      .signUp({
-
-        email: email,
-
-        password: password
-
-      });
-
-
-  if (error) {
-
-    console.error(
-      "Registration error:",
-      error
-    );
-
-
-    message.textContent =
-      error.message;
-
-    return;
-  }
-
-
-  message.textContent =
-    "Account created successfully. Check your email if confirmation is required.";
-
-
-  console.log(
-    "Registered user:",
-    data.user
-  );
+return;
 
 }
 
 
-// ==========================
-// CHECK MEMBERSHIP
-// ==========================
+/*
+If email confirmation is disabled,
+Supabase may already return a session.
+*/
+
+if (data.session) {
+
+currentUser =
+data.user;
+
+message.textContent =
+"Account created successfully.";
+
+await checkMembership();
+
+return;
+
+}
+
+
+message.textContent =
+"Account created successfully. Check your email if confirmation is required.";
+
+}
+
+
+/* ==========================
+   CHECK MEMBERSHIP
+========================== */
 
 async function checkMembership() {
 
-  hideAllScreens();
+hideAllScreens();
 
+if (!currentUser) {
 
-  if (!currentUser) {
+showLogin();
 
-    showLogin();
-
-    return;
-  }
-
-
-  // --------------------------
-  // FIND MEMBER
-  // --------------------------
-
-  const {
-    data: member,
-    error: memberError
-  } =
-    await supabaseClient
-      .from("members")
-      .select("*")
-      .eq(
-        "user_id",
-        currentUser.id
-      )
-      .maybeSingle();
-
-
-  if (memberError) {
-
-    console.error(
-      "Member error:",
-      memberError
-    );
-
-
-    showInactive(
-      "Could not load member profile."
-    );
-
-    return;
-  }
-
-
-  if (!member) {
-
-    showInactive(
-      "Member profile not found."
-    );
-
-    return;
-  }
-
-
-  currentMember =
-    member;
-
-
-  // --------------------------
-  // FIND MEMBERSHIP
-  // --------------------------
-
-  const {
-    data: membership,
-    error: membershipError
-  } =
-    await supabaseClient
-      .from("memberships")
-      .select("*")
-      .eq(
-        "member_id",
-        member.id
-      )
-      .order(
-        "end_date",
-        {
-          ascending: false
-        }
-      )
-      .limit(1)
-      .maybeSingle();
-
-
-  if (membershipError) {
-
-    console.error(
-      "Membership error:",
-      membershipError
-    );
-
-
-    showInactive(
-      "Could not load membership."
-    );
-
-    return;
-  }
-
-
-  currentMembership =
-    membership;
-
-
-  if (!membership) {
-
-    showInactive();
-
-    return;
-  }
-
-
-  // --------------------------
-  // CHECK STATUS
-  // --------------------------
-
-  const today =
-    new Date();
-
-
-  const endDate =
-    membership.end_date
-      ? new Date(
-          membership.end_date
-        )
-      : null;
-
-
-  const isActive =
-    membership.status === "active"
-    &&
-    endDate
-    &&
-    endDate >= today;
-
-
-  if (isActive) {
-
-    showDashboard();
-
-  } else {
-
-    showInactive();
-
-  }
+return;
 
 }
 
 
-// ==========================
-// ACTIVE DASHBOARD
-// ==========================
+const { data: member, error: memberError } =
+await supabaseClient
+.from("members")
+.select("*")
+.eq(
+"user_id",
+currentUser.id
+)
+.maybeSingle();
+
+
+if (memberError) {
+
+console.error(memberError);
+
+showInactive(
+"Could not load member profile."
+);
+
+return;
+
+}
+
+
+if (!member) {
+
+showInactive(
+"Member profile not found."
+);
+
+return;
+
+}
+
+
+currentMember =
+member;
+
+
+/* ==========================
+   ADMIN CHECK
+========================== */
+
+if (member.role === "admin") {
+
+showDashboard();
+
+document
+.getElementById("adminButton")
+.classList.remove("hidden");
+
+return;
+
+}
+
+
+/* ==========================
+   MEMBERSHIP
+========================== */
+
+const { data: membership, error: membershipError } =
+await supabaseClient
+.from("memberships")
+.select("*")
+.eq(
+"member_id",
+member.id
+)
+.order(
+"end_date",
+{ ascending: false }
+)
+.limit(1)
+.maybeSingle();
+
+
+if (membershipError) {
+
+console.error(membershipError);
+
+showInactive(
+"Could not load membership."
+);
+
+return;
+
+}
+
+
+currentMembership =
+membership;
+
+
+if (!membership) {
+
+showInactive();
+
+return;
+
+}
+
+
+const today =
+new Date();
+
+const endDate =
+new Date(
+membership.end_date
+);
+
+
+const isActive =
+membership.status === "active"
+&&
+endDate >= today;
+
+
+if (isActive) {
+
+showDashboard();
+
+} else {
+
+showInactive();
+
+}
+
+}
+
+
+/* ==========================
+   MEMBER DASHBOARD
+========================== */
 
 function showDashboard() {
 
-  hideAllScreens();
+hideAllScreens();
+
+document
+.getElementById("dashboardBox")
+.classList.remove("hidden");
+
+document
+.getElementById("bottomNav")
+.classList.remove("hidden");
 
 
-  document.getElementById(
-    "dashboardBox"
-  ).classList.remove("hidden");
+const firstName =
+currentMember &&
+currentMember.first_name
+? currentMember.first_name
+: "";
 
 
-  document.getElementById(
-    "bottomNav"
-  ).classList.remove("hidden");
+document
+.getElementById("welcomeText")
+.textContent =
+firstName
+? "Welcome, " + firstName
+: "Welcome";
 
 
-  const firstName =
-    currentMember &&
-    currentMember.first_name
-      ? currentMember.first_name
-      : "";
+const membershipInfo =
+document.getElementById(
+"membershipInfo"
+);
 
 
-  document.getElementById(
-    "welcomeText"
-  ).textContent =
-    "Welcome, " +
-    firstName;
+if (!currentMembership) {
 
+membershipInfo.innerHTML =
+"<div class='membership-row'>" +
+"<span>Membership</span>" +
+"<span>Admin</span>" +
+"</div>";
 
-  let html = "";
-
-
-  html +=
-    "<div class='membership-row'>" +
-
-    "<span>Type</span>" +
-
-    "<span>" +
-
-    (
-      currentMembership.type
-      || "—"
-    ) +
-
-    "</span>" +
-
-    "</div>";
-
-
-  html +=
-    "<div class='membership-row'>" +
-
-    "<span>Start Date</span>" +
-
-    "<span>" +
-
-    (
-      currentMembership.start_date
-      || "—"
-    ) +
-
-    "</span>" +
-
-    "</div>";
-
-
-  html +=
-    "<div class='membership-row'>" +
-
-    "<span>End Date</span>" +
-
-    "<span>" +
-
-    (
-      currentMembership.end_date
-      || "—"
-    ) +
-
-    "</span>" +
-
-    "</div>";
-
-
-  html +=
-    "<div class='membership-row'>" +
-
-    "<span>Price</span>" +
-
-    "<span>€" +
-
-    (
-      currentMembership.price
-      || "0"
-    ) +
-
-    "</span>" +
-
-    "</div>";
-
-
-  html +=
-    "<div class='membership-row'>" +
-
-    "<span>Status</span>" +
-
-    "<span>" +
-
-    (
-      currentMembership.status
-      || "—"
-    ) +
-
-    "</span>" +
-
-    "</div>";
-
-
-  document.getElementById(
-    "membershipInfo"
-  ).innerHTML =
-    html;
+return;
 
 }
 
 
-// ==========================
-// INACTIVE MEMBERSHIP
-// ==========================
+let html = "";
+
+
+html +=
+"<div class='membership-row'>" +
+"<span>Type</span>" +
+"<span>" +
+(currentMembership.type || "—") +
+"</span>" +
+"</div>";
+
+
+html +=
+"<div class='membership-row'>" +
+"<span>Start Date</span>" +
+"<span>" +
+(currentMembership.start_date || "—") +
+"</span>" +
+"</div>";
+
+
+html +=
+"<div class='membership-row'>" +
+"<span>End Date</span>" +
+"<span>" +
+(currentMembership.end_date || "—") +
+"</span>" +
+"</div>";
+
+
+html +=
+"<div class='membership-row'>" +
+"<span>Price</span>" +
+"<span>€" +
+(currentMembership.price || "0") +
+"</span>" +
+"</div>";
+
+
+membershipInfo.innerHTML =
+html;
+
+}
+
+
+/* ==========================
+   INACTIVE
+========================== */
 
 function showInactive(customMessage) {
 
-  hideAllScreens();
+hideAllScreens();
+
+document
+.getElementById("inactiveBox")
+.classList.remove("hidden");
 
 
-  document.getElementById(
-    "inactiveBox"
-  ).classList.remove("hidden");
+const firstName =
+currentMember &&
+currentMember.first_name
+? currentMember.first_name
+: "";
 
 
-  const firstName =
-    currentMember &&
-    currentMember.first_name
-      ? currentMember.first_name
-      : "";
-
-
-  document.getElementById(
-    "inactiveProfile"
-  ).textContent =
-
-    customMessage
-
-    ||
-
-    (
-      "Welcome " +
-      firstName +
-      ". Your account exists, " +
-      "but your membership is not currently active."
-    );
-
-
-  // Reset payment button
-
-  const button =
-    document.getElementById(
-      "paymentRequestButton"
-    );
-
-
-  if (button) {
-
-    button.disabled = false;
-
-    button.textContent =
-      "REQUEST PAYMENT CONFIRMATION";
-
-  }
-
-
-  const message =
-    document.getElementById(
-      "paymentRequestMessage"
-    );
-
-
-  if (message) {
-
-    message.textContent = "";
-
-  }
+document
+.getElementById("inactiveProfile")
+.textContent =
+customMessage ||
+(
+"Welcome " +
+firstName +
+". Your account exists, but your membership is not currently active."
+);
 
 }
 
 
-// ==========================
-// PAYMENT REQUEST
-// ==========================
+/* ==========================
+   PAYMENT REQUEST
+========================== */
 
 async function requestPaymentConfirmation() {
 
-  console.log(
-    "Payment request button clicked"
-  );
+if (!currentUser || !currentMember) {
 
-
-  // --------------------------
-  // SAFETY CHECK
-  // --------------------------
-
-  if (
-    !currentUser
-    ||
-    !currentMember
-  ) {
-
-    const message =
-      document.getElementById(
-        "paymentRequestMessage"
-      );
-
-
-    if (message) {
-
-      message.textContent =
-        "Please login again.";
-
-    }
-
-
-    return;
-  }
-
-
-  const message =
-    document.getElementById(
-      "paymentRequestMessage"
-    );
-
-
-  const button =
-    document.getElementById(
-      "paymentRequestButton"
-    );
-
-
-  // --------------------------
-  // DISABLE BUTTON
-  // --------------------------
-
-  if (button) {
-
-    button.disabled = true;
-
-    button.textContent =
-      "SENDING...";
-
-  }
-
-
-  message.textContent =
-    "Sending payment request...";
-
-
-  // --------------------------
-  // PAYMENT DATA
-  // --------------------------
-
-  const amount =
-    currentMembership &&
-    currentMembership.price
-      ? currentMembership.price
-      : 0;
-
-
-  const paymentType =
-    currentMembership &&
-    currentMembership.type
-      ? currentMembership.type
-      : "membership";
-
-
-  const paymentDate =
-    new Date()
-      .toISOString()
-      .split("T")[0];
-
-
-  const requestedAt =
-    new Date()
-      .toISOString();
-
-
-  // --------------------------
-  // INSERT PAYMENT REQUEST
-  // --------------------------
-
-  const {
-    data,
-    error
-  } =
-    await supabaseClient
-      .from("payments")
-      .insert({
-
-        member_id:
-          currentMember.id,
-
-        amount:
-          amount,
-
-        payment_date:
-          paymentDate,
-
-        payment_type:
-          paymentType,
-
-        description:
-          "Payment confirmation requested",
-
-        status:
-          "pending",
-
-        requested_at:
-          requestedAt
-
-      })
-      .select()
-      .single();
-
-
-  // --------------------------
-  // ERROR
-  // --------------------------
-
-  if (error) {
-
-    console.error(
-      "Payment request error:",
-      error
-    );
-
-
-    message.textContent =
-      "Could not send payment request: " +
-      error.message;
-
-
-    if (button) {
-
-      button.disabled = false;
-
-      button.textContent =
-        "REQUEST PAYMENT CONFIRMATION";
-
-    }
-
-
-    return;
-  }
-
-
-  // --------------------------
-  // SUCCESS
-  // --------------------------
-
-  console.log(
-    "Payment request created:",
-    data
-  );
-
-
-  message.textContent =
-    "Payment confirmation request sent successfully.";
-
-
-  if (button) {
-
-    button.disabled = true;
-
-    button.textContent =
-      "REQUEST SENT ✓";
-
-  }
+return;
 
 }
 
 
-// ==========================
-// HIDE ALL SCREENS
-// ==========================
+const button =
+document.getElementById(
+"requestPaymentButton"
+);
+
+const message =
+document.getElementById(
+"paymentRequestMessage"
+);
+
+
+button.disabled = true;
+
+button.textContent =
+"SENDING...";
+
+message.textContent =
+"Sending request...";
+
+
+const amount =
+currentMembership &&
+currentMembership.price
+? currentMembership.price
+: 0;
+
+
+const paymentType =
+currentMembership &&
+currentMembership.type
+? currentMembership.type
+: "membership";
+
+
+const { error } =
+await supabaseClient
+.from("payments")
+.insert({
+
+member_id:
+currentMember.id,
+
+amount:
+amount,
+
+payment_date:
+new Date()
+.toISOString()
+.split("T")[0],
+
+payment_type:
+paymentType,
+
+description:
+"Payment Confirmation Requested",
+
+status:
+"pending",
+
+requested_at:
+new Date()
+.toISOString()
+
+});
+
+
+if (error) {
+
+console.error(error);
+
+message.textContent =
+"Could not send payment request: " +
+error.message;
+
+button.disabled = false;
+
+button.textContent =
+"REQUEST PAYMENT CONFIRMATION";
+
+return;
+
+}
+
+
+message.textContent =
+"Payment confirmation request sent successfully.";
+
+button.textContent =
+"REQUEST SENT";
+
+}
+
+
+/* ==========================
+   ADMIN PANEL
+========================== */
+
+async function showAdminPanel() {
+
+if (
+!currentMember ||
+currentMember.role !== "admin"
+) {
+
+return;
+
+}
+
+
+hideAllScreens();
+
+document
+.getElementById("adminBox")
+.classList.remove("hidden");
+
+
+document
+.getElementById("bottomNav")
+.classList.remove("hidden");
+
+
+await loadPendingPayments();
+
+}
+
+
+/* ==========================
+   LOAD PENDING PAYMENTS
+========================== */
+
+async function loadPendingPayments() {
+
+const container =
+document.getElementById(
+"pendingPayments"
+);
+
+container.innerHTML =
+"<div class='empty'>Loading...</div>";
+
+
+const { data, error } =
+await supabaseClient
+.from("payments")
+.select("*")
+.eq("status", "pending")
+.order(
+"created_at",
+{ ascending: false }
+);
+
+
+if (error) {
+
+console.error(error);
+
+container.innerHTML =
+"<div class='empty'>Could not load payment requests.</div>";
+
+return;
+
+}
+
+
+if (!data || data.length === 0) {
+
+container.innerHTML =
+"<div class='empty'>No pending payment requests.</div>";
+
+return;
+
+}
+
+
+container.innerHTML = "";
+
+
+for (const payment of data) {
+
+let memberName =
+"Unknown Member";
+
+
+const { data: member } =
+await supabaseClient
+.from("members")
+.select(
+"first_name,last_name,email"
+)
+.eq(
+"id",
+payment.member_id
+)
+.maybeSingle();
+
+
+if (member) {
+
+memberName =
+(
+member.first_name || ""
+) +
+" " +
+(
+member.last_name || ""
+);
+
+if (!memberName.trim()) {
+
+memberName =
+member.email || "Member";
+
+}
+
+}
+
+
+const item =
+document.createElement("div");
+
+item.className =
+"payment-item";
+
+
+item.innerHTML = `
+
+<div class="payment-name">
+${escapeHtml(memberName)}
+</div>
+
+<div class="payment-detail">
+Amount: €${payment.amount || 0}
+</div>
+
+<div class="payment-detail">
+Type: ${escapeHtml(payment.payment_type || "Membership")}
+</div>
+
+<div class="payment-detail">
+Payment date: ${escapeHtml(payment.payment_date || "—")}
+</div>
+
+<div class="payment-detail">
+Description: ${escapeHtml(payment.description || "—")}
+</div>
+
+<div class="payment-buttons">
+
+<button
+class="success"
+onclick="confirmPayment('${payment.id}','${payment.member_id}')"
+>
+✓ CONFIRM
+</button>
+
+<button
+class="danger"
+onclick="rejectPayment('${payment.id}')"
+>
+✕ REJECT
+</button>
+
+</div>
+
+`;
+
+
+container.appendChild(item);
+
+}
+
+}
+
+
+/* ==========================
+   CONFIRM PAYMENT
+========================== */
+
+async function confirmPayment(
+paymentId,
+memberId
+) {
+
+if (
+!currentMember ||
+currentMember.role !== "admin"
+) {
+
+return;
+
+}
+
+
+const message =
+document.getElementById(
+"adminMessage"
+);
+
+message.textContent =
+"Confirming payment...";
+
+
+/* Update payment */
+
+const { error: paymentError } =
+await supabaseClient
+.from("payments")
+.update({
+
+status:
+"confirmed"
+
+})
+.eq(
+"id",
+paymentId
+);
+
+
+if (paymentError) {
+
+console.error(paymentError);
+
+message.textContent =
+"Could not confirm payment: " +
+paymentError.message;
+
+return;
+
+}
+
+
+/* Activate membership */
+
+const { data: membership } =
+await supabaseClient
+.from("memberships")
+.select("*")
+.eq(
+"member_id",
+memberId
+)
+.order(
+"end_date",
+{ ascending: false }
+)
+.limit(1)
+.maybeSingle();
+
+
+if (membership) {
+
+const { error: membershipError } =
+await supabaseClient
+.from("memberships")
+.update({
+
+status:
+"active"
+
+})
+.eq(
+"id",
+membership.id
+);
+
+
+if (membershipError) {
+
+console.error(membershipError);
+
+message.textContent =
+"Payment confirmed, but membership activation failed: " +
+membershipError.message;
+
+await loadPendingPayments();
+
+return;
+
+}
+
+}
+
+
+message.textContent =
+"Payment confirmed. Membership activated.";
+
+await loadPendingPayments();
+
+}
+
+
+/* ==========================
+   REJECT PAYMENT
+========================== */
+
+async function rejectPayment(
+paymentId
+) {
+
+if (
+!currentMember ||
+currentMember.role !== "admin"
+) {
+
+return;
+
+}
+
+
+const message =
+document.getElementById(
+"adminMessage"
+);
+
+
+message.textContent =
+"Rejecting request...";
+
+
+const { error } =
+await supabaseClient
+.from("payments")
+.update({
+
+status:
+"rejected"
+
+})
+.eq(
+"id",
+paymentId
+);
+
+
+if (error) {
+
+console.error(error);
+
+message.textContent =
+"Could not reject request: " +
+error.message;
+
+return;
+
+}
+
+
+message.textContent =
+"Payment request rejected.";
+
+await loadPendingPayments();
+
+}
+
+
+/* ==========================
+   BACK TO DASHBOARD
+========================== */
+
+function backToDashboard() {
+
+if (!currentMember) {
+
+showLogin();
+
+return;
+
+}
+
+showDashboard();
+
+}
+
+
+/* ==========================
+   HIDE ALL SCREENS
+========================== */
 
 function hideAllScreens() {
 
-  document.getElementById(
-    "loginBox"
-  ).classList.add("hidden");
+document
+.getElementById("loginBox")
+.classList.add("hidden");
 
+document
+.getElementById("registerBox")
+.classList.add("hidden");
 
-  document.getElementById(
-    "registerBox"
-  ).classList.add("hidden");
+document
+.getElementById("inactiveBox")
+.classList.add("hidden");
 
+document
+.getElementById("dashboardBox")
+.classList.add("hidden");
 
-  document.getElementById(
-    "inactiveBox"
-  ).classList.add("hidden");
+document
+.getElementById("adminBox")
+.classList.add("hidden");
 
-
-  document.getElementById(
-    "dashboardBox"
-  ).classList.add("hidden");
-
-
-  document.getElementById(
-    "bottomNav"
-  ).classList.add("hidden");
+document
+.getElementById("bottomNav")
+.classList.add("hidden");
 
 }
 
 
-// ==========================
-// LOGOUT
-// ==========================
+/* ==========================
+   LOGOUT
+========================== */
 
 async function logout() {
 
-  await supabaseClient.auth.signOut();
+await supabaseClient.auth.signOut();
 
+currentUser = null;
+currentMember = null;
+currentMembership = null;
 
-  currentUser =
-    null;
+hideAllScreens();
 
+document
+.getElementById("loginBox")
+.classList.remove("hidden");
 
-  currentMember =
-    null;
-
-
-  currentMembership =
-    null;
-
-
-  hideAllScreens();
-
-
-  document.getElementById(
-    "loginBox"
-  ).classList.remove("hidden");
+document
+.getElementById("loginMessage")
+.textContent = "";
 
 }
 
 
-// ==========================
-// SHOW REGISTER
-// ==========================
+/* ==========================
+   REGISTER SCREEN
+========================== */
 
 function showRegister() {
 
-  document.getElementById(
-    "loginBox"
-  ).classList.add("hidden");
+document
+.getElementById("loginBox")
+.classList.add("hidden");
 
-
-  document.getElementById(
-    "registerBox"
-  ).classList.remove("hidden");
+document
+.getElementById("registerBox")
+.classList.remove("hidden");
 
 }
 
 
-// ==========================
-// SHOW LOGIN
-// ==========================
+/* ==========================
+   LOGIN SCREEN
+========================== */
 
 function showLogin() {
 
-  document.getElementById(
-    "registerBox"
-  ).classList.add("hidden");
+document
+.getElementById("registerBox")
+.classList.add("hidden");
 
-
-  document.getElementById(
-    "loginBox"
-  ).classList.remove("hidden");
+document
+.getElementById("loginBox")
+.classList.remove("hidden");
 
 }
 
 
-// ==========================
-// CHECK SESSION
-// ==========================
+/* ==========================
+   ESCAPE HTML
+========================== */
+
+function escapeHtml(value) {
+
+if (value === null || value === undefined) {
+
+return "";
+
+}
+
+return String(value)
+.replace(/&/g, "&amp;")
+.replace(/</g, "&lt;")
+.replace(/>/g, "&gt;")
+.replace(/"/g, "&quot;")
+.replace(/'/g, "&#039;");
+
+}
+
+
+/* ==========================
+   CHECK SESSION
+========================== */
 
 async function checkSession() {
 
-  try {
-
-    const {
-      data,
-      error
-    } =
-      await supabaseClient.auth
-        .getSession();
+const { data } =
+await supabaseClient.auth
+.getSession();
 
 
-    if (error) {
+if (data.session) {
 
-      console.error(
-        "Session error:",
-        error
-      );
+currentUser =
+data.session.user;
 
-      return;
-    }
+await checkMembership();
 
+} else {
 
-    if (data.session) {
+document
+.getElementById("loginBox")
+.classList.remove("hidden");
 
-      currentUser =
-        data.session.user;
-
-
-      await checkMembership();
-
-    } else {
-
-      hideAllScreens();
-
-
-      document.getElementById(
-        "loginBox"
-      ).classList.remove("hidden");
-
-    }
-
-  }
-
-  catch (error) {
-
-    console.error(
-      "Session check error:",
-      error
-    );
-
-  }
+}
 
 }
 
 
-// ==========================
-// START APP
-// ==========================
-
 checkSession();
 
-
 </script>
-
 
 </body>
 
 </html>
+```
