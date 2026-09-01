@@ -1,4 +1,3 @@
- ```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -475,6 +474,90 @@
       padding-top: 12px;
       border-top: 1px solid #292929;
     }
+
+    /* =========================
+       COMPETITION RECORD
+    ========================= */
+
+    .competition-record-item {
+      background: #111;
+      border: 1px solid #292929;
+      border-radius: 11px;
+      padding: 15px;
+      margin-bottom: 10px;
+    }
+
+    .record-title {
+      font-size: 16px;
+      font-weight: 800;
+      margin-bottom: 5px;
+    }
+
+    .record-result {
+      font-size: 14px;
+      font-weight: 700;
+      margin-top: 10px;
+    }
+
+    .record-stats {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .record-stat {
+      color: #999;
+      font-size: 12px;
+    }
+
+    .record-stat strong {
+      color: #fff;
+      font-size: 14px;
+    }
+
+    .record-summary {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    .record-summary-box {
+      background: #111;
+      border: 1px solid #292929;
+      border-radius: 10px;
+      padding: 14px;
+      text-align: center;
+    }
+
+    .record-summary-number {
+      font-size: 24px;
+      font-weight: 900;
+    }
+
+    .record-summary-label {
+      color: #777;
+      font-size: 11px;
+      margin-top: 4px;
+      text-transform: uppercase;
+    }
+
+    .record-details {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid #252525;
+    }
+
+    .record-detail-line {
+      color: #888;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .record-detail-line strong {
+      color: #ddd;
+    }
   </style>
 </head>
 
@@ -740,6 +823,26 @@
         <button onclick="saveProfile()">SAVE PROFILE</button>
 
         <div id="profileMessage" class="message"></div>
+
+      </div>
+
+
+      <!-- COMPETITION RECORD -->
+      <div class="card">
+
+        <div class="section-title">
+          <h2 style="margin-bottom:0;">
+            Competition Record
+          </h2>
+        </div>
+
+        <div id="competitionRecord">
+
+          <div class="empty">
+            Loading competition record...
+          </div>
+
+        </div>
 
       </div>
 
@@ -1650,6 +1753,13 @@
       loadEvents();
 
     }
+
+
+    if (section === "profile") {
+
+      loadProfile();
+
+    }
   }
 
 
@@ -2118,6 +2228,494 @@
 
 
     await loadProfilePhoto();
+
+    await loadCompetitionRecord();
+  }
+
+
+  /* =========================
+     COMPETITION RECORD
+  ========================= */
+
+  async function loadCompetitionRecord() {
+
+    if (!currentMember) {
+      return;
+    }
+
+
+    const element =
+      document.getElementById(
+        "competitionRecord"
+      );
+
+
+    if (!element) {
+      return;
+    }
+
+
+    element.innerHTML = `
+
+      <div class="empty">
+        Loading competition record...
+      </div>
+
+    `;
+
+
+    const {
+      data,
+      error
+    } = await supabaseClient
+      .from("competition_registrations")
+      .select(`
+        id,
+        status,
+        weight,
+        division,
+        age_category,
+        belt,
+        experience,
+        result_place,
+        fights_count,
+        wins_count,
+        notes,
+        created_at,
+        competitions (
+          id,
+          title,
+          date,
+          location
+        )
+      `)
+      .eq(
+        "member_id",
+        currentMember.id
+      )
+      .eq(
+        "status",
+        "approved"
+      )
+      .order(
+        "created_at",
+        {
+          ascending: false
+        }
+      );
+
+
+    if (error) {
+
+      console.error(error);
+
+      element.innerHTML = `
+
+        <div class="empty error">
+          Could not load competition record.
+        </div>
+
+      `;
+
+      return;
+    }
+
+
+    if (!data || data.length === 0) {
+
+      element.innerHTML = `
+
+        <div class="empty">
+
+          No competition history yet.
+
+          <div
+            class="muted small"
+            style="margin-top:8px;"
+          >
+            Your competition results will appear here
+            after you participate in competitions.
+          </div>
+
+        </div>
+
+      `;
+
+      return;
+    }
+
+
+    const competitionsCount =
+      data.length;
+
+
+    const fightsCount =
+      data.reduce(
+        function (total, item) {
+
+          return total +
+            Number(
+              item.fights_count || 0
+            );
+
+        },
+        0
+      );
+
+
+    const winsCount =
+      data.reduce(
+        function (total, item) {
+
+          return total +
+            Number(
+              item.wins_count || 0
+            );
+
+        },
+        0
+      );
+
+
+    const podiumCount =
+      data.filter(
+        function (item) {
+
+          return (
+            item.result_place !== null &&
+            item.result_place !== undefined &&
+            Number(item.result_place) >= 1 &&
+            Number(item.result_place) <= 3
+          );
+
+        }
+      ).length;
+
+
+    element.innerHTML = `
+
+      <div class="record-summary">
+
+        <div class="record-summary-box">
+
+          <div class="record-summary-number">
+            ${competitionsCount}
+          </div>
+
+          <div class="record-summary-label">
+            Competitions
+          </div>
+
+        </div>
+
+
+        <div class="record-summary-box">
+
+          <div class="record-summary-number">
+            ${fightsCount}
+          </div>
+
+          <div class="record-summary-label">
+            Fights
+          </div>
+
+        </div>
+
+
+        <div class="record-summary-box">
+
+          <div class="record-summary-number">
+            ${winsCount}
+          </div>
+
+          <div class="record-summary-label">
+            Wins
+          </div>
+
+        </div>
+
+
+        <div class="record-summary-box">
+
+          <div class="record-summary-number">
+            ${podiumCount}
+          </div>
+
+          <div class="record-summary-label">
+            Podiums
+          </div>
+
+        </div>
+
+      </div>
+
+
+      ${data.map(
+        function (registration) {
+
+          const competition =
+            registration.competitions ||
+            {};
+
+
+          const place =
+            registration.result_place !== null &&
+            registration.result_place !== undefined
+              ? Number(
+                  registration.result_place
+                )
+              : null;
+
+
+          let resultText =
+            "Result not entered";
+
+
+          if (place === 1) {
+
+            resultText =
+              "🥇 1st Place";
+
+          } else if (place === 2) {
+
+            resultText =
+              "🥈 2nd Place";
+
+          } else if (place === 3) {
+
+            resultText =
+              "🥉 3rd Place";
+
+          } else if (
+            place !== null &&
+            place > 3
+          ) {
+
+            resultText =
+              "🏅 " +
+              getOrdinalPlace(place);
+
+          }
+
+
+          return `
+
+            <div class="competition-record-item">
+
+              <div class="record-title">
+                ${escapeHtml(
+                  competition.title ||
+                  "Competition"
+                )}
+              </div>
+
+
+              <div class="muted small">
+
+                ${formatDate(
+                  competition.date
+                )}
+
+                ${
+                  competition.location
+                    ? `
+                      •
+                      ${escapeHtml(
+                        competition.location
+                      )}
+                    `
+                    : ""
+                }
+
+              </div>
+
+
+              <div class="record-result">
+
+                ${resultText}
+
+              </div>
+
+
+              <div class="record-stats">
+
+                <div class="record-stat">
+                  Fights:
+                  <strong>
+                    ${Number(
+                      registration.fights_count || 0
+                    )}
+                  </strong>
+                </div>
+
+
+                <div class="record-stat">
+                  Wins:
+                  <strong>
+                    ${Number(
+                      registration.wins_count || 0
+                    )}
+                  </strong>
+                </div>
+
+
+                ${
+                  registration.weight !== null &&
+                  registration.weight !== undefined
+                    ? `
+                      <div class="record-stat">
+                        Weight:
+                        <strong>
+                          ${escapeHtml(
+                            registration.weight
+                          )} kg
+                        </strong>
+                      </div>
+                    `
+                    : ""
+                }
+
+              </div>
+
+
+              ${
+                registration.division ||
+                registration.age_category ||
+                registration.belt ||
+                registration.experience ||
+                registration.notes
+                  ? `
+
+                    <div class="record-details">
+
+                      ${
+                        registration.division
+                          ? `
+                            <div class="record-detail-line">
+                              Division:
+                              <strong>
+                                ${escapeHtml(
+                                  registration.division
+                                )}
+                              </strong>
+                            </div>
+                          `
+                          : ""
+                      }
+
+
+                      ${
+                        registration.age_category
+                          ? `
+                            <div class="record-detail-line">
+                              Age:
+                              <strong>
+                                ${escapeHtml(
+                                  registration.age_category
+                                )}
+                              </strong>
+                            </div>
+                          `
+                          : ""
+                      }
+
+
+                      ${
+                        registration.belt
+                          ? `
+                            <div class="record-detail-line">
+                              Belt:
+                              <strong>
+                                ${escapeHtml(
+                                  registration.belt
+                                )}
+                              </strong>
+                            </div>
+                          `
+                          : ""
+                      }
+
+
+                      ${
+                        registration.experience
+                          ? `
+                            <div class="record-detail-line">
+                              Experience:
+                              <strong>
+                                ${escapeHtml(
+                                  registration.experience
+                                )}
+                              </strong>
+                            </div>
+                          `
+                          : ""
+                      }
+
+
+                      ${
+                        registration.notes
+                          ? `
+                            <div
+                              class="record-detail-line"
+                              style="margin-top:5px;"
+                            >
+                              Notes:
+                              <strong>
+                                ${escapeHtml(
+                                  registration.notes
+                                )}
+                              </strong>
+                            </div>
+                          `
+                          : ""
+                      }
+
+                    </div>
+
+                  `
+                  : ""
+              }
+
+            </div>
+
+          `;
+
+        }
+      ).join("")}
+
+    `;
+  }
+
+
+  function getOrdinalPlace(number) {
+
+    const n =
+      Number(number);
+
+
+    if (
+      n % 100 >= 11 &&
+      n % 100 <= 13
+    ) {
+
+      return n + "th Place";
+    }
+
+
+    switch (n % 10) {
+
+      case 1:
+        return n + "st Place";
+
+      case 2:
+        return n + "nd Place";
+
+      case 3:
+        return n + "rd Place";
+
+      default:
+        return n + "th Place";
+    }
   }
 
 
@@ -5317,5 +5915,3 @@
 
 </body>
 </html>
-```
-
