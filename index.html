@@ -554,6 +554,52 @@
 
       <div class="card">
 
+        <!-- PROFILE PHOTO -->
+        <div style="text-align:center; margin-bottom:25px;">
+
+          <div
+            id="profilePhotoContainer"
+            style="
+              width:120px;
+              height:120px;
+              margin:0 auto;
+              border-radius:50%;
+              overflow:hidden;
+              background:#222;
+              border:2px solid #333;
+              display:flex;
+              align-items:center;
+              justify-content:center;
+              font-size:45px;
+            "
+          >
+            👤
+          </div>
+
+          <input
+            id="profilePhotoInput"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            class="hidden"
+            onchange="uploadProfilePhoto(event)"
+          >
+
+          <button
+            class="secondary"
+            onclick="document.getElementById('profilePhotoInput').click()"
+            style="max-width:220px;"
+          >
+            UPLOAD PHOTO
+          </button>
+
+          <div
+            id="photoMessage"
+            class="message"
+          ></div>
+
+        </div>
+
+
         <label>First name</label>
         <input id="profileFirstName">
 
@@ -1622,7 +1668,7 @@
      PROFILE
   ========================= */
 
-  function loadProfile() {
+  async function loadProfile() {
 
     if (!currentMember) {
       return;
@@ -1665,6 +1711,235 @@
       .getElementById("profileMembershipNumber")
       .value =
       currentMember.membership_number || "";
+
+
+    /*
+      Load profile photo
+    */
+
+    await loadProfilePhoto();
+  }
+
+
+  /* =========================
+     PROFILE PHOTO
+  ========================= */
+
+  async function loadProfilePhoto() {
+
+    if (!currentMember || !currentMember.photo_path) {
+      return;
+    }
+
+
+    const container =
+      document.getElementById(
+        "profilePhotoContainer"
+      );
+
+
+    if (!container) {
+      return;
+    }
+
+
+    const { data, error } =
+      await supabaseClient
+        .storage
+        .from("member-photos")
+        .createSignedUrl(
+          currentMember.photo_path,
+          3600
+        );
+
+
+    if (error) {
+
+      console.error(error);
+
+      return;
+    }
+
+
+    if (data?.signedUrl) {
+
+      container.innerHTML = `
+        <img
+          src="${escapeHtml(data.signedUrl)}"
+          alt="Profile photo"
+          style="
+            width:100%;
+            height:100%;
+            object-fit:cover;
+          "
+        >
+      `;
+    }
+  }
+
+
+  async function uploadProfilePhoto(event) {
+
+    if (!currentUser || !currentMember) {
+      return;
+    }
+
+
+    const file =
+      event.target.files?.[0];
+
+
+    if (!file) {
+      return;
+    }
+
+
+    const message =
+      document.getElementById(
+        "photoMessage"
+      );
+
+
+    message.textContent =
+      "Uploading photo...";
+
+    message.className =
+      "message";
+
+
+    /*
+      Basic file validation
+    */
+
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp"
+    ];
+
+
+    if (!allowedTypes.includes(file.type)) {
+
+      message.textContent =
+        "Please select a JPG, PNG or WebP image.";
+
+      message.className =
+        "message error";
+
+      event.target.value = "";
+
+      return;
+    }
+
+
+    /*
+      Limit photo size to 5 MB
+    */
+
+    if (file.size > 5 * 1024 * 1024) {
+
+      message.textContent =
+        "Photo must be smaller than 5 MB.";
+
+      message.className =
+        "message error";
+
+      event.target.value = "";
+
+      return;
+    }
+
+
+    /*
+      Each user has their own folder.
+      We always use the same filename,
+      so a new upload replaces the old photo.
+    */
+
+    const photoPath =
+      currentUser.id + "/profile.jpg";
+
+
+    const { error: uploadError } =
+      await supabaseClient
+        .storage
+        .from("member-photos")
+        .upload(
+          photoPath,
+          file,
+          {
+            upsert: true,
+            contentType: file.type
+          }
+        );
+
+
+    if (uploadError) {
+
+      console.error(uploadError);
+
+      message.textContent =
+        "Could not upload photo: " +
+        uploadError.message;
+
+      message.className =
+        "message error";
+
+      event.target.value = "";
+
+      return;
+    }
+
+
+    /*
+      Save the file path in members
+    */
+
+    const { data, error: updateError } =
+      await supabaseClient
+        .from("members")
+        .update({
+          photo_path: photoPath
+        })
+        .eq("id", currentMember.id)
+        .select()
+        .single();
+
+
+    if (updateError) {
+
+      console.error(updateError);
+
+      message.textContent =
+        "Photo uploaded, but profile could not be updated.";
+
+      message.className =
+        "message error";
+
+      event.target.value = "";
+
+      return;
+    }
+
+
+    currentMember = data;
+
+
+    /*
+      Refresh the displayed photo
+    */
+
+    await loadProfilePhoto();
+
+
+    message.textContent =
+      "Photo uploaded successfully.";
+
+    message.className =
+      "message success-text";
+
+
+    event.target.value = "";
   }
 
 
