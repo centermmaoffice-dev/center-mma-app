@@ -1,8 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
 
   <title>CENTER MMA</title>
 
@@ -24,7 +30,7 @@
     .container {
       width: 100%;
       max-width: 500px;
-      margin: 0 auto;
+      margin: auto;
       padding: 25px 20px 100px;
     }
 
@@ -54,12 +60,12 @@
 
     h1 {
       font-size: 24px;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
     }
 
     h2 {
       font-size: 18px;
-      margin-bottom: 20px;
+      margin-bottom: 15px;
     }
 
     .welcome {
@@ -70,8 +76,8 @@
 
     label {
       display: block;
-      font-size: 13px;
       color: #aaa;
+      font-size: 13px;
       margin-bottom: 6px;
     }
 
@@ -84,11 +90,6 @@
       background: #111;
       color: white;
       font-size: 15px;
-    }
-
-    input:focus {
-      outline: none;
-      border-color: white;
     }
 
     input:disabled {
@@ -120,13 +121,6 @@
       margin-top: 10px;
     }
 
-    .danger {
-      background: transparent;
-      color: #aaa;
-      border: 1px solid #444;
-      margin-top: 10px;
-    }
-
     .message {
       text-align: center;
       color: #aaa;
@@ -139,22 +133,82 @@
       display: none;
     }
 
-    .membership-card {
-      border: 1px solid #444;
+    .status-card {
+      text-align: center;
+      padding: 25px 15px;
+      border: 1px solid #333;
       border-radius: 14px;
-      padding: 20px;
-      margin-top: 20px;
+      margin-bottom: 20px;
     }
 
-    .membership-number {
-      font-size: 13px;
-      color: #999;
-      margin-bottom: 5px;
-    }
-
-    .number {
-      font-size: 22px;
+    .status {
+      font-size: 20px;
       font-weight: bold;
+      margin: 10px 0;
+    }
+
+    .status.active {
+      color: #65d17a;
+    }
+
+    .status.inactive {
+      color: #ff6b6b;
+    }
+
+    .status-text {
+      color: #aaa;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .dashboard-item {
+      background: #181818;
+      border: 1px solid #333;
+      border-radius: 12px;
+      padding: 20px 10px;
+      text-align: center;
+      font-size: 14px;
+    }
+
+    .dashboard-item .icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    .membership-info {
+      background: #181818;
+      border-radius: 12px;
+      padding: 18px;
+      margin-top: 15px;
+    }
+
+    .membership-row {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid #333;
+      padding: 10px 0;
+      font-size: 14px;
+    }
+
+    .membership-row:last-child {
+      border-bottom: none;
+    }
+
+    .membership-row span:first-child {
+      color: #888;
+    }
+
+    .logout {
+      margin-top: 20px;
+      background: transparent;
+      border: 1px solid #444;
+      color: #aaa;
     }
 
     .bottom-nav {
@@ -164,22 +218,20 @@
       right: 0;
       background: #181818;
       border-top: 1px solid #333;
-      display: flex;
-      justify-content: center;
-      padding: 12px;
+      padding: 12px 5px;
     }
 
     .nav-inner {
-      width: 100%;
       max-width: 500px;
+      margin: auto;
       display: flex;
       justify-content: space-around;
     }
 
     .nav-item {
-      color: #888;
-      font-size: 12px;
       text-align: center;
+      color: #777;
+      font-size: 11px;
     }
 
     .nav-item.active {
@@ -190,9 +242,12 @@
 
 </head>
 
+
 <body>
 
+
 <div class="container">
+
 
   <div class="logo">
     CENTER MMA
@@ -205,7 +260,10 @@
 
   <!-- LOGIN -->
 
-  <div id="loginBox" class="card">
+  <div
+    id="loginBox"
+    class="card"
+  >
 
     <h1>Login</h1>
 
@@ -248,7 +306,10 @@
 
   <!-- REGISTRATION -->
 
-  <div id="registerBox" class="card hidden">
+  <div
+    id="registerBox"
+    class="card hidden"
+  >
 
     <h1>Create Account</h1>
 
@@ -297,106 +358,161 @@
   </div>
 
 
-  <!-- PROFILE -->
+  <!-- INACTIVE -->
 
   <div
-    id="profileBox"
+    id="inactiveBox"
     class="hidden"
   >
 
-    <div class="card">
+    <div class="status-card">
 
-      <h1>My Profile</h1>
+      <h1>Membership</h1>
 
-      <div class="welcome">
-        Complete your CENTER MMA member profile.
+      <div class="status inactive">
+        🔒 NOT ACTIVE
       </div>
 
+      <div class="status-text">
 
-      <label>Email</label>
+        Your membership is currently not active.
 
-      <input
-        id="profileEmail"
-        type="email"
-        disabled
-      >
+        <br><br>
 
+        Please complete your membership payment.
 
-      <label>First Name</label>
+      </div>
 
-      <input
-        id="firstName"
-        type="text"
-        placeholder="First Name"
-      >
-
-
-      <label>Last Name</label>
-
-      <input
-        id="lastName"
-        type="text"
-        placeholder="Last Name"
-      >
-
-
-      <label>Phone</label>
-
-      <input
-        id="phone"
-        type="tel"
-        placeholder="Phone"
-      >
-
-
-      <label>Birth Date</label>
-
-      <input
-        id="birthDate"
-        type="date"
-      >
-
-
-      <label>Membership Number</label>
-
-      <input
-        id="membershipNumber"
-        type="text"
-        disabled
-        placeholder="Assigned by CENTER MMA"
-      >
-
-
-      <button onclick="saveProfile()">
-        SAVE PROFILE
+      <button onclick="requestPaymentConfirmation()">
+        REQUEST PAYMENT CONFIRMATION
       </button>
 
-
       <div
-        id="profileMessage"
+        id="paymentRequestMessage"
         class="message"
       ></div>
 
     </div>
 
 
-    <!-- MEMBER CARD -->
+    <div class="card">
+
+      <h2>Profile</h2>
+
+      <div
+        id="inactiveProfile"
+        class="status-text"
+      ></div>
+
+    </div>
+
+
+    <button
+      class="logout"
+      onclick="logout()"
+    >
+      LOGOUT
+    </button>
+
+  </div>
+
+
+  <!-- ACTIVE DASHBOARD -->
+
+  <div
+    id="dashboardBox"
+    class="hidden"
+  >
 
     <div class="card">
 
-      <h2>Membership Card</h2>
+      <h1 id="welcomeText">
+        Welcome
+      </h1>
 
-      <div class="membership-card">
+      <div
+        class="status active"
+      >
+        ✓ MEMBERSHIP ACTIVE
+      </div>
 
-        <div class="membership-number">
-          MITGLIEDSNUMMER
+      <div
+        id="membershipInfo"
+        class="membership-info"
+      ></div>
+
+    </div>
+
+
+    <div class="card">
+
+      <h2>My CENTER MMA</h2>
+
+      <div class="dashboard-grid">
+
+        <div class="dashboard-item">
+
+          <div class="icon">
+            📰
+          </div>
+
+          News
+
         </div>
 
-        <div
-          id="cardNumber"
-          class="number"
-        >
-          —
+
+        <div class="dashboard-item">
+
+          <div class="icon">
+            💬
+          </div>
+
+          Chat
+
+        </div>
+
+
+        <div class="dashboard-item">
+
+          <div class="icon">
+            🪪
+          </div>
+
+          Membership
+
+        </div>
+
+
+        <div class="dashboard-item">
+
+          <div class="icon">
+            🥋
+          </div>
+
+          Attendance
+
+        </div>
+
+
+        <div class="dashboard-item">
+
+          <div class="icon">
+            💳
+          </div>
+
+          Payments
+
+        </div>
+
+
+        <div class="dashboard-item">
+
+          <div class="icon">
+            👤
+          </div>
+
+          Profile
+
         </div>
 
       </div>
@@ -405,7 +521,7 @@
 
 
     <button
-      class="danger"
+      class="logout"
       onclick="logout()"
     >
       LOGOUT
@@ -413,10 +529,11 @@
 
   </div>
 
+
 </div>
 
 
-<!-- BOTTOM NAV -->
+<!-- NAVIGATION -->
 
 <div
   id="bottomNav"
@@ -428,11 +545,6 @@
     <div class="nav-item active">
       🏠<br>
       Home
-    </div>
-
-    <div class="nav-item">
-      👤<br>
-      Profile
     </div>
 
     <div class="nav-item">
@@ -450,6 +562,11 @@
       Payments
     </div>
 
+    <div class="nav-item">
+      👤<br>
+      Profile
+    </div>
+
   </div>
 
 </div>
@@ -460,15 +577,10 @@
 
 <script>
 
+
   const SUPABASE_URL =
     "https://klzyuczbvixodgvtsimq.supabase.co";
 
-
-  /*
-    IMPORTANT:
-    Replace the value below with your
-    Supabase PUBLISHABLE KEY.
-  */
 
   const SUPABASE_KEY =
     "sb_publishable_hTRZXpcPQLvwjBpVUru1Jw_HN3Wua2E";
@@ -483,10 +595,14 @@
 
   let currentUser = null;
 
+  let currentMember = null;
 
-  // -------------------------
+  let currentMembership = null;
+
+
+  // ==========================
   // LOGIN
-  // -------------------------
+  // ==========================
 
   async function login() {
 
@@ -528,16 +644,18 @@
     }
 
 
-    currentUser = data.user;
+    currentUser =
+      data.user;
 
-    await loadProfile();
+
+    await checkMembership();
 
   }
 
 
-  // -------------------------
+  // ==========================
   // REGISTRATION
-  // -------------------------
+  // ==========================
 
   async function register() {
 
@@ -592,7 +710,7 @@
       "Creating account...";
 
 
-    const { data, error } =
+    const { error } =
       await supabaseClient.auth
         .signUp({
 
@@ -619,41 +737,19 @@
   }
 
 
-  // -------------------------
-  // LOAD PROFILE
-  // -------------------------
+  // ==========================
+  // CHECK MEMBERSHIP
+  // ==========================
 
-  async function loadProfile() {
+  async function checkMembership() {
 
-    if (!currentUser) {
-      return;
-    }
+    hideAllScreens();
 
 
-    document.getElementById("loginBox")
-      .classList.add("hidden");
-
-    document.getElementById("registerBox")
-      .classList.add("hidden");
-
-    document.getElementById("profileBox")
-      .classList.remove("hidden");
-
-    document.getElementById("bottomNav")
-      .classList.remove("hidden");
-
-
-    document.getElementById("profileEmail")
-      .value =
-      currentUser.email || "";
-
-
-    const { data, error } =
+    const { data: member, error: memberError } =
       await supabaseClient
         .from("members")
-        .select(
-          "first_name,last_name,email,phone,birth_date,membership_number"
-        )
+        .select("*")
         .eq(
           "user_id",
           currentUser.id
@@ -661,203 +757,345 @@
         .maybeSingle();
 
 
-    if (error) {
+    if (memberError) {
 
-      console.error(error);
+      console.error(memberError);
 
-      document.getElementById("profileMessage")
-        .textContent =
-        "Could not load profile.";
-
-      return;
-
-    }
-
-
-    if (!data) {
+      showInactive(
+        "Could not load member profile."
+      );
 
       return;
 
     }
 
 
-    document.getElementById("firstName")
-      .value =
-      data.first_name || "";
+    if (!member) {
+
+      showInactive(
+        "Member profile not found."
+      );
+
+      return;
+
+    }
 
 
-    document.getElementById("lastName")
-      .value =
-      data.last_name || "";
+    currentMember =
+      member;
 
 
-    document.getElementById("phone")
-      .value =
-      data.phone || "";
+    const { data: membership, error: membershipError } =
+      await supabaseClient
+        .from("memberships")
+        .select("*")
+        .eq(
+          "member_id",
+          member.id
+        )
+        .order(
+          "end_date",
+          { ascending: false }
+        )
+        .limit(1)
+        .maybeSingle();
 
 
-    document.getElementById("birthDate")
-      .value =
-      data.birth_date || "";
+    if (membershipError) {
+
+      console.error(membershipError);
+
+      showInactive(
+        "Could not load membership."
+      );
+
+      return;
+
+    }
 
 
-    document.getElementById("membershipNumber")
-      .value =
-      data.membership_number || "";
+    currentMembership =
+      membership;
 
 
-    document.getElementById("cardNumber")
-      .textContent =
-      data.membership_number || "—";
+    if (!membership) {
+
+      showInactive();
+
+      return;
+
+    }
+
+
+    const today =
+      new Date();
+
+
+    const endDate =
+      new Date(
+        membership.end_date
+      );
+
+
+    const isActive =
+      membership.status === "active"
+      &&
+      endDate >= today;
+
+
+    if (isActive) {
+
+      showDashboard();
+
+    } else {
+
+      showInactive();
+
+    }
 
   }
 
 
-  // -------------------------
-  // SAVE PROFILE
-  // -------------------------
+  // ==========================
+  // ACTIVE DASHBOARD
+  // ==========================
 
-  async function saveProfile() {
+  function showDashboard() {
 
-    if (!currentUser) {
-      return;
-    }
+    hideAllScreens();
+
+
+    document.getElementById(
+      "dashboardBox"
+    ).classList.remove("hidden");
+
+
+    document.getElementById(
+      "bottomNav"
+    ).classList.remove("hidden");
 
 
     const firstName =
-      document.getElementById("firstName")
-        .value
-        .trim();
-
-    const lastName =
-      document.getElementById("lastName")
-        .value
-        .trim();
-
-    const phone =
-      document.getElementById("phone")
-        .value
-        .trim();
-
-    const birthDate =
-      document.getElementById("birthDate")
-        .value;
+      currentMember.first_name || "";
 
 
-    const message =
-      document.getElementById("profileMessage");
+    document.getElementById(
+      "welcomeText"
+    ).textContent =
+      "Welcome, " + firstName;
 
 
-    if (!firstName || !lastName) {
-
-      message.textContent =
-        "First Name and Last Name are required.";
-
-      return;
-
-    }
+    let html = "";
 
 
-    message.textContent =
-      "Saving...";
+    html +=
+      "<div class='membership-row'>" +
+      "<span>Type</span>" +
+      "<span>" +
+      (currentMembership.type || "—") +
+      "</span>" +
+      "</div>";
 
 
-    const { error } =
-      await supabaseClient
-        .from("members")
-        .update({
-
-          first_name: firstName,
-
-          last_name: lastName,
-
-          phone: phone || null,
-
-          birth_date: birthDate || null,
-
-          email: currentUser.email
-
-        })
-        .eq(
-          "user_id",
-          currentUser.id
-        );
+    html +=
+      "<div class='membership-row'>" +
+      "<span>Start Date</span>" +
+      "<span>" +
+      (currentMembership.start_date || "—") +
+      "</span>" +
+      "</div>";
 
 
-    if (error) {
-
-      console.error(error);
-
-      message.textContent =
-        error.message;
-
-      return;
-
-    }
+    html +=
+      "<div class='membership-row'>" +
+      "<span>End Date</span>" +
+      "<span>" +
+      (currentMembership.end_date || "—") +
+      "</span>" +
+      "</div>";
 
 
-    message.textContent =
-      "Profile saved successfully.";
+    html +=
+      "<div class='membership-row'>" +
+      "<span>Price</span>" +
+      "<span>€" +
+      (currentMembership.price || "0") +
+      "</span>" +
+      "</div>";
+
+
+    document.getElementById(
+      "membershipInfo"
+    ).innerHTML =
+      html;
 
   }
 
 
-  // -------------------------
+  // ==========================
+  // INACTIVE
+  // ==========================
+
+  function showInactive(customMessage) {
+
+    hideAllScreens();
+
+
+    document.getElementById(
+      "inactiveBox"
+    ).classList.remove("hidden");
+
+
+    const firstName =
+      currentMember &&
+      currentMember.first_name
+        ? currentMember.first_name
+        : "";
+
+
+    document.getElementById(
+      "inactiveProfile"
+    ).textContent =
+      customMessage ||
+      (
+        "Welcome " +
+        firstName +
+        ". Your account exists, " +
+        "but your membership is not currently active."
+      );
+
+  }
+
+
+  // ==========================
+  // PAYMENT REQUEST
+  // ==========================
+
+  async function requestPaymentConfirmation() {
+
+    const message =
+      document.getElementById(
+        "paymentRequestMessage"
+      );
+
+
+    message.textContent =
+      "Payment confirmation request sent.";
+
+
+    /*
+      IMPORTANT:
+
+      For now this only shows the message.
+
+      Later we will connect this button
+      to the payments table and Admin Panel.
+    */
+
+  }
+
+
+  // ==========================
+  // HIDE SCREENS
+  // ==========================
+
+  function hideAllScreens() {
+
+    document.getElementById(
+      "loginBox"
+    ).classList.add("hidden");
+
+
+    document.getElementById(
+      "registerBox"
+    ).classList.add("hidden");
+
+
+    document.getElementById(
+      "inactiveBox"
+    ).classList.add("hidden");
+
+
+    document.getElementById(
+      "dashboardBox"
+    ).classList.add("hidden");
+
+
+    document.getElementById(
+      "bottomNav"
+    ).classList.add("hidden");
+
+  }
+
+
+  // ==========================
   // LOGOUT
-  // -------------------------
+  // ==========================
 
   async function logout() {
 
     await supabaseClient.auth.signOut();
 
-    currentUser = null;
+
+    currentUser =
+      null;
+
+    currentMember =
+      null;
+
+    currentMembership =
+      null;
 
 
-    document.getElementById("profileBox")
-      .classList.add("hidden");
+    hideAllScreens();
 
-    document.getElementById("bottomNav")
-      .classList.add("hidden");
 
-    document.getElementById("loginBox")
-      .classList.remove("hidden");
+    document.getElementById(
+      "loginBox"
+    ).classList.remove("hidden");
 
   }
 
 
-  // -------------------------
-  // SHOW REGISTER
-  // -------------------------
+  // ==========================
+  // REGISTER SCREEN
+  // ==========================
 
   function showRegister() {
 
-    document.getElementById("loginBox")
-      .classList.add("hidden");
+    document.getElementById(
+      "loginBox"
+    ).classList.add("hidden");
 
-    document.getElementById("registerBox")
-      .classList.remove("hidden");
+
+    document.getElementById(
+      "registerBox"
+    ).classList.remove("hidden");
 
   }
 
 
-  // -------------------------
-  // SHOW LOGIN
-  // -------------------------
+  // ==========================
+  // LOGIN SCREEN
+  // ==========================
 
   function showLogin() {
 
-    document.getElementById("registerBox")
-      .classList.add("hidden");
+    document.getElementById(
+      "registerBox"
+    ).classList.add("hidden");
 
-    document.getElementById("loginBox")
-      .classList.remove("hidden");
+
+    document.getElementById(
+      "loginBox"
+    ).classList.remove("hidden");
 
   }
 
 
-  // -------------------------
-  // CHECK EXISTING SESSION
-  // -------------------------
+  // ==========================
+  // CHECK SESSION
+  // ==========================
 
   async function checkSession() {
 
@@ -871,7 +1109,7 @@
       currentUser =
         data.session.user;
 
-      await loadProfile();
+      await checkMembership();
 
     }
 
@@ -880,7 +1118,10 @@
 
   checkSession();
 
+
 </script>
 
+
 </body>
+
 </html>
