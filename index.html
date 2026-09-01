@@ -68,12 +68,6 @@
       margin-bottom: 15px;
     }
 
-    .welcome {
-      color: #999;
-      font-size: 14px;
-      margin-bottom: 25px;
-    }
-
     label {
       display: block;
       color: #aaa;
@@ -92,11 +86,6 @@
       font-size: 15px;
     }
 
-    input:disabled {
-      color: #777;
-      background: #181818;
-    }
-
     button {
       width: 100%;
       padding: 14px;
@@ -112,6 +101,11 @@
 
     button:hover {
       opacity: 0.9;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     .secondary {
@@ -249,6 +243,10 @@
 <div class="container">
 
 
+  <!-- ========================== -->
+  <!-- HEADER -->
+  <!-- ========================== -->
+
   <div class="logo">
     CENTER MMA
   </div>
@@ -258,7 +256,9 @@
   </div>
 
 
+  <!-- ========================== -->
   <!-- LOGIN -->
+  <!-- ========================== -->
 
   <div
     id="loginBox"
@@ -304,7 +304,9 @@
   </div>
 
 
+  <!-- ========================== -->
   <!-- REGISTRATION -->
+  <!-- ========================== -->
 
   <div
     id="registerBox"
@@ -358,7 +360,9 @@
   </div>
 
 
-  <!-- INACTIVE -->
+  <!-- ========================== -->
+  <!-- INACTIVE MEMBERSHIP -->
+  <!-- ========================== -->
 
   <div
     id="inactiveBox"
@@ -383,7 +387,10 @@
 
       </div>
 
-      <button onclick="requestPaymentConfirmation()">
+      <button
+        id="paymentRequestButton"
+        onclick="requestPaymentConfirmation()"
+      >
         REQUEST PAYMENT CONFIRMATION
       </button>
 
@@ -394,6 +401,8 @@
 
     </div>
 
+
+    <!-- PROFILE -->
 
     <div class="card">
 
@@ -417,7 +426,9 @@
   </div>
 
 
+  <!-- ========================== -->
   <!-- ACTIVE DASHBOARD -->
+  <!-- ========================== -->
 
   <div
     id="dashboardBox"
@@ -430,9 +441,7 @@
         Welcome
       </h1>
 
-      <div
-        class="status active"
-      >
+      <div class="status active">
         ✓ MEMBERSHIP ACTIVE
       </div>
 
@@ -533,7 +542,9 @@
 </div>
 
 
-<!-- NAVIGATION -->
+<!-- ========================== -->
+<!-- BOTTOM NAVIGATION -->
+<!-- ========================== -->
 
 <div
   id="bottomNav"
@@ -572,577 +583,893 @@
 </div>
 
 
+<!-- ========================== -->
+<!-- SUPABASE -->
+<!-- ========================== -->
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 
 <script>
 
 
-  const SUPABASE_URL =
-    "https://klzyuczbvixodgvtsimq.supabase.co";
+// ==========================
+// SUPABASE CONFIG
+// ==========================
+
+const SUPABASE_URL =
+  "https://klzyuczbvixodgvtsimq.supabase.co";
 
 
-  const SUPABASE_KEY =
-    "sb_publishable_hTRZXpcPQLvwjBpVUru1Jw_HN3Wua2E";
+const SUPABASE_KEY =
+  "sb_publishable_hTRZXpcPQLvwjBpVUru1Jw_HN3Wua2E";
 
 
-  const supabaseClient =
-    supabase.createClient(
-      SUPABASE_URL,
-      SUPABASE_KEY
+const supabaseClient =
+  supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_KEY
+  );
+
+
+// ==========================
+// GLOBAL VARIABLES
+// ==========================
+
+let currentUser = null;
+
+let currentMember = null;
+
+let currentMembership = null;
+
+
+// ==========================
+// LOGIN
+// ==========================
+
+async function login() {
+
+  const email =
+    document.getElementById(
+      "loginEmail"
+    ).value.trim();
+
+
+  const password =
+    document.getElementById(
+      "loginPassword"
+    ).value;
+
+
+  const message =
+    document.getElementById(
+      "loginMessage"
     );
 
 
-  let currentUser = null;
+  if (!email || !password) {
 
-  let currentMember = null;
+    message.textContent =
+      "Please enter email and password.";
 
-  let currentMembership = null;
+    return;
+  }
 
 
-  // ==========================
-  // LOGIN
-  // ==========================
+  message.textContent =
+    "Logging in...";
 
-  async function login() {
 
-    const email =
-      document.getElementById("loginEmail")
-        .value
-        .trim();
+  const { data, error } =
+    await supabaseClient.auth
+      .signInWithPassword({
 
-    const password =
-      document.getElementById("loginPassword")
-        .value;
+        email: email,
+
+        password: password
+
+      });
+
+
+  if (error) {
+
+    console.error(
+      "Login error:",
+      error
+    );
+
+
+    message.textContent =
+      error.message;
+
+    return;
+  }
+
+
+  currentUser =
+    data.user;
+
+
+  message.textContent =
+    "";
+
+
+  await checkMembership();
+
+}
+
+
+// ==========================
+// REGISTRATION
+// ==========================
+
+async function register() {
+
+  const email =
+    document.getElementById(
+      "registerEmail"
+    ).value.trim();
+
+
+  const password =
+    document.getElementById(
+      "registerPassword"
+    ).value;
+
+
+  const password2 =
+    document.getElementById(
+      "registerPassword2"
+    ).value;
+
+
+  const message =
+    document.getElementById(
+      "registerMessage"
+    );
+
+
+  if (!email || !password) {
+
+    message.textContent =
+      "Please enter email and password.";
+
+    return;
+  }
+
+
+  if (password !== password2) {
+
+    message.textContent =
+      "Passwords do not match.";
+
+    return;
+  }
+
+
+  if (password.length < 6) {
+
+    message.textContent =
+      "Password must contain at least 6 characters.";
+
+    return;
+  }
+
+
+  message.textContent =
+    "Creating account...";
+
+
+  const { data, error } =
+    await supabaseClient.auth
+      .signUp({
+
+        email: email,
+
+        password: password
+
+      });
+
+
+  if (error) {
+
+    console.error(
+      "Registration error:",
+      error
+    );
+
+
+    message.textContent =
+      error.message;
+
+    return;
+  }
+
+
+  message.textContent =
+    "Account created successfully. Check your email if confirmation is required.";
+
+
+  console.log(
+    "Registered user:",
+    data.user
+  );
+
+}
+
+
+// ==========================
+// CHECK MEMBERSHIP
+// ==========================
+
+async function checkMembership() {
+
+  hideAllScreens();
+
+
+  if (!currentUser) {
+
+    showLogin();
+
+    return;
+  }
+
+
+  // --------------------------
+  // FIND MEMBER
+  // --------------------------
+
+  const {
+    data: member,
+    error: memberError
+  } =
+    await supabaseClient
+      .from("members")
+      .select("*")
+      .eq(
+        "user_id",
+        currentUser.id
+      )
+      .maybeSingle();
+
+
+  if (memberError) {
+
+    console.error(
+      "Member error:",
+      memberError
+    );
+
+
+    showInactive(
+      "Could not load member profile."
+    );
+
+    return;
+  }
+
+
+  if (!member) {
+
+    showInactive(
+      "Member profile not found."
+    );
+
+    return;
+  }
+
+
+  currentMember =
+    member;
+
+
+  // --------------------------
+  // FIND MEMBERSHIP
+  // --------------------------
+
+  const {
+    data: membership,
+    error: membershipError
+  } =
+    await supabaseClient
+      .from("memberships")
+      .select("*")
+      .eq(
+        "member_id",
+        member.id
+      )
+      .order(
+        "end_date",
+        {
+          ascending: false
+        }
+      )
+      .limit(1)
+      .maybeSingle();
+
+
+  if (membershipError) {
+
+    console.error(
+      "Membership error:",
+      membershipError
+    );
+
+
+    showInactive(
+      "Could not load membership."
+    );
+
+    return;
+  }
+
+
+  currentMembership =
+    membership;
+
+
+  if (!membership) {
+
+    showInactive();
+
+    return;
+  }
+
+
+  // --------------------------
+  // CHECK STATUS
+  // --------------------------
+
+  const today =
+    new Date();
+
+
+  const endDate =
+    membership.end_date
+      ? new Date(
+          membership.end_date
+        )
+      : null;
+
+
+  const isActive =
+    membership.status === "active"
+    &&
+    endDate
+    &&
+    endDate >= today;
+
+
+  if (isActive) {
+
+    showDashboard();
+
+  } else {
+
+    showInactive();
+
+  }
+
+}
+
+
+// ==========================
+// ACTIVE DASHBOARD
+// ==========================
+
+function showDashboard() {
+
+  hideAllScreens();
+
+
+  document.getElementById(
+    "dashboardBox"
+  ).classList.remove("hidden");
+
+
+  document.getElementById(
+    "bottomNav"
+  ).classList.remove("hidden");
+
+
+  const firstName =
+    currentMember &&
+    currentMember.first_name
+      ? currentMember.first_name
+      : "";
+
+
+  document.getElementById(
+    "welcomeText"
+  ).textContent =
+    "Welcome, " +
+    firstName;
+
+
+  let html = "";
+
+
+  html +=
+    "<div class='membership-row'>" +
+
+    "<span>Type</span>" +
+
+    "<span>" +
+
+    (
+      currentMembership.type
+      || "—"
+    ) +
+
+    "</span>" +
+
+    "</div>";
+
+
+  html +=
+    "<div class='membership-row'>" +
+
+    "<span>Start Date</span>" +
+
+    "<span>" +
+
+    (
+      currentMembership.start_date
+      || "—"
+    ) +
+
+    "</span>" +
+
+    "</div>";
+
+
+  html +=
+    "<div class='membership-row'>" +
+
+    "<span>End Date</span>" +
+
+    "<span>" +
+
+    (
+      currentMembership.end_date
+      || "—"
+    ) +
+
+    "</span>" +
+
+    "</div>";
+
+
+  html +=
+    "<div class='membership-row'>" +
+
+    "<span>Price</span>" +
+
+    "<span>€" +
+
+    (
+      currentMembership.price
+      || "0"
+    ) +
+
+    "</span>" +
+
+    "</div>";
+
+
+  html +=
+    "<div class='membership-row'>" +
+
+    "<span>Status</span>" +
+
+    "<span>" +
+
+    (
+      currentMembership.status
+      || "—"
+    ) +
+
+    "</span>" +
+
+    "</div>";
+
+
+  document.getElementById(
+    "membershipInfo"
+  ).innerHTML =
+    html;
+
+}
+
+
+// ==========================
+// INACTIVE MEMBERSHIP
+// ==========================
+
+function showInactive(customMessage) {
+
+  hideAllScreens();
+
+
+  document.getElementById(
+    "inactiveBox"
+  ).classList.remove("hidden");
+
+
+  const firstName =
+    currentMember &&
+    currentMember.first_name
+      ? currentMember.first_name
+      : "";
+
+
+  document.getElementById(
+    "inactiveProfile"
+  ).textContent =
+
+    customMessage
+
+    ||
+
+    (
+      "Welcome " +
+      firstName +
+      ". Your account exists, " +
+      "but your membership is not currently active."
+    );
+
+
+  // Reset payment button
+
+  const button =
+    document.getElementById(
+      "paymentRequestButton"
+    );
+
+
+  if (button) {
+
+    button.disabled = false;
+
+    button.textContent =
+      "REQUEST PAYMENT CONFIRMATION";
+
+  }
+
+
+  const message =
+    document.getElementById(
+      "paymentRequestMessage"
+    );
+
+
+  if (message) {
+
+    message.textContent = "";
+
+  }
+
+}
+
+
+// ==========================
+// PAYMENT REQUEST
+// ==========================
+
+async function requestPaymentConfirmation() {
+
+  console.log(
+    "Payment request button clicked"
+  );
+
+
+  // --------------------------
+  // SAFETY CHECK
+  // --------------------------
+
+  if (
+    !currentUser
+    ||
+    !currentMember
+  ) {
 
     const message =
-      document.getElementById("loginMessage");
+      document.getElementById(
+        "paymentRequestMessage"
+      );
+
+
+    if (message) {
+
+      message.textContent =
+        "Please login again.";
+
+    }
+
+
+    return;
+  }
+
+
+  const message =
+    document.getElementById(
+      "paymentRequestMessage"
+    );
+
+
+  const button =
+    document.getElementById(
+      "paymentRequestButton"
+    );
+
+
+  // --------------------------
+  // DISABLE BUTTON
+  // --------------------------
+
+  if (button) {
+
+    button.disabled = true;
+
+    button.textContent =
+      "SENDING...";
+
+  }
+
+
+  message.textContent =
+    "Sending payment request...";
+
+
+  // --------------------------
+  // PAYMENT DATA
+  // --------------------------
+
+  const amount =
+    currentMembership &&
+    currentMembership.price
+      ? currentMembership.price
+      : 0;
+
+
+  const paymentType =
+    currentMembership &&
+    currentMembership.type
+      ? currentMembership.type
+      : "membership";
+
+
+  const paymentDate =
+    new Date()
+      .toISOString()
+      .split("T")[0];
+
+
+  const requestedAt =
+    new Date()
+      .toISOString();
+
+
+  // --------------------------
+  // INSERT PAYMENT REQUEST
+  // --------------------------
+
+  const {
+    data,
+    error
+  } =
+    await supabaseClient
+      .from("payments")
+      .insert({
+
+        member_id:
+          currentMember.id,
+
+        amount:
+          amount,
+
+        payment_date:
+          paymentDate,
+
+        payment_type:
+          paymentType,
+
+        description:
+          "Payment confirmation requested",
+
+        status:
+          "pending",
+
+        requested_at:
+          requestedAt
+
+      })
+      .select()
+      .single();
+
+
+  // --------------------------
+  // ERROR
+  // --------------------------
+
+  if (error) {
+
+    console.error(
+      "Payment request error:",
+      error
+    );
 
 
     message.textContent =
-      "Logging in...";
+      "Could not send payment request: " +
+      error.message;
 
 
-    const { data, error } =
-      await supabaseClient.auth
-        .signInWithPassword({
+    if (button) {
 
-          email: email,
+      button.disabled = false;
 
-          password: password
-
-        });
-
-
-    if (error) {
-
-      message.textContent =
-        error.message;
-
-      return;
+      button.textContent =
+        "REQUEST PAYMENT CONFIRMATION";
 
     }
 
 
-    currentUser =
-      data.user;
-
-
-    await checkMembership();
-
+    return;
   }
 
 
-  // ==========================
-  // REGISTRATION
-  // ==========================
+  // --------------------------
+  // SUCCESS
+  // --------------------------
 
-  async function register() {
-
-    const email =
-      document.getElementById("registerEmail")
-        .value
-        .trim();
-
-    const password =
-      document.getElementById("registerPassword")
-        .value;
-
-    const password2 =
-      document.getElementById("registerPassword2")
-        .value;
-
-    const message =
-      document.getElementById("registerMessage");
+  console.log(
+    "Payment request created:",
+    data
+  );
 
 
-    if (!email || !password) {
-
-      message.textContent =
-        "Please enter email and password.";
-
-      return;
-
-    }
+  message.textContent =
+    "Payment confirmation request sent successfully.";
 
 
-    if (password !== password2) {
+  if (button) {
 
-      message.textContent =
-        "Passwords do not match.";
+    button.disabled = true;
 
-      return;
-
-    }
-
-
-    if (password.length < 6) {
-
-      message.textContent =
-        "Password must contain at least 6 characters.";
-
-      return;
-
-    }
-
-
-    message.textContent =
-      "Creating account...";
-
-
-    const { error } =
-      await supabaseClient.auth
-        .signUp({
-
-          email: email,
-
-          password: password
-
-        });
-
-
-    if (error) {
-
-      message.textContent =
-        error.message;
-
-      return;
-
-    }
-
-
-    message.textContent =
-      "Account created successfully. Check your email if confirmation is required.";
+    button.textContent =
+      "REQUEST SENT ✓";
 
   }
-
-
-  // ==========================
-  // CHECK MEMBERSHIP
-  // ==========================
-
-  async function checkMembership() {
-
-    hideAllScreens();
-
-
-    const { data: member, error: memberError } =
-      await supabaseClient
-        .from("members")
-        .select("*")
-        .eq(
-          "user_id",
-          currentUser.id
-        )
-        .maybeSingle();
-
-
-    if (memberError) {
-
-      console.error(memberError);
-
-      showInactive(
-        "Could not load member profile."
-      );
-
-      return;
-
-    }
-
-
-    if (!member) {
-
-      showInactive(
-        "Member profile not found."
-      );
-
-      return;
-
-    }
-
-
-    currentMember =
-      member;
-
-
-    const { data: membership, error: membershipError } =
-      await supabaseClient
-        .from("memberships")
-        .select("*")
-        .eq(
-          "member_id",
-          member.id
-        )
-        .order(
-          "end_date",
-          { ascending: false }
-        )
-        .limit(1)
-        .maybeSingle();
-
-
-    if (membershipError) {
-
-      console.error(membershipError);
-
-      showInactive(
-        "Could not load membership."
-      );
-
-      return;
-
-    }
-
-
-    currentMembership =
-      membership;
-
-
-    if (!membership) {
-
-      showInactive();
-
-      return;
-
-    }
-
-
-    const today =
-      new Date();
-
-
-    const endDate =
-      new Date(
-        membership.end_date
-      );
-
-
-    const isActive =
-      membership.status === "active"
-      &&
-      endDate >= today;
-
-
-    if (isActive) {
-
-      showDashboard();
-
-    } else {
-
-      showInactive();
-
-    }
-
-  }
-
-
-  // ==========================
-  // ACTIVE DASHBOARD
-  // ==========================
-
-  function showDashboard() {
-
-    hideAllScreens();
-
-
-    document.getElementById(
-      "dashboardBox"
-    ).classList.remove("hidden");
-
-
-    document.getElementById(
-      "bottomNav"
-    ).classList.remove("hidden");
-
-
-    const firstName =
-      currentMember.first_name || "";
-
-
-    document.getElementById(
-      "welcomeText"
-    ).textContent =
-      "Welcome, " + firstName;
-
-
-    let html = "";
-
-
-    html +=
-      "<div class='membership-row'>" +
-      "<span>Type</span>" +
-      "<span>" +
-      (currentMembership.type || "—") +
-      "</span>" +
-      "</div>";
-
-
-    html +=
-      "<div class='membership-row'>" +
-      "<span>Start Date</span>" +
-      "<span>" +
-      (currentMembership.start_date || "—") +
-      "</span>" +
-      "</div>";
-
-
-    html +=
-      "<div class='membership-row'>" +
-      "<span>End Date</span>" +
-      "<span>" +
-      (currentMembership.end_date || "—") +
-      "</span>" +
-      "</div>";
-
-
-    html +=
-      "<div class='membership-row'>" +
-      "<span>Price</span>" +
-      "<span>€" +
-      (currentMembership.price || "0") +
-      "</span>" +
-      "</div>";
-
-
-    document.getElementById(
-      "membershipInfo"
-    ).innerHTML =
-      html;
-
-  }
-
-
-  // ==========================
-  // INACTIVE
-  // ==========================
-
-  function showInactive(customMessage) {
-
-    hideAllScreens();
-
-
-    document.getElementById(
-      "inactiveBox"
-    ).classList.remove("hidden");
-
-
-    const firstName =
-      currentMember &&
-      currentMember.first_name
-        ? currentMember.first_name
-        : "";
-
-
-    document.getElementById(
-      "inactiveProfile"
-    ).textContent =
-      customMessage ||
-      (
-        "Welcome " +
-        firstName +
-        ". Your account exists, " +
-        "but your membership is not currently active."
-      );
-
-  }
-
-
-  // ==========================
-  // PAYMENT REQUEST
-  // ==========================
-
- 
-  async function requestPaymentConfirmation() {
-
-if (!currentUser || !currentMember) {
-return;
-}
-
-const message =
-document.getElementById("paymentRequestMessage");
-
-message.textContent = "Sending request...";
-
-const { error } =
-await supabaseClient
-.from("payments")
-.insert({
-member_id: currentMember.id,
-
-```
-    amount:
-      currentMembership
-        ? currentMembership.price
-        : 0,
-
-    payment_date:
-      new Date()
-        .toISOString()
-        .split("T")[0],
-
-    payment_type:
-      currentMembership
-        ? currentMembership.type
-        : "membership",
-
-    description:
-      "Payment confirmation requested",
-
-    status: "pending",
-
-    requested_at:
-      new Date().toISOString()
-  });
-```
-
-if (error) {
-
-```
-console.error(error);
-
-message.textContent =
-  "Could not send payment request: " +
-  error.message;
-
-return;
-```
-
-}
-
-message.textContent =
-"Payment confirmation request sent successfully.";
 
 }
 
 
+// ==========================
+// HIDE ALL SCREENS
+// ==========================
 
-  // ==========================
-  // HIDE SCREENS
-  // ==========================
+function hideAllScreens() {
 
-  function hideAllScreens() {
-
-    document.getElementById(
-      "loginBox"
-    ).classList.add("hidden");
-
-
-    document.getElementById(
-      "registerBox"
-    ).classList.add("hidden");
+  document.getElementById(
+    "loginBox"
+  ).classList.add("hidden");
 
 
-    document.getElementById(
-      "inactiveBox"
-    ).classList.add("hidden");
+  document.getElementById(
+    "registerBox"
+  ).classList.add("hidden");
 
 
-    document.getElementById(
-      "dashboardBox"
-    ).classList.add("hidden");
+  document.getElementById(
+    "inactiveBox"
+  ).classList.add("hidden");
 
 
-    document.getElementById(
-      "bottomNav"
-    ).classList.add("hidden");
-
-  }
+  document.getElementById(
+    "dashboardBox"
+  ).classList.add("hidden");
 
 
-  // ==========================
-  // LOGOUT
-  // ==========================
+  document.getElementById(
+    "bottomNav"
+  ).classList.add("hidden");
 
-  async function logout() {
-
-    await supabaseClient.auth.signOut();
+}
 
 
-    currentUser =
-      null;
+// ==========================
+// LOGOUT
+// ==========================
 
-    currentMember =
-      null;
+async function logout() {
 
-    currentMembership =
-      null;
-
-
-    hideAllScreens();
+  await supabaseClient.auth.signOut();
 
 
-    document.getElementById(
-      "loginBox"
-    ).classList.remove("hidden");
-
-  }
+  currentUser =
+    null;
 
 
-  // ==========================
-  // REGISTER SCREEN
-  // ==========================
-
-  function showRegister() {
-
-    document.getElementById(
-      "loginBox"
-    ).classList.add("hidden");
+  currentMember =
+    null;
 
 
-    document.getElementById(
-      "registerBox"
-    ).classList.remove("hidden");
-
-  }
+  currentMembership =
+    null;
 
 
-  // ==========================
-  // LOGIN SCREEN
-  // ==========================
-
-  function showLogin() {
-
-    document.getElementById(
-      "registerBox"
-    ).classList.add("hidden");
+  hideAllScreens();
 
 
-    document.getElementById(
-      "loginBox"
-    ).classList.remove("hidden");
+  document.getElementById(
+    "loginBox"
+  ).classList.remove("hidden");
 
-  }
+}
 
 
-  // ==========================
-  // CHECK SESSION
-  // ==========================
+// ==========================
+// SHOW REGISTER
+// ==========================
 
-  async function checkSession() {
+function showRegister() {
 
-    const { data } =
+  document.getElementById(
+    "loginBox"
+  ).classList.add("hidden");
+
+
+  document.getElementById(
+    "registerBox"
+  ).classList.remove("hidden");
+
+}
+
+
+// ==========================
+// SHOW LOGIN
+// ==========================
+
+function showLogin() {
+
+  document.getElementById(
+    "registerBox"
+  ).classList.add("hidden");
+
+
+  document.getElementById(
+    "loginBox"
+  ).classList.remove("hidden");
+
+}
+
+
+// ==========================
+// CHECK SESSION
+// ==========================
+
+async function checkSession() {
+
+  try {
+
+    const {
+      data,
+      error
+    } =
       await supabaseClient.auth
         .getSession();
+
+
+    if (error) {
+
+      console.error(
+        "Session error:",
+        error
+      );
+
+      return;
+    }
 
 
     if (data.session) {
@@ -1150,14 +1477,39 @@ message.textContent =
       currentUser =
         data.session.user;
 
+
       await checkMembership();
+
+    } else {
+
+      hideAllScreens();
+
+
+      document.getElementById(
+        "loginBox"
+      ).classList.remove("hidden");
 
     }
 
   }
 
+  catch (error) {
 
-  checkSession();
+    console.error(
+      "Session check error:",
+      error
+    );
+
+  }
+
+}
+
+
+// ==========================
+// START APP
+// ==========================
+
+checkSession();
 
 
 </script>
