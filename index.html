@@ -973,25 +973,65 @@
 
   async function requestPaymentConfirmation() {
 
-    const message =
-      document.getElementById(
-        "paymentRequestMessage"
-      );
+    async function requestPaymentConfirmation() {
 
+  if (!currentUser || !currentMember) {
+    return;
+  }
+
+  const message =
+    document.getElementById("paymentRequestMessage");
+
+  message.textContent = "Sending request...";
+
+  const { error } =
+    await supabaseClient
+      .from("payments")
+      .insert({
+
+        member_id: currentMember.id,
+
+        amount:
+          currentMembership
+            ? currentMembership.price
+            : 0,
+
+        payment_date: new Date()
+          .toISOString()
+          .split("T")[0],
+
+        payment_type:
+          currentMembership
+            ? currentMembership.type
+            : "membership",
+
+        description:
+          "Payment confirmation requested",
+
+        status: "pending",
+
+        requested_at: new Date()
+          .toISOString()
+
+      });
+
+
+  if (error) {
+
+    console.error(error);
 
     message.textContent =
-      "Payment confirmation request sent.";
+      "Could not send payment request.";
+
+    return;
+
+  }
 
 
-    /*
-      IMPORTANT:
+  message.textContent =
+    "Payment confirmation request sent successfully.";
 
-      For now this only shows the message.
-
-      Later we will connect this button
-      to the payments table and Admin Panel.
-    */
-
+}
   }
 
 
