@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -24,95 +24,388 @@
 
     .container {
       width: 100%;
-      max-width: 420px;
-      padding: 30px 20px;
-      text-align: center;
+      max-width: 430px;
+      padding: 25px 20px;
     }
 
     .logo {
-      font-size: 42px;
+      text-align: center;
+      font-size: 40px;
       font-weight: 900;
       letter-spacing: 3px;
       margin-bottom: 8px;
     }
 
     .subtitle {
-      color: #aaa;
-      font-size: 14px;
-      margin-bottom: 40px;
+      text-align: center;
+      color: #999;
+      font-size: 13px;
       letter-spacing: 2px;
+      margin-bottom: 30px;
     }
 
     .card {
       background: #1c1c1c;
-      border-radius: 16px;
-      padding: 28px 22px;
       border: 1px solid #333;
+      border-radius: 16px;
+      padding: 25px 20px;
     }
 
     h1 {
+      text-align: center;
       font-size: 24px;
-      margin-bottom: 10px;
+      margin-bottom: 20px;
     }
 
-    p {
-      color: #aaa;
-      margin-bottom: 25px;
-      line-height: 1.5;
+    input {
+      width: 100%;
+      padding: 14px;
+      margin-bottom: 12px;
+      border-radius: 9px;
+      border: 1px solid #444;
+      background: #111;
+      color: white;
+      font-size: 15px;
     }
 
     button {
       width: 100%;
-      padding: 15px;
+      padding: 14px;
       border: none;
-      border-radius: 10px;
+      border-radius: 9px;
       background: white;
       color: black;
-      font-size: 16px;
+      font-size: 15px;
       font-weight: bold;
       cursor: pointer;
+      margin-top: 5px;
     }
 
     button:hover {
       opacity: 0.9;
     }
 
+    .secondary {
+      background: transparent;
+      color: white;
+      border: 1px solid #555;
+      margin-top: 10px;
+    }
+
+    .message {
+      text-align: center;
+      margin-top: 15px;
+      color: #aaa;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .profile-box {
+      text-align: center;
+    }
+
+    .profile-box p {
+      color: #aaa;
+      margin: 15px 0 20px;
+    }
+
     .footer {
-      margin-top: 25px;
-      color: #666;
+      text-align: center;
+      color: #555;
       font-size: 12px;
+      margin-top: 20px;
     }
   </style>
 </head>
 
 <body>
 
-  <div class="container">
+<div class="container">
 
-    <div class="logo">CENTER MMA</div>
+  <div class="logo">CENTER MMA</div>
+  <div class="subtitle">VIENNA • MMA • GRAPPLING</div>
 
-    <div class="subtitle">VIENNA • MMA • GRAPPLING</div>
+  <!-- LOGIN -->
+  <div id="loginBox" class="card">
 
-    <div class="card">
+    <h1>Login</h1>
 
-      <h1>Welcome</h1>
+    <input
+      id="loginEmail"
+      type="email"
+      placeholder="Email"
+    >
 
-      <p>
-        Willkommen bei CENTER MMA.<br>
-        Dein persönlicher Mitgliederbereich.
-      </p>
+    <input
+      id="loginPassword"
+      type="password"
+      placeholder="Password"
+    >
 
-      <button onclick="alert('Login kommt als nächstes')">
-        LOGIN
+    <button onclick="login()">
+      LOGIN
+    </button>
+
+    <button class="secondary" onclick="showRegister()">
+      CREATE ACCOUNT
+    </button>
+
+    <div id="loginMessage" class="message"></div>
+
+  </div>
+
+
+  <!-- REGISTRATION -->
+  <div id="registerBox" class="card hidden">
+
+    <h1>Create Account</h1>
+
+    <input
+      id="registerEmail"
+      type="email"
+      placeholder="Email"
+    >
+
+    <input
+      id="registerPassword"
+      type="password"
+      placeholder="Password"
+    >
+
+    <input
+      id="registerPassword2"
+      type="password"
+      placeholder="Confirm password"
+    >
+
+    <button onclick="register()">
+      REGISTER
+    </button>
+
+    <button class="secondary" onclick="showLogin()">
+      BACK TO LOGIN
+    </button>
+
+    <div id="registerMessage" class="message"></div>
+
+  </div>
+
+
+  <!-- DASHBOARD -->
+  <div id="dashboardBox" class="card hidden">
+
+    <div class="profile-box">
+
+      <h1>Welcome to CENTER MMA</h1>
+
+      <p id="userEmail"></p>
+
+      <button onclick="logout()">
+        LOGOUT
       </button>
 
     </div>
 
-    <div class="footer">
-      CENTER MMA • Vienna
-    </div>
-
   </div>
+
+  <div class="footer">
+    CENTER MMA • Vienna
+  </div>
+
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+
+  const SUPABASE_URL = "https://klzyuczbvixodgvtsimq.supabase.co";
+
+  const SUPABASE_KEY = "sb_publishable_hTRZXpcPQLvwjBpVUru1Jw_HN3Wua2E";
+
+  const supabaseClient = supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_KEY
+  );
+
+
+  function showRegister() {
+
+    document.getElementById("loginBox").classList.add("hidden");
+    document.getElementById("registerBox").classList.remove("hidden");
+
+  }
+
+
+  function showLogin() {
+
+    document.getElementById("registerBox").classList.add("hidden");
+    document.getElementById("loginBox").classList.remove("hidden");
+
+  }
+
+
+  async function register() {
+
+    const email =
+      document.getElementById("registerEmail").value.trim();
+
+    const password =
+      document.getElementById("registerPassword").value;
+
+    const password2 =
+      document.getElementById("registerPassword2").value;
+
+    const message =
+      document.getElementById("registerMessage");
+
+
+    if (!email || !password) {
+
+      message.textContent =
+        "Please enter email and password.";
+
+      return;
+
+    }
+
+
+    if (password !== password2) {
+
+      message.textContent =
+        "Passwords do not match.";
+
+      return;
+
+    }
+
+
+    if (password.length < 6) {
+
+      message.textContent =
+        "Password must contain at least 6 characters.";
+
+      return;
+
+    }
+
+
+    message.textContent = "Creating account...";
+
+
+    const { data, error } =
+      await supabaseClient.auth.signUp({
+
+        email: email,
+        password: password
+
+      });
+
+
+    if (error) {
+
+      message.textContent = error.message;
+
+      return;
+
+    }
+
+
+    message.textContent =
+      "Account created successfully. Check your email if confirmation is required.";
+
+  }
+
+
+  async function login() {
+
+    const email =
+      document.getElementById("loginEmail").value.trim();
+
+    const password =
+      document.getElementById("loginPassword").value;
+
+    const message =
+      document.getElementById("loginMessage");
+
+
+    message.textContent = "Logging in...";
+
+
+    const { data, error } =
+      await supabaseClient.auth.signInWithPassword({
+
+        email: email,
+        password: password
+
+      });
+
+
+    if (error) {
+
+      message.textContent = error.message;
+
+      return;
+
+    }
+
+
+    showDashboard(data.user);
+
+  }
+
+
+  function showDashboard(user) {
+
+    document.getElementById("loginBox")
+      .classList.add("hidden");
+
+    document.getElementById("registerBox")
+      .classList.add("hidden");
+
+    document.getElementById("dashboardBox")
+      .classList.remove("hidden");
+
+    document.getElementById("userEmail")
+      .textContent = user.email;
+
+  }
+
+
+  async function logout() {
+
+    await supabaseClient.auth.signOut();
+
+    document.getElementById("dashboardBox")
+      .classList.add("hidden");
+
+    document.getElementById("loginBox")
+      .classList.remove("hidden");
+
+  }
+
+
+  async function checkSession() {
+
+    const { data } =
+      await supabaseClient.auth.getSession();
+
+    if (data.session) {
+
+      showDashboard(data.session.user);
+
+    }
+
+  }
+
+
+  checkSession();
+
+</script>
 
 </body>
 </html>
