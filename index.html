@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -476,6 +477,56 @@
     }
 
     /* =========================
+       ADMIN MEMBERS
+    ========================= */
+
+    .member-admin-card {
+      background: #111;
+      border: 1px solid #292929;
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 10px;
+    }
+
+    .member-admin-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .member-admin-photo {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: #222;
+      border: 1px solid #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      flex-shrink: 0;
+      font-size: 22px;
+    }
+
+    .member-admin-photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .member-admin-name {
+      font-size: 16px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .member-admin-info {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid #252525;
+    }
+
+    /* =========================
        COMPETITION RECORD
     ========================= */
 
@@ -559,6 +610,7 @@
       color: #ddd;
     }
   </style>
+
 </head>
 
 <body>
@@ -566,333 +618,285 @@
 <div class="container">
 
   <!-- AUTH -->
+
   <div id="authScreen">
 
-    <div class="logo">CENTER MMA</div>
-    <div class="subtitle">VIENNA • MMA • GRAPPLING</div>
+```
+<div class="logo">CENTER MMA</div>
+<div class="subtitle">VIENNA • MMA • GRAPPLING</div>
 
-    <!-- LOGIN -->
-    <div id="loginBox" class="card">
-      <h1>Welcome back</h1>
-      <p class="muted small">Login to your CENTER MMA account.</p>
+<!-- LOGIN -->
+<div id="loginBox" class="card">
+  <h1>Welcome back</h1>
+  <p class="muted small">Login to your CENTER MMA account.</p>
 
-      <label>Email</label>
-      <input id="loginEmail" type="email" placeholder="your@email.com">
+  <label>Email</label>
+  <input id="loginEmail" type="email" placeholder="your@email.com">
 
-      <label>Password</label>
-      <input id="loginPassword" type="password" placeholder="Password">
+  <label>Password</label>
+  <input id="loginPassword" type="password" placeholder="Password">
 
-      <button onclick="login()">LOGIN</button>
+  <button onclick="login()">LOGIN</button>
 
-      <div id="loginMessage" class="message"></div>
+  <div id="loginMessage" class="message"></div>
 
-      <div class="login-switch">
-        Don't have an account?
-        <span onclick="showRegister()">Create account</span>
-      </div>
+  <div class="login-switch">
+    Don't have an account?
+    <span onclick="showRegister()">Create account</span>
+  </div>
+</div>
+
+<!-- REGISTER -->
+<div id="registerBox" class="card hidden">
+  <h1>Create account</h1>
+  <p class="muted small">Create your CENTER MMA account.</p>
+
+  <label>Email</label>
+  <input id="registerEmail" type="email" placeholder="your@email.com">
+
+  <label>Password</label>
+  <input id="registerPassword" type="password" placeholder="Minimum 6 characters">
+
+  <button onclick="register()">CREATE ACCOUNT</button>
+
+  <div id="registerMessage" class="message"></div>
+
+  <div class="login-switch">
+    Already have an account?
+    <span onclick="showLogin()">Login</span>
+  </div>
+</div>
+```
+
+  </div>
+
+  <!-- APP -->
+
+  <div id="appScreen" class="hidden">
+
+```
+<div class="top-bar">
+  <div>
+    <div class="logo" style="font-size:25px;">CENTER MMA</div>
+    <div class="subtitle" style="margin-bottom:0;">VIENNA • MMA • GRAPPLING</div>
+  </div>
+
+  <button class="logout" onclick="logout()">LOGOUT</button>
+</div>
+
+
+<!-- HOME -->
+<div id="homeSection">
+
+  <div class="welcome">
+    <div class="muted small">WELCOME BACK</div>
+    <div id="welcomeName" class="welcome-name">Member</div>
+  </div>
+
+  <div id="membershipSummary" class="card"></div>
+
+
+  <!-- EVENTS QUICK LINK -->
+  <div
+    class="card"
+    onclick="openSection('events')"
+    style="cursor:pointer;"
+  >
+
+    <div style="font-size:24px; margin-bottom:8px;">
+      🥊
     </div>
 
-    <!-- REGISTER -->
-    <div id="registerBox" class="card hidden">
-      <h1>Create account</h1>
-      <p class="muted small">Create your CENTER MMA account.</p>
+    <h3>
+      Events & Competitions
+    </h3>
 
-      <label>Email</label>
-      <input id="registerEmail" type="email" placeholder="your@email.com">
+    <p class="muted small">
+      Upcoming competitions and participation
+    </p>
 
-      <label>Password</label>
-      <input id="registerPassword" type="password" placeholder="Minimum 6 characters">
+  </div>
 
-      <button onclick="register()">CREATE ACCOUNT</button>
 
-      <div id="registerMessage" class="message"></div>
+  <div class="feature-grid">
 
-      <div class="login-switch">
-        Already have an account?
-        <span onclick="showLogin()">Login</span>
-      </div>
+    <div class="feature" onclick="openSection('membership')">
+      <div class="feature-icon">🪪</div>
+      <div class="feature-title">Membership</div>
+      <div class="feature-text">Your membership card and status</div>
+    </div>
+
+    <div class="feature" onclick="openSection('payments')">
+      <div class="feature-icon">💳</div>
+      <div class="feature-title">Payments</div>
+      <div class="feature-text">Payment history</div>
+    </div>
+
+    <div class="feature" onclick="openSection('profile')">
+      <div class="feature-icon">👤</div>
+      <div class="feature-title">Profile</div>
+      <div class="feature-text">Your personal information</div>
+    </div>
+
+    <div class="feature">
+      <div class="feature-icon">🥊</div>
+      <div class="feature-title">Attendance</div>
+      <div class="feature-text">Coming soon</div>
     </div>
 
   </div>
 
 
-  <!-- APP -->
-  <div id="appScreen" class="hidden">
+  <div id="adminHomeButton" class="card hidden" style="margin-top:15px;">
+    <h3>ADMINISTRATION</h3>
+    <p class="muted small">
+      Manage members, payments and competitions.
+    </p>
+    <button onclick="openAdminPanel()">OPEN ADMIN PANEL</button>
+  </div>
 
-    <div class="top-bar">
-      <div>
-        <div class="logo" style="font-size:25px;">CENTER MMA</div>
-        <div class="subtitle" style="margin-bottom:0;">VIENNA • MMA • GRAPPLING</div>
-      </div>
-
-      <button class="logout" onclick="logout()">LOGOUT</button>
-    </div>
+</div>
 
 
-    <!-- HOME -->
-    <div id="homeSection">
+<!-- MEMBERSHIP -->
+<div id="membershipSection" class="hidden">
 
-      <div class="welcome">
-        <div class="muted small">WELCOME BACK</div>
-        <div id="welcomeName" class="welcome-name">Member</div>
-      </div>
+  <div class="section-title">
+    <button
+      class="secondary back-button"
+      onclick="openSection('home')"
+    >
+      ← BACK
+    </button>
 
-      <div id="membershipSummary" class="card"></div>
+    <h2>Membership</h2>
+  </div>
+
+  <div id="membershipDetails" class="card"></div>
+
+</div>
 
 
-      <!-- EVENTS QUICK LINK -->
+<!-- PAYMENTS -->
+<div id="paymentsSection" class="hidden">
+
+  <div class="section-title">
+    <button
+      class="secondary back-button"
+      onclick="openSection('home')"
+    >
+      ← BACK
+    </button>
+
+    <h2>Payments</h2>
+  </div>
+
+  <div id="paymentsList"></div>
+
+</div>
+
+
+<!-- PROFILE -->
+<div id="profileSection" class="hidden">
+
+  <div class="section-title">
+    <button
+      class="secondary back-button"
+      onclick="openSection('home')"
+    >
+      ← BACK
+    </button>
+
+    <h2>Profile</h2>
+  </div>
+
+  <div class="card">
+
+    <!-- PROFILE PHOTO -->
+    <div style="text-align:center; margin-bottom:25px;">
+
       <div
-        class="card"
-        onclick="openSection('events')"
-        style="cursor:pointer;"
+        id="profilePhotoContainer"
+        style="
+          width:120px;
+          height:120px;
+          margin:0 auto;
+          border-radius:50%;
+          overflow:hidden;
+          background:#222;
+          border:2px solid #333;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          font-size:45px;
+        "
+      >
+        👤
+      </div>
+
+      <input
+        id="profilePhotoInput"
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        class="hidden"
+        onchange="uploadProfilePhoto(event)"
       >
 
-        <div style="font-size:24px; margin-bottom:8px;">
-          🥊
-        </div>
+      <button
+        class="secondary"
+        onclick="document.getElementById('profilePhotoInput').click()"
+        style="max-width:220px;"
+      >
+        UPLOAD PHOTO
+      </button>
 
-        <h3>
-          Events & Competitions
-        </h3>
-
-        <p class="muted small">
-          Upcoming competitions and participation
-        </p>
-
-      </div>
-
-
-      <div class="feature-grid">
-
-        <div class="feature" onclick="openSection('membership')">
-          <div class="feature-icon">🪪</div>
-          <div class="feature-title">Membership</div>
-          <div class="feature-text">Your membership card and status</div>
-        </div>
-
-        <div class="feature" onclick="openSection('payments')">
-          <div class="feature-icon">💳</div>
-          <div class="feature-title">Payments</div>
-          <div class="feature-text">Payment history</div>
-        </div>
-
-        <div class="feature" onclick="openSection('profile')">
-          <div class="feature-icon">👤</div>
-          <div class="feature-title">Profile</div>
-          <div class="feature-text">Your personal information</div>
-        </div>
-
-        <div class="feature">
-          <div class="feature-icon">🥊</div>
-          <div class="feature-title">Attendance</div>
-          <div class="feature-text">Coming soon</div>
-        </div>
-
-      </div>
-
-
-      <div id="adminHomeButton" class="card hidden" style="margin-top:15px;">
-        <h3>ADMINISTRATION</h3>
-        <p class="muted small">
-          Manage members, payments and competitions.
-        </p>
-        <button onclick="openAdminPanel()">OPEN ADMIN PANEL</button>
-      </div>
+      <div
+        id="photoMessage"
+        class="message"
+      ></div>
 
     </div>
 
 
-    <!-- MEMBERSHIP -->
-    <div id="membershipSection" class="hidden">
+    <label>First name</label>
+    <input id="profileFirstName">
 
-      <div class="section-title">
-        <button
-          class="secondary back-button"
-          onclick="openSection('home')"
-        >
-          ← BACK
-        </button>
+    <label>Last name</label>
+    <input id="profileLastName">
 
-        <h2>Membership</h2>
-      </div>
+    <label>Email</label>
+    <input id="profileEmail" disabled>
 
-      <div id="membershipDetails" class="card"></div>
+    <label>Phone</label>
+    <input id="profilePhone" type="tel">
 
+    <label>Birth date</label>
+    <input id="profileBirthDate" type="date">
+
+    <label>Membership number</label>
+    <input id="profileMembershipNumber" disabled>
+
+    <button onclick="saveProfile()">SAVE PROFILE</button>
+
+    <div id="profileMessage" class="message"></div>
+
+  </div>
+
+
+  <!-- COMPETITION RECORD -->
+  <div class="card">
+
+    <div class="section-title">
+      <h2 style="margin-bottom:0;">
+        Competition Record
+      </h2>
     </div>
 
+    <div id="competitionRecord">
 
-    <!-- PAYMENTS -->
-    <div id="paymentsSection" class="hidden">
-
-      <div class="section-title">
-        <button
-          class="secondary back-button"
-          onclick="openSection('home')"
-        >
-          ← BACK
-        </button>
-
-        <h2>Payments</h2>
+      <div class="empty">
+        Loading competition record...
       </div>
-
-      <div id="paymentsList"></div>
-
-    </div>
-
-
-    <!-- PROFILE -->
-    <div id="profileSection" class="hidden">
-
-      <div class="section-title">
-        <button
-          class="secondary back-button"
-          onclick="openSection('home')"
-        >
-          ← BACK
-        </button>
-
-        <h2>Profile</h2>
-      </div>
-
-      <div class="card">
-
-        <!-- PROFILE PHOTO -->
-        <div style="text-align:center; margin-bottom:25px;">
-
-          <div
-            id="profilePhotoContainer"
-            style="
-              width:120px;
-              height:120px;
-              margin:0 auto;
-              border-radius:50%;
-              overflow:hidden;
-              background:#222;
-              border:2px solid #333;
-              display:flex;
-              align-items:center;
-              justify-content:center;
-              font-size:45px;
-            "
-          >
-            👤
-          </div>
-
-          <input
-            id="profilePhotoInput"
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            class="hidden"
-            onchange="uploadProfilePhoto(event)"
-          >
-
-          <button
-            class="secondary"
-            onclick="document.getElementById('profilePhotoInput').click()"
-            style="max-width:220px;"
-          >
-            UPLOAD PHOTO
-          </button>
-
-          <div
-            id="photoMessage"
-            class="message"
-          ></div>
-
-        </div>
-
-
-        <label>First name</label>
-        <input id="profileFirstName">
-
-        <label>Last name</label>
-        <input id="profileLastName">
-
-        <label>Email</label>
-        <input id="profileEmail" disabled>
-
-        <label>Phone</label>
-        <input id="profilePhone" type="tel">
-
-        <label>Birth date</label>
-        <input id="profileBirthDate" type="date">
-
-        <label>Membership number</label>
-        <input id="profileMembershipNumber" disabled>
-
-        <button onclick="saveProfile()">SAVE PROFILE</button>
-
-        <div id="profileMessage" class="message"></div>
-
-      </div>
-
-
-      <!-- COMPETITION RECORD -->
-      <div class="card">
-
-        <div class="section-title">
-          <h2 style="margin-bottom:0;">
-            Competition Record
-          </h2>
-        </div>
-
-        <div id="competitionRecord">
-
-          <div class="empty">
-            Loading competition record...
-          </div>
-
-        </div>
-
-      </div>
-
-    </div>
-
-
-    <!-- EVENTS -->
-    <div id="eventsSection" class="hidden">
-
-      <div class="section-title">
-
-        <button
-          class="secondary back-button"
-          onclick="openSection('home')"
-        >
-          ← BACK
-        </button>
-
-        <h2>Events</h2>
-
-      </div>
-
-      <div id="eventsList">
-
-        <div class="empty">
-          Loading events...
-        </div>
-
-      </div>
-
-    </div>
-
-
-    <!-- ADMIN -->
-    <div id="adminSection" class="hidden">
-
-      <div class="section-title">
-
-        <button
-          class="secondary back-button"
-          onclick="openSection('home')"
-        >
-          ← BACK
-        </button>
-
-        <h2>Admin Panel</h2>
-
-      </div>
-
-      <div id="adminContent"></div>
 
     </div>
 
@@ -901,60 +905,114 @@
 </div>
 
 
+<!-- EVENTS -->
+<div id="eventsSection" class="hidden">
+
+  <div class="section-title">
+
+    <button
+      class="secondary back-button"
+      onclick="openSection('home')"
+    >
+      ← BACK
+    </button>
+
+    <h2>Events</h2>
+
+  </div>
+
+  <div id="eventsList">
+
+    <div class="empty">
+      Loading events...
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- ADMIN -->
+<div id="adminSection" class="hidden">
+
+  <div class="section-title">
+
+    <button
+      class="secondary back-button"
+      onclick="openSection('home')"
+    >
+      ← BACK
+    </button>
+
+    <h2>Admin Panel</h2>
+
+  </div>
+
+  <div id="adminContent"></div>
+
+</div>
+```
+
+  </div>
+
+</div>
+
 <!-- BOTTOM NAV -->
+
 <div id="bottomNav" class="bottom-nav hidden">
 
   <div class="nav-inner">
 
-    <button
-      class="nav-item active"
-      id="navHome"
-      onclick="openSection('home')"
-    >
-      <span class="nav-icon">⌂</span>
-      Home
-    </button>
+```
+<button
+  class="nav-item active"
+  id="navHome"
+  onclick="openSection('home')"
+>
+  <span class="nav-icon">⌂</span>
+  Home
+</button>
 
-    <button
-      class="nav-item"
-      id="navMembership"
-      onclick="openSection('membership')"
-    >
-      <span class="nav-icon">🪪</span>
-      Membership
-    </button>
+<button
+  class="nav-item"
+  id="navMembership"
+  onclick="openSection('membership')"
+>
+  <span class="nav-icon">🪪</span>
+  Membership
+</button>
 
-    <button
-      class="nav-item"
-      id="navPayments"
-      onclick="openSection('payments')"
-    >
-      <span class="nav-icon">€</span>
-      Payments
-    </button>
+<button
+  class="nav-item"
+  id="navPayments"
+  onclick="openSection('payments')"
+>
+  <span class="nav-icon">€</span>
+  Payments
+</button>
 
-    <button
-      class="nav-item"
-      id="navProfile"
-      onclick="openSection('profile')"
-    >
-      <span class="nav-icon">♙</span>
-      Profile
-    </button>
+<button
+  class="nav-item"
+  id="navProfile"
+  onclick="openSection('profile')"
+>
+  <span class="nav-icon">♙</span>
+  Profile
+</button>
 
-    <button
-      class="nav-item"
-      id="navEvents"
-      onclick="openSection('events')"
-    >
-      <span class="nav-icon">🥊</span>
-      Events
-    </button>
+<button
+  class="nav-item"
+  id="navEvents"
+  onclick="openSection('events')"
+>
+  <span class="nav-icon">🥊</span>
+  Events
+</button>
+```
 
   </div>
 
 </div>
-
 
 <script>
 
@@ -3806,6 +3864,10 @@
     `;
 
 
+    await loadAdminMembers(
+      element
+    );
+
     await loadAdminPayments(
       element
     );
@@ -3813,6 +3875,342 @@
     await loadAdminCompetitions(
       element
     );
+  }
+
+
+  /* =========================
+     ADMIN MEMBERS
+  ========================= */
+
+  async function loadAdminMembers(
+    element
+  ) {
+
+    const {
+      data: members,
+      error
+    } = await supabaseClient
+      .from("members")
+      .select(`
+        id,
+        first_name,
+        last_name,
+        email,
+        phone,
+        birth_date,
+        membership_number,
+        role,
+        photo_path,
+        created_at
+      `)
+      .order(
+        "last_name",
+        {
+          ascending: true
+        }
+      )
+      .order(
+        "first_name",
+        {
+          ascending: true
+        }
+      );
+
+
+    if (error) {
+
+      console.error(error);
+
+      element.innerHTML += `
+
+        <div class="card">
+
+          <div class="message error">
+
+            Could not load members:
+            ${escapeHtml(
+              error.message
+            )}
+
+          </div>
+
+        </div>
+
+      `;
+
+      return;
+    }
+
+
+    element.innerHTML += `
+
+      <div class="card">
+
+        <h3>
+          Members
+        </h3>
+
+        <p class="muted small">
+          All CENTER MMA members:
+          ${members ? members.length : 0}
+        </p>
+
+      </div>
+
+    `;
+
+
+    if (
+      !members ||
+      members.length === 0
+    ) {
+
+      element.innerHTML += `
+
+        <div class="card">
+
+          <div class="empty">
+            No members found.
+          </div>
+
+        </div>
+
+      `;
+
+      return;
+    }
+
+
+    element.innerHTML +=
+      members
+        .map(
+          function (member) {
+
+            const fullName =
+              (
+                (member.first_name || "") +
+                " " +
+                (member.last_name || "")
+              ).trim() ||
+              "Unnamed member";
+
+
+            const role =
+              member.role ||
+              "member";
+
+
+            return `
+
+              <div class="member-admin-card">
+
+                <div class="member-admin-top">
+
+                  <div class="member-admin-photo">
+                    ${
+                      member.photo_path
+                        ? `
+                          <div
+                            id="adminMemberPhoto-${member.id}"
+                            style="
+                              width:100%;
+                              height:100%;
+                              display:flex;
+                              align-items:center;
+                              justify-content:center;
+                            "
+                          >
+                            👤
+                          </div>
+                        `
+                        : "👤"
+                    }
+                  </div>
+
+
+                  <div style="flex:1;">
+
+                    <div class="member-admin-name">
+                      ${escapeHtml(
+                        fullName
+                      )}
+                    </div>
+
+                    <div class="muted small">
+                      ${escapeHtml(
+                        member.email || "-"
+                      )}
+                    </div>
+
+                  </div>
+
+                </div>
+
+
+                <div class="member-admin-info">
+
+                  <div class="info-row">
+
+                    <div class="info-label">
+                      Member number
+                    </div>
+
+                    <div class="info-value">
+                      ${escapeHtml(
+                        member.membership_number || "-"
+                      )}
+                    </div>
+
+                  </div>
+
+
+                  <div class="info-row">
+
+                    <div class="info-label">
+                      Phone
+                    </div>
+
+                    <div class="info-value">
+                      ${escapeHtml(
+                        member.phone || "-"
+                      )}
+                    </div>
+
+                  </div>
+
+
+                  <div class="info-row">
+
+                    <div class="info-label">
+                      Birth date
+                    </div>
+
+                    <div class="info-value">
+                      ${formatDate(
+                        member.birth_date
+                      )}
+                    </div>
+
+                  </div>
+
+
+                  <div class="info-row">
+
+                    <div class="info-label">
+                      Role
+                    </div>
+
+                    <div class="info-value">
+
+                      <span
+                        class="status ${
+                          role === "admin"
+                            ? "approved"
+                            : "active"
+                        }"
+                      >
+                        ${escapeHtml(
+                          role
+                        )}
+                      </span>
+
+                    </div>
+
+                  </div>
+
+
+                  <div class="info-row">
+
+                    <div class="info-label">
+                      Created
+                    </div>
+
+                    <div class="info-value">
+                      ${formatDate(
+                        member.created_at
+                      )}
+                    </div>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+            `;
+
+          }
+        )
+        .join("");
+
+
+    /*
+      Load profile photos for members
+      who have a photo_path.
+    */
+
+    for (
+      const member of members
+    ) {
+
+      if (
+        !member.photo_path
+      ) {
+        continue;
+      }
+
+
+      const {
+        data,
+        error
+      } = await supabaseClient
+        .storage
+        .from("member-photos")
+        .createSignedUrl(
+          member.photo_path,
+          3600
+        );
+
+
+      if (error) {
+
+        console.error(
+          error
+        );
+
+        continue;
+      }
+
+
+      const photoElement =
+        document.getElementById(
+          "adminMemberPhoto-" +
+          member.id
+        );
+
+
+      if (
+        photoElement &&
+        data?.signedUrl
+      ) {
+
+        photoElement.innerHTML = `
+
+          <img
+            src="${escapeHtml(
+              data.signedUrl
+            )}"
+            alt="Member photo"
+            style="
+              width:100%;
+              height:100%;
+              object-fit:cover;
+            "
+          >
+
+        `;
+      }
+    }
   }
 
 
@@ -3881,7 +4279,7 @@
       payments.length > 0
     ) {
 
-      element.innerHTML = `
+      element.innerHTML += `
 
         <div class="card">
 
@@ -4014,7 +4412,7 @@
 
     } else {
 
-      element.innerHTML = `
+      element.innerHTML += `
 
         <div class="card">
 
@@ -4141,1775 +4539,1807 @@
           placeholder="Competition information..."
         ></textarea>
 
+```
+    <button
+      onclick="createCompetition()"
+    >
+      CREATE COMPETITION
+    </button>
+
+
+    <div
+      id="adminCompetitionCreateMessage"
+      class="message"
+    ></div>
+
+  </div>
+
+
+  <div id="adminCompetitionsList"></div>
+
+`;
+
+
+const list =
+  document.getElementById(
+    "adminCompetitionsList"
+  );
+
+
+if (
+  !competitions ||
+  competitions.length === 0
+) {
+
+  list.innerHTML = `
+
+    <div class="card">
+
+      <div class="empty">
+        No competitions created yet.
+      </div>
+
+    </div>
+
+  `;
+
+  return;
+}
+
+
+list.innerHTML =
+  competitions
+    .map(
+      function (competition) {
+
+        return renderAdminCompetition(
+          competition
+        );
+
+      }
+    )
+    .join("");
+```
+
+}
+
+function renderAdminCompetition(
+competition
+) {
+
+```
+return `
+
+  <div
+    class="competition-admin-card"
+    id="adminCompetition-${competition.id}"
+  >
+
+    <div
+      style="
+        font-size:11px;
+        color:#777;
+        text-transform:uppercase;
+        letter-spacing:1px;
+        margin-bottom:6px;
+      "
+    >
+      ${formatDate(
+        competition.date
+      )}
+    </div>
+
+
+    <div
+      style="
+        font-size:18px;
+        font-weight:800;
+        margin-bottom:5px;
+      "
+    >
+      ${escapeHtml(
+        competition.title
+      )}
+    </div>
+
+
+    ${
+      competition.location
+        ? `
+          <div class="muted small">
+            📍
+            ${escapeHtml(
+              competition.location
+            )}
+          </div>
+        `
+        : ""
+    }
+
+
+    <div class="admin-actions">
+
+      <button
+        class="secondary"
+        onclick="toggleAdminCompetition(
+          '${competition.id}'
+        )"
+      >
+        OPEN
+      </button>
+
+    </div>
+
+
+    <div
+      id="adminCompetitionDetails-${competition.id}"
+      class="hidden"
+    >
+
+      <div class="admin-edit-box">
+
+        <h3>
+          Edit competition
+        </h3>
+
+
+        <label>
+          Title
+        </label>
+
+        <input
+          id="editCompetitionTitle-${competition.id}"
+          value="${escapeHtml(
+            competition.title || ""
+          )}"
+        >
+
+
+        <label>
+          Date
+        </label>
+
+        <input
+          id="editCompetitionDate-${competition.id}"
+          type="date"
+          value="${escapeHtml(
+            competition.date || ""
+          )}"
+        >
+
+
+        <label>
+          Location
+        </label>
+
+        <input
+          id="editCompetitionLocation-${competition.id}"
+          value="${escapeHtml(
+            competition.location || ""
+          )}"
+        >
+
+
+        <label>
+          Description
+        </label>
+
+        <textarea
+          id="editCompetitionDescription-${competition.id}"
+        >${escapeHtml(
+          competition.description || ""
+        )}</textarea>
+
 
         <button
-          onclick="createCompetition()"
+          onclick="saveCompetition(
+            '${competition.id}'
+          )"
         >
-          CREATE COMPETITION
+          SAVE COMPETITION
+        </button>
+
+
+        <button
+          class="danger"
+          onclick="deleteCompetition(
+            '${competition.id}'
+          )"
+        >
+          DELETE COMPETITION
         </button>
 
 
         <div
-          id="adminCompetitionCreateMessage"
+          id="editCompetitionMessage-${competition.id}"
           class="message"
         ></div>
 
       </div>
 
 
-      <div id="adminCompetitionsList"></div>
-
-    `;
-
-
-    const list =
-      document.getElementById(
-        "adminCompetitionsList"
-      );
-
-
-    if (
-      !competitions ||
-      competitions.length === 0
-    ) {
-
-      list.innerHTML = `
-
-        <div class="card">
-
-          <div class="empty">
-            No competitions created yet.
-          </div>
-
-        </div>
-
-      `;
-
-      return;
-    }
-
-
-    list.innerHTML =
-      competitions
-        .map(
-          function (competition) {
-
-            return renderAdminCompetition(
-              competition
-            );
-
-          }
-        )
-        .join("");
-  }
-
-
-  function renderAdminCompetition(
-    competition
-  ) {
-
-    return `
-
       <div
-        class="competition-admin-card"
-        id="adminCompetition-${competition.id}"
+        style="
+          margin-top:20px;
+          padding-top:15px;
+          border-top:1px solid #292929;
+        "
       >
 
-        <div
-          style="
-            font-size:11px;
-            color:#777;
-            text-transform:uppercase;
-            letter-spacing:1px;
-            margin-bottom:6px;
-          "
-        >
-          ${formatDate(
-            competition.date
-          )}
-        </div>
-
+        <h3>
+          Participants
+        </h3>
 
         <div
-          style="
-            font-size:18px;
-            font-weight:800;
-            margin-bottom:5px;
-          "
+          id="adminParticipants-${competition.id}"
+          class="empty"
         >
-          ${escapeHtml(
-            competition.title
-          )}
+          Loading participants...
         </div>
 
+      </div>
 
-        ${
-          competition.location
-            ? `
-              <div class="muted small">
-                📍
-                ${escapeHtml(
-                  competition.location
-                )}
-              </div>
-            `
-            : ""
-        }
+    </div>
 
+  </div>
 
-        <div class="admin-actions">
+`;
+```
 
-          <button
-            class="secondary"
-            onclick="toggleAdminCompetition(
-              '${competition.id}'
-            )"
-          >
-            OPEN
-          </button>
+}
 
-        </div>
+async function toggleAdminCompetition(
+competitionId
+) {
+
+```
+if (!isAdmin) {
+  return;
+}
 
 
-        <div
-          id="adminCompetitionDetails-${competition.id}"
-          class="hidden"
-        >
-
-          <div class="admin-edit-box">
-
-            <h3>
-              Edit competition
-            </h3>
+const container =
+  document.getElementById(
+    "adminCompetitionDetails-" +
+    competitionId
+  );
 
 
-            <label>
-              Title
-            </label>
-
-            <input
-              id="editCompetitionTitle-${competition.id}"
-              value="${escapeHtml(
-                competition.title || ""
-              )}"
-            >
+if (!container) {
+  return;
+}
 
 
-            <label>
-              Date
-            </label>
-
-            <input
-              id="editCompetitionDate-${competition.id}"
-              type="date"
-              value="${escapeHtml(
-                competition.date || ""
-              )}"
-            >
+const isHidden =
+  container.classList.contains(
+    "hidden"
+  );
 
 
-            <label>
-              Location
-            </label>
+if (isHidden) {
 
-            <input
-              id="editCompetitionLocation-${competition.id}"
-              value="${escapeHtml(
-                competition.location || ""
-              )}"
-            >
+  container.classList.remove(
+    "hidden"
+  );
+
+  await loadAdminParticipants(
+    competitionId
+  );
+
+} else {
+
+  container.classList.add(
+    "hidden"
+  );
+}
+```
+
+}
+
+async function loadAdminParticipants(
+competitionId
+) {
+
+```
+const element =
+  document.getElementById(
+    "adminParticipants-" +
+    competitionId
+  );
 
 
-            <label>
-              Description
-            </label>
+if (!element) {
+  return;
+}
 
-            <textarea
-              id="editCompetitionDescription-${competition.id}"
-            >${escapeHtml(
-              competition.description || ""
-            )}</textarea>
 
+element.innerHTML = `
+
+  <div class="empty">
+    Loading participants...
+  </div>
+
+`;
+
+
+const {
+  data,
+  error
+} = await supabaseClient
+  .from("competition_registrations")
+  .select(`
+    *,
+    members (
+      id,
+      first_name,
+      last_name,
+      email,
+      membership_number
+    )
+  `)
+  .eq(
+    "competition_id",
+    competitionId
+  )
+  .order(
+    "created_at",
+    {
+      ascending: true
+    }
+  );
+
+
+if (error) {
+
+  console.error(error);
+
+  element.innerHTML = `
+
+    <div class="message error">
+      Could not load participants:
+      ${escapeHtml(
+        error.message
+      )}
+    </div>
+
+  `;
+
+  return;
+}
+
+
+if (
+  !data ||
+  data.length === 0
+) {
+
+  element.innerHTML = `
+
+    <div class="empty">
+      No participation requests yet.
+    </div>
+
+  `;
+
+  return;
+}
+
+
+element.innerHTML =
+  data
+    .map(
+      function (registration) {
+
+        return renderAdminParticipant(
+          registration
+        );
+
+      }
+    )
+    .join("");
+```
+
+}
+
+function renderAdminParticipant(
+registration
+) {
+
+```
+const member =
+  registration.members ||
+  {};
+
+
+const status =
+  registration.status ||
+  "requested";
+
+
+return `
+
+  <div
+    class="participant-card"
+    id="participant-${registration.id}"
+  >
+
+    <div class="participant-name">
+
+      ${escapeHtml(
+        (member.first_name || "") +
+        " " +
+        (member.last_name || "")
+      )}
+
+    </div>
+
+
+    <div class="muted small">
+      ${escapeHtml(
+        member.email || ""
+      )}
+    </div>
+
+
+    <div class="muted small" style="margin-top:4px;">
+      Member number:
+      ${escapeHtml(
+        member.membership_number || "-"
+      )}
+    </div>
+
+
+    <div style="margin-top:10px;">
+
+      <span class="status ${escapeHtml(status)}">
+        ${escapeHtml(status)}
+      </span>
+
+    </div>
+
+
+    ${
+      status === "requested"
+        ? `
+
+          <div class="admin-actions">
 
             <button
-              onclick="saveCompetition(
-                '${competition.id}'
+              class="success"
+              onclick="approveCompetitionRegistration(
+                '${registration.id}'
               )"
             >
-              SAVE COMPETITION
+              APPROVE
             </button>
 
 
             <button
               class="danger"
-              onclick="deleteCompetition(
-                '${competition.id}'
+              onclick="rejectCompetitionRegistration(
+                '${registration.id}'
               )"
             >
-              DELETE COMPETITION
+              REJECT
             </button>
 
-
-            <div
-              id="editCompetitionMessage-${competition.id}"
-              class="message"
-            ></div>
-
           </div>
 
+        `
+        : ""
+    }
 
-          <div
-            style="
-              margin-top:20px;
-              padding-top:15px;
-              border-top:1px solid #292929;
-            "
-          >
 
-            <h3>
-              Participants
-            </h3>
+    <div class="detail-grid">
 
-            <div
-              id="adminParticipants-${competition.id}"
-              class="empty"
-            >
-              Loading participants...
-            </div>
+      <div class="detail-box">
 
-          </div>
+        <div class="detail-label">
+          Weight
+        </div>
 
+        <div class="detail-value">
+          ${
+            registration.weight !== null &&
+            registration.weight !== undefined
+              ? escapeHtml(
+                  registration.weight
+                ) + " kg"
+              : "-"
+          }
         </div>
 
       </div>
 
-    `;
-  }
 
+      <div class="detail-box">
 
-  async function toggleAdminCompetition(
-    competitionId
-  ) {
+        <div class="detail-label">
+          Division
+        </div>
 
-    if (!isAdmin) {
-      return;
-    }
-
-
-    const container =
-      document.getElementById(
-        "adminCompetitionDetails-" +
-        competitionId
-      );
-
-
-    if (!container) {
-      return;
-    }
-
-
-    const isHidden =
-      container.classList.contains(
-        "hidden"
-      );
-
-
-    if (isHidden) {
-
-      container.classList.remove(
-        "hidden"
-      );
-
-      await loadAdminParticipants(
-        competitionId
-      );
-
-    } else {
-
-      container.classList.add(
-        "hidden"
-      );
-    }
-  }
-
-
-  async function loadAdminParticipants(
-    competitionId
-  ) {
-
-    const element =
-      document.getElementById(
-        "adminParticipants-" +
-        competitionId
-      );
-
-
-    if (!element) {
-      return;
-    }
-
-
-    element.innerHTML = `
-
-      <div class="empty">
-        Loading participants...
-      </div>
-
-    `;
-
-
-    const {
-      data,
-      error
-    } = await supabaseClient
-      .from("competition_registrations")
-      .select(`
-        *,
-        members (
-          id,
-          first_name,
-          last_name,
-          email,
-          membership_number
-        )
-      `)
-      .eq(
-        "competition_id",
-        competitionId
-      )
-      .order(
-        "created_at",
-        {
-          ascending: true
-        }
-      );
-
-
-    if (error) {
-
-      console.error(error);
-
-      element.innerHTML = `
-
-        <div class="message error">
-          Could not load participants:
+        <div class="detail-value">
           ${escapeHtml(
-            error.message
+            registration.division || "-"
           )}
         </div>
 
-      `;
-
-      return;
-    }
+      </div>
 
 
-    if (
-      !data ||
-      data.length === 0
-    ) {
+      <div class="detail-box">
 
-      element.innerHTML = `
-
-        <div class="empty">
-          No participation requests yet.
+        <div class="detail-label">
+          Age
         </div>
 
-      `;
+        <div class="detail-value">
+          ${escapeHtml(
+            registration.age_category || "-"
+          )}
+        </div>
 
-      return;
-    }
+      </div>
 
 
-    element.innerHTML =
-      data
-        .map(
-          function (registration) {
+      <div class="detail-box">
 
-            return renderAdminParticipant(
-              registration
-            );
+        <div class="detail-label">
+          Belt
+        </div>
 
+        <div class="detail-value">
+          ${escapeHtml(
+            registration.belt || "-"
+          )}
+        </div>
+
+      </div>
+
+
+      <div class="detail-box">
+
+        <div class="detail-label">
+          Experience
+        </div>
+
+        <div class="detail-value">
+          ${escapeHtml(
+            registration.experience || "-"
+          )}
+        </div>
+
+      </div>
+
+
+      <div class="detail-box">
+
+        <div class="detail-label">
+          Result
+        </div>
+
+        <div class="detail-value">
+          ${
+            registration.result_place
+              ? escapeHtml(
+                  registration.result_place
+                )
+              : "-"
           }
-        )
-        .join("");
-  }
+        </div>
+
+      </div>
+
+    </div>
 
 
-  function renderAdminParticipant(
-    registration
-  ) {
+    <div class="admin-edit-box">
 
-    const member =
-      registration.members ||
-      {};
+      <h3>
+        Admin details
+      </h3>
 
 
-    const status =
-      registration.status ||
-      "requested";
+      <label>
+        Weight
+      </label>
 
-
-    return `
-
-      <div
-        class="participant-card"
-        id="participant-${registration.id}"
+      <input
+        id="adminWeight-${registration.id}"
+        type="number"
+        step="0.1"
+        value="${escapeHtml(
+          registration.weight ?? ""
+        )}"
       >
 
-        <div class="participant-name">
 
-          ${escapeHtml(
-            (member.first_name || "") +
-            " " +
-            (member.last_name || "")
-          )}
+      <label>
+        Division
+      </label>
+
+      <input
+        id="adminDivision-${registration.id}"
+        value="${escapeHtml(
+          registration.division || ""
+        )}"
+      >
+
+
+      <label>
+        Age category
+      </label>
+
+      <input
+        id="adminAge-${registration.id}"
+        value="${escapeHtml(
+          registration.age_category || ""
+        )}"
+      >
+
 
-        </div>
+      <label>
+        Belt
+      </label>
 
+      <input
+        id="adminBelt-${registration.id}"
+        value="${escapeHtml(
+          registration.belt || ""
+        )}"
+      >
 
-        <div class="muted small">
-          ${escapeHtml(
-            member.email || ""
-          )}
-        </div>
 
+      <label>
+        Experience
+      </label>
 
-        <div class="muted small" style="margin-top:4px;">
-          Member number:
-          ${escapeHtml(
-            member.membership_number || "-"
-          )}
-        </div>
+      <input
+        id="adminExperience-${registration.id}"
+        value="${escapeHtml(
+          registration.experience || ""
+        )}"
+      >
 
 
-        <div style="margin-top:10px;">
+      <label>
+        Result place
+      </label>
 
-          <span class="status ${escapeHtml(status)}">
-            ${escapeHtml(status)}
-          </span>
+      <input
+        id="adminResult-${registration.id}"
+        type="number"
+        min="1"
+        value="${escapeHtml(
+          registration.result_place ?? ""
+        )}"
+      >
 
-        </div>
 
+      <label>
+        Fights count
+      </label>
 
-        ${
-          status === "requested"
-            ? `
+      <input
+        id="adminFights-${registration.id}"
+        type="number"
+        min="0"
+        value="${escapeHtml(
+          registration.fights_count ?? ""
+        )}"
+      >
 
-              <div class="admin-actions">
 
-                <button
-                  class="success"
-                  onclick="approveCompetitionRegistration(
-                    '${registration.id}'
-                  )"
-                >
-                  APPROVE
-                </button>
+      <label>
+        Wins count
+      </label>
 
+      <input
+        id="adminWins-${registration.id}"
+        type="number"
+        min="0"
+        value="${escapeHtml(
+          registration.wins_count ?? ""
+        )}"
+      >
 
-                <button
-                  class="danger"
-                  onclick="rejectCompetitionRegistration(
-                    '${registration.id}'
-                  )"
-                >
-                  REJECT
-                </button>
 
-              </div>
+      <label>
+        Notes
+      </label>
 
-            `
-            : ""
-        }
+      <textarea
+        id="adminNotes-${registration.id}"
+      >${escapeHtml(
+        registration.notes || ""
+      )}</textarea>
 
 
-        <div class="detail-grid">
+      <button
+        onclick="saveAdminParticipant(
+          '${registration.id}',
+          '${registration.competition_id}'
+        )"
+      >
+        SAVE PARTICIPANT
+      </button>
 
-          <div class="detail-box">
 
-            <div class="detail-label">
-              Weight
-            </div>
+      <div
+        id="adminParticipantMessage-${registration.id}"
+        class="message"
+      ></div>
 
-            <div class="detail-value">
-              ${
-                registration.weight !== null &&
-                registration.weight !== undefined
-                  ? escapeHtml(
-                      registration.weight
-                    ) + " kg"
-                  : "-"
-              }
-            </div>
+    </div>
 
-          </div>
+  </div>
 
+`;
+```
 
-          <div class="detail-box">
+}
 
-            <div class="detail-label">
-              Division
-            </div>
+/* =========================
+CREATE COMPETITION
+========================= */
 
-            <div class="detail-value">
-              ${escapeHtml(
-                registration.division || "-"
-              )}
-            </div>
+async function createCompetition() {
 
-          </div>
+```
+if (!isAdmin) {
+  return;
+}
 
 
-          <div class="detail-box">
+const message =
+  document.getElementById(
+    "adminCompetitionCreateMessage"
+  );
 
-            <div class="detail-label">
-              Age
-            </div>
 
-            <div class="detail-value">
-              ${escapeHtml(
-                registration.age_category || "-"
-              )}
-            </div>
+const title =
+  document
+    .getElementById(
+      "adminCompetitionTitle"
+    )
+    .value
+    .trim();
 
-          </div>
 
+const date =
+  document
+    .getElementById(
+      "adminCompetitionDate"
+    )
+    .value;
 
-          <div class="detail-box">
 
-            <div class="detail-label">
-              Belt
-            </div>
+const location =
+  document
+    .getElementById(
+      "adminCompetitionLocation"
+    )
+    .value
+    .trim();
 
-            <div class="detail-value">
-              ${escapeHtml(
-                registration.belt || "-"
-              )}
-            </div>
 
-          </div>
+const description =
+  document
+    .getElementById(
+      "adminCompetitionDescription"
+    )
+    .value
+    .trim();
 
 
-          <div class="detail-box">
+if (!title || !date) {
 
-            <div class="detail-label">
-              Experience
-            </div>
+  message.textContent =
+    "Title and date are required.";
 
-            <div class="detail-value">
-              ${escapeHtml(
-                registration.experience || "-"
-              )}
-            </div>
+  message.className =
+    "message error";
 
-          </div>
+  return;
+}
 
 
-          <div class="detail-box">
+message.textContent =
+  "Creating competition...";
 
-            <div class="detail-label">
-              Result
-            </div>
+message.className =
+  "message";
 
-            <div class="detail-value">
-              ${
-                registration.result_place
-                  ? escapeHtml(
-                      registration.result_place
-                    )
-                  : "-"
-              }
-            </div>
 
-          </div>
+const {
+  error
+} = await supabaseClient
+  .from("competitions")
+  .insert({
 
-        </div>
+    title:
+      title,
 
+    date:
+      date,
 
-        <div class="admin-edit-box">
+    location:
+      location || null,
 
-          <h3>
-            Admin details
-          </h3>
+    description:
+      description || null,
 
+    created_by:
+      currentUser.id
 
-          <label>
-            Weight
-          </label>
+  });
 
-          <input
-            id="adminWeight-${registration.id}"
-            type="number"
-            step="0.1"
-            value="${escapeHtml(
-              registration.weight ?? ""
-            )}"
-          >
 
+if (error) {
 
-          <label>
-            Division
-          </label>
+  console.error(error);
 
-          <input
-            id="adminDivision-${registration.id}"
-            value="${escapeHtml(
-              registration.division || ""
-            )}"
-          >
+  message.textContent =
+    "Could not create competition: " +
+    error.message;
 
+  message.className =
+    "message error";
 
-          <label>
-            Age category
-          </label>
+  return;
+}
 
-          <input
-            id="adminAge-${registration.id}"
-            value="${escapeHtml(
-              registration.age_category || ""
-            )}"
-          >
 
+message.textContent =
+  "Competition created successfully.";
 
-          <label>
-            Belt
-          </label>
+message.className =
+  "message success-text";
 
-          <input
-            id="adminBelt-${registration.id}"
-            value="${escapeHtml(
-              registration.belt || ""
-            )}"
-          >
 
+document
+  .getElementById(
+    "adminCompetitionTitle"
+  )
+  .value = "";
 
-          <label>
-            Experience
-          </label>
 
-          <input
-            id="adminExperience-${registration.id}"
-            value="${escapeHtml(
-              registration.experience || ""
-            )}"
-          >
+document
+  .getElementById(
+    "adminCompetitionDate"
+  )
+  .value = "";
 
 
-          <label>
-            Result place
-          </label>
+document
+  .getElementById(
+    "adminCompetitionLocation"
+  )
+  .value = "";
 
-          <input
-            id="adminResult-${registration.id}"
-            type="number"
-            min="1"
-            value="${escapeHtml(
-              registration.result_place ?? ""
-            )}"
-          >
 
+document
+  .getElementById(
+    "adminCompetitionDescription"
+  )
+  .value = "";
 
-          <label>
-            Fights count
-          </label>
 
-          <input
-            id="adminFights-${registration.id}"
-            type="number"
-            min="0"
-            value="${escapeHtml(
-              registration.fights_count ?? ""
-            )}"
-          >
+await loadAdminPanel();
+```
 
+}
 
-          <label>
-            Wins count
-          </label>
+/* =========================
+EDIT COMPETITION
+========================= */
 
-          <input
-            id="adminWins-${registration.id}"
-            type="number"
-            min="0"
-            value="${escapeHtml(
-              registration.wins_count ?? ""
-            )}"
-          >
+async function saveCompetition(
+competitionId
+) {
 
+```
+if (!isAdmin) {
+  return;
+}
 
-          <label>
-            Notes
-          </label>
 
-          <textarea
-            id="adminNotes-${registration.id}"
-          >${escapeHtml(
-            registration.notes || ""
-          )}</textarea>
-
-
-          <button
-            onclick="saveAdminParticipant(
-              '${registration.id}',
-              '${registration.competition_id}'
-            )"
-          >
-            SAVE PARTICIPANT
-          </button>
-
-
-          <div
-            id="adminParticipantMessage-${registration.id}"
-            class="message"
-          ></div>
-
-        </div>
-
-      </div>
-
-    `;
-  }
-
-
-  /* =========================
-     CREATE COMPETITION
-  ========================= */
-
-  async function createCompetition() {
-
-    if (!isAdmin) {
-      return;
-    }
-
-
-    const message =
-      document.getElementById(
-        "adminCompetitionCreateMessage"
-      );
-
-
-    const title =
-      document
-        .getElementById(
-          "adminCompetitionTitle"
-        )
-        .value
-        .trim();
-
-
-    const date =
-      document
-        .getElementById(
-          "adminCompetitionDate"
-        )
-        .value;
-
-
-    const location =
-      document
-        .getElementById(
-          "adminCompetitionLocation"
-        )
-        .value
-        .trim();
-
-
-    const description =
-      document
-        .getElementById(
-          "adminCompetitionDescription"
-        )
-        .value
-        .trim();
-
-
-    if (!title || !date) {
-
-      message.textContent =
-        "Title and date are required.";
-
-      message.className =
-        "message error";
-
-      return;
-    }
-
-
-    message.textContent =
-      "Creating competition...";
-
-    message.className =
-      "message";
-
-
-    const {
-      error
-    } = await supabaseClient
-      .from("competitions")
-      .insert({
-
-        title:
-          title,
-
-        date:
-          date,
-
-        location:
-          location || null,
-
-        description:
-          description || null,
-
-        created_by:
-          currentUser.id
-
-      });
-
-
-    if (error) {
-
-      console.error(error);
-
-      message.textContent =
-        "Could not create competition: " +
-        error.message;
-
-      message.className =
-        "message error";
-
-      return;
-    }
-
-
-    message.textContent =
-      "Competition created successfully.";
-
-    message.className =
-      "message success-text";
-
-
-    document
-      .getElementById(
-        "adminCompetitionTitle"
-      )
-      .value = "";
-
-
-    document
-      .getElementById(
-        "adminCompetitionDate"
-      )
-      .value = "";
-
-
-    document
-      .getElementById(
-        "adminCompetitionLocation"
-      )
-      .value = "";
-
-
-    document
-      .getElementById(
-        "adminCompetitionDescription"
-      )
-      .value = "";
-
-
-    await loadAdminPanel();
-  }
-
-
-  /* =========================
-     EDIT COMPETITION
-  ========================= */
-
-  async function saveCompetition(
+const message =
+  document.getElementById(
+    "editCompetitionMessage-" +
     competitionId
-  ) {
+  );
 
-    if (!isAdmin) {
-      return;
-    }
 
-
-    const message =
-      document.getElementById(
-        "editCompetitionMessage-" +
-        competitionId
-      );
-
-
-    const title =
-      document
-        .getElementById(
-          "editCompetitionTitle-" +
-          competitionId
-        )
-        .value
-        .trim();
-
-
-    const date =
-      document
-        .getElementById(
-          "editCompetitionDate-" +
-          competitionId
-        )
-        .value;
-
-
-    const location =
-      document
-        .getElementById(
-          "editCompetitionLocation-" +
-          competitionId
-        )
-        .value
-        .trim();
-
-
-    const description =
-      document
-        .getElementById(
-          "editCompetitionDescription-" +
-          competitionId
-        )
-        .value
-        .trim();
-
-
-    if (!title || !date) {
-
-      message.textContent =
-        "Title and date are required.";
-
-      message.className =
-        "message error";
-
-      return;
-    }
-
-
-    message.textContent =
-      "Saving...";
-
-    message.className =
-      "message";
-
-
-    const {
-      error
-    } = await supabaseClient
-      .from("competitions")
-      .update({
-
-        title:
-          title,
-
-        date:
-          date,
-
-        location:
-          location || null,
-
-        description:
-          description || null
-
-      })
-      .eq(
-        "id",
-        competitionId
-      );
-
-
-    if (error) {
-
-      console.error(error);
-
-      message.textContent =
-        "Could not save competition: " +
-        error.message;
-
-      message.className =
-        "message error";
-
-      return;
-    }
-
-
-    message.textContent =
-      "Competition saved successfully.";
-
-    message.className =
-      "message success-text";
-
-
-    await loadAdminPanel();
-  }
-
-
-  /* =========================
-     DELETE COMPETITION
-  ========================= */
-
-  async function deleteCompetition(
-    competitionId
-  ) {
-
-    if (!isAdmin) {
-      return;
-    }
-
-
-    const confirmed =
-      confirm(
-        "Delete this competition? All participation registrations will also be deleted."
-      );
-
-
-    if (!confirmed) {
-      return;
-    }
-
-
-    const {
-      error
-    } = await supabaseClient
-      .from("competitions")
-      .delete()
-      .eq(
-        "id",
-        competitionId
-      );
-
-
-    if (error) {
-
-      console.error(error);
-
-      alert(
-        "Could not delete competition: " +
-        error.message
-      );
-
-      return;
-    }
-
-
-    await loadAdminPanel();
-  }
-
-
-  /* =========================
-     APPROVE COMPETITION REGISTRATION
-  ========================= */
-
-  async function approveCompetitionRegistration(
-    registrationId
-  ) {
-
-    if (!isAdmin) {
-      return;
-    }
-
-
-    const confirmed =
-      confirm(
-        "Approve this athlete for the competition?"
-      );
-
-
-    if (!confirmed) {
-      return;
-    }
-
-
-    const {
-      error
-    } = await supabaseClient
-      .from("competition_registrations")
-      .update({
-
-        status:
-          "approved"
-
-      })
-      .eq(
-        "id",
-        registrationId
-      );
-
-
-    if (error) {
-
-      console.error(error);
-
-      alert(
-        "Could not approve registration: " +
-        error.message
-      );
-
-      return;
-    }
-
-
-    const competitionId =
-      await getCompetitionIdForRegistration(
-        registrationId
-      );
-
-
-    if (competitionId) {
-
-      await loadAdminParticipants(
-        competitionId
-      );
-    }
-  }
-
-
-  /* =========================
-     REJECT COMPETITION REGISTRATION
-  ========================= */
-
-  async function rejectCompetitionRegistration(
-    registrationId
-  ) {
-
-    if (!isAdmin) {
-      return;
-    }
-
-
-    const confirmed =
-      confirm(
-        "Reject this participation request?"
-      );
-
-
-    if (!confirmed) {
-      return;
-    }
-
-
-    const {
-      error
-    } = await supabaseClient
-      .from("competition_registrations")
-      .update({
-
-        status:
-          "rejected"
-
-      })
-      .eq(
-        "id",
-        registrationId
-      );
-
-
-    if (error) {
-
-      console.error(error);
-
-      alert(
-        "Could not reject registration: " +
-        error.message
-      );
-
-      return;
-    }
-
-
-    const competitionId =
-      await getCompetitionIdForRegistration(
-        registrationId
-      );
-
-
-    if (competitionId) {
-
-      await loadAdminParticipants(
-        competitionId
-      );
-    }
-  }
-
-
-  async function getCompetitionIdForRegistration(
-    registrationId
-  ) {
-
-    const {
-      data,
-      error
-    } = await supabaseClient
-      .from("competition_registrations")
-      .select(
-        "competition_id"
-      )
-      .eq(
-        "id",
-        registrationId
-      )
-      .maybeSingle();
-
-
-    if (error) {
-
-      console.error(error);
-
-      return null;
-    }
-
-
-    return data?.competition_id ||
-      null;
-  }
-
-
-  /* =========================
-     ADMIN SAVE PARTICIPANT
-  ========================= */
-
-  async function saveAdminParticipant(
-    registrationId,
-    competitionId
-  ) {
-
-    if (!isAdmin) {
-      return;
-    }
-
-
-    const message =
-      document.getElementById(
-        "adminParticipantMessage-" +
-        registrationId
-      );
-
-
-    const weightValue =
-      document
-        .getElementById(
-          "adminWeight-" +
-          registrationId
-        )
-        .value
-        .trim();
-
-
-    const division =
-      document
-        .getElementById(
-          "adminDivision-" +
-          registrationId
-        )
-        .value
-        .trim();
-
-
-    const ageCategory =
-      document
-        .getElementById(
-          "adminAge-" +
-          registrationId
-        )
-        .value
-        .trim();
-
-
-    const belt =
-      document
-        .getElementById(
-          "adminBelt-" +
-          registrationId
-        )
-        .value
-        .trim();
-
-
-    const experience =
-      document
-        .getElementById(
-          "adminExperience-" +
-          registrationId
-        )
-        .value
-        .trim();
-
-
-    const resultValue =
-      document
-        .getElementById(
-          "adminResult-" +
-          registrationId
-        )
-        .value
-        .trim();
-
-
-    const fightsValue =
-      document
-        .getElementById(
-          "adminFights-" +
-          registrationId
-        )
-        .value
-        .trim();
-
-
-    const winsValue =
-      document
-        .getElementById(
-          "adminWins-" +
-          registrationId
-        )
-        .value
-        .trim();
-
-
-    const notes =
-      document
-        .getElementById(
-          "adminNotes-" +
-          registrationId
-        )
-        .value
-        .trim();
-
-
-    const weight =
-      weightValue === ""
-        ? null
-        : Number(weightValue);
-
-
-    const resultPlace =
-      resultValue === ""
-        ? null
-        : Number(resultValue);
-
-
-    const fightsCount =
-      fightsValue === ""
-        ? null
-        : Number(fightsValue);
-
-
-    const winsCount =
-      winsValue === ""
-        ? null
-        : Number(winsValue);
-
-
-    if (
-      weight !== null &&
-      (
-        Number.isNaN(weight) ||
-        weight < 0
-      )
-    ) {
-
-      message.textContent =
-        "Invalid weight.";
-
-      message.className =
-        "message error";
-
-      return;
-    }
-
-
-    if (
-      resultPlace !== null &&
-      (
-        Number.isNaN(resultPlace) ||
-        resultPlace < 1
-      )
-    ) {
-
-      message.textContent =
-        "Result place must be 1 or higher.";
-
-      message.className =
-        "message error";
-
-      return;
-    }
-
-
-    if (
-      fightsCount !== null &&
-      (
-        Number.isNaN(fightsCount) ||
-        fightsCount < 0
-      )
-    ) {
-
-      message.textContent =
-        "Fights count cannot be negative.";
-
-      message.className =
-        "message error";
-
-      return;
-    }
-
-
-    if (
-      winsCount !== null &&
-      (
-        Number.isNaN(winsCount) ||
-        winsCount < 0
-      )
-    ) {
-
-      message.textContent =
-        "Wins count cannot be negative.";
-
-      message.className =
-        "message error";
-
-      return;
-    }
-
-
-    message.textContent =
-      "Saving...";
-
-    message.className =
-      "message";
-
-
-    const {
-      error
-    } = await supabaseClient
-      .from("competition_registrations")
-      .update({
-
-        weight:
-          weight,
-
-        division:
-          division || null,
-
-        age_category:
-          ageCategory || null,
-
-        belt:
-          belt || null,
-
-        experience:
-          experience || null,
-
-        result_place:
-          resultPlace,
-
-        fights_count:
-          fightsCount,
-
-        wins_count:
-          winsCount,
-
-        notes:
-          notes || null
-
-      })
-      .eq(
-        "id",
-        registrationId
-      );
-
-
-    if (error) {
-
-      console.error(error);
-
-      message.textContent =
-        "Could not save participant: " +
-        error.message;
-
-      message.className =
-        "message error";
-
-      return;
-    }
-
-
-    message.textContent =
-      "Participant saved successfully.";
-
-    message.className =
-      "message success-text";
-
-
-    await loadAdminParticipants(
+const title =
+  document
+    .getElementById(
+      "editCompetitionTitle-" +
       competitionId
-    );
-  }
+    )
+    .value
+    .trim();
 
 
-  /* =========================
-     APPROVE PAYMENT
-  ========================= */
+const date =
+  document
+    .getElementById(
+      "editCompetitionDate-" +
+      competitionId
+    )
+    .value;
 
-  async function approvePayment(
-    paymentId,
+
+const location =
+  document
+    .getElementById(
+      "editCompetitionLocation-" +
+      competitionId
+    )
+    .value
+    .trim();
+
+
+const description =
+  document
+    .getElementById(
+      "editCompetitionDescription-" +
+      competitionId
+    )
+    .value
+    .trim();
+
+
+if (!title || !date) {
+
+  message.textContent =
+    "Title and date are required.";
+
+  message.className =
+    "message error";
+
+  return;
+}
+
+
+message.textContent =
+  "Saving...";
+
+message.className =
+  "message";
+
+
+const {
+  error
+} = await supabaseClient
+  .from("competitions")
+  .update({
+
+    title:
+      title,
+
+    date:
+      date,
+
+    location:
+      location || null,
+
+    description:
+      description || null
+
+  })
+  .eq(
+    "id",
+    competitionId
+  );
+
+
+if (error) {
+
+  console.error(error);
+
+  message.textContent =
+    "Could not save competition: " +
+    error.message;
+
+  message.className =
+    "message error";
+
+  return;
+}
+
+
+message.textContent =
+  "Competition saved successfully.";
+
+message.className =
+  "message success-text";
+
+
+await loadAdminPanel();
+```
+
+}
+
+/* =========================
+DELETE COMPETITION
+========================= */
+
+async function deleteCompetition(
+competitionId
+) {
+
+```
+if (!isAdmin) {
+  return;
+}
+
+
+const confirmed =
+  confirm(
+    "Delete this competition? All participation registrations will also be deleted."
+  );
+
+
+if (!confirmed) {
+  return;
+}
+
+
+const {
+  error
+} = await supabaseClient
+  .from("competitions")
+  .delete()
+  .eq(
+    "id",
+    competitionId
+  );
+
+
+if (error) {
+
+  console.error(error);
+
+  alert(
+    "Could not delete competition: " +
+    error.message
+  );
+
+  return;
+}
+
+
+await loadAdminPanel();
+```
+
+}
+
+/* =========================
+APPROVE COMPETITION REGISTRATION
+========================= */
+
+async function approveCompetitionRegistration(
+registrationId
+) {
+
+```
+if (!isAdmin) {
+  return;
+}
+
+
+const confirmed =
+  confirm(
+    "Approve this athlete for the competition?"
+  );
+
+
+if (!confirmed) {
+  return;
+}
+
+
+const {
+  error
+} = await supabaseClient
+  .from("competition_registrations")
+  .update({
+
+    status:
+      "approved"
+
+  })
+  .eq(
+    "id",
+    registrationId
+  );
+
+
+if (error) {
+
+  console.error(error);
+
+  alert(
+    "Could not approve registration: " +
+    error.message
+  );
+
+  return;
+}
+
+
+const competitionId =
+  await getCompetitionIdForRegistration(
+    registrationId
+  );
+
+
+if (competitionId) {
+
+  await loadAdminParticipants(
+    competitionId
+  );
+}
+```
+
+}
+
+/* =========================
+REJECT COMPETITION REGISTRATION
+========================= */
+
+async function rejectCompetitionRegistration(
+registrationId
+) {
+
+```
+if (!isAdmin) {
+  return;
+}
+
+
+const confirmed =
+  confirm(
+    "Reject this participation request?"
+  );
+
+
+if (!confirmed) {
+  return;
+}
+
+
+const {
+  error
+} = await supabaseClient
+  .from("competition_registrations")
+  .update({
+
+    status:
+      "rejected"
+
+  })
+  .eq(
+    "id",
+    registrationId
+  );
+
+
+if (error) {
+
+  console.error(error);
+
+  alert(
+    "Could not reject registration: " +
+    error.message
+  );
+
+  return;
+}
+
+
+const competitionId =
+  await getCompetitionIdForRegistration(
+    registrationId
+  );
+
+
+if (competitionId) {
+
+  await loadAdminParticipants(
+    competitionId
+  );
+}
+```
+
+}
+
+async function getCompetitionIdForRegistration(
+registrationId
+) {
+
+```
+const {
+  data,
+  error
+} = await supabaseClient
+  .from("competition_registrations")
+  .select(
+    "competition_id"
+  )
+  .eq(
+    "id",
+    registrationId
+  )
+  .maybeSingle();
+
+
+if (error) {
+
+  console.error(error);
+
+  return null;
+}
+
+
+return data?.competition_id ||
+  null;
+```
+
+}
+
+/* =========================
+ADMIN SAVE PARTICIPANT
+========================= */
+
+async function saveAdminParticipant(
+registrationId,
+competitionId
+) {
+
+```
+if (!isAdmin) {
+  return;
+}
+
+
+const message =
+  document.getElementById(
+    "adminParticipantMessage-" +
+    registrationId
+  );
+
+
+const weightValue =
+  document
+    .getElementById(
+      "adminWeight-" +
+      registrationId
+    )
+    .value
+    .trim();
+
+
+const division =
+  document
+    .getElementById(
+      "adminDivision-" +
+      registrationId
+    )
+    .value
+    .trim();
+
+
+const ageCategory =
+  document
+    .getElementById(
+      "adminAge-" +
+      registrationId
+    )
+    .value
+    .trim();
+
+
+const belt =
+  document
+    .getElementById(
+      "adminBelt-" +
+      registrationId
+    )
+    .value
+    .trim();
+
+
+const experience =
+  document
+    .getElementById(
+      "adminExperience-" +
+      registrationId
+    )
+    .value
+    .trim();
+
+
+const resultValue =
+  document
+    .getElementById(
+      "adminResult-" +
+      registrationId
+    )
+    .value
+    .trim();
+
+
+const fightsValue =
+  document
+    .getElementById(
+      "adminFights-" +
+      registrationId
+    )
+    .value
+    .trim();
+
+
+const winsValue =
+  document
+    .getElementById(
+      "adminWins-" +
+      registrationId
+    )
+    .value
+    .trim();
+
+
+const notes =
+  document
+    .getElementById(
+      "adminNotes-" +
+      registrationId
+    )
+    .value
+    .trim();
+
+
+const weight =
+  weightValue === ""
+    ? null
+    : Number(weightValue);
+
+
+const resultPlace =
+  resultValue === ""
+    ? null
+    : Number(resultValue);
+
+
+const fightsCount =
+  fightsValue === ""
+    ? null
+    : Number(fightsValue);
+
+
+const winsCount =
+  winsValue === ""
+    ? null
+    : Number(winsValue);
+
+
+if (
+  weight !== null &&
+  (
+    Number.isNaN(weight) ||
+    weight < 0
+  )
+) {
+
+  message.textContent =
+    "Invalid weight.";
+
+  message.className =
+    "message error";
+
+  return;
+}
+
+
+if (
+  resultPlace !== null &&
+  (
+    Number.isNaN(resultPlace) ||
+    resultPlace < 1
+  )
+) {
+
+  message.textContent =
+    "Result place must be 1 or higher.";
+
+  message.className =
+    "message error";
+
+  return;
+}
+
+
+if (
+  fightsCount !== null &&
+  (
+    Number.isNaN(fightsCount) ||
+    fightsCount < 0
+  )
+) {
+
+  message.textContent =
+    "Fights count cannot be negative.";
+
+  message.className =
+    "message error";
+
+  return;
+}
+
+
+if (
+  winsCount !== null &&
+  (
+    Number.isNaN(winsCount) ||
+    winsCount < 0
+  )
+) {
+
+  message.textContent =
+    "Wins count cannot be negative.";
+
+  message.className =
+    "message error";
+
+  return;
+}
+
+
+message.textContent =
+  "Saving...";
+
+message.className =
+  "message";
+
+
+const {
+  error
+} = await supabaseClient
+  .from("competition_registrations")
+  .update({
+
+    weight:
+      weight,
+
+    division:
+      division || null,
+
+    age_category:
+      ageCategory || null,
+
+    belt:
+      belt || null,
+
+    experience:
+      experience || null,
+
+    result_place:
+      resultPlace,
+
+    fights_count:
+      fightsCount,
+
+    wins_count:
+      winsCount,
+
+    notes:
+      notes || null
+
+  })
+  .eq(
+    "id",
+    registrationId
+  );
+
+
+if (error) {
+
+  console.error(error);
+
+  message.textContent =
+    "Could not save participant: " +
+    error.message;
+
+  message.className =
+    "message error";
+
+  return;
+}
+
+
+message.textContent =
+  "Participant saved successfully.";
+
+message.className =
+  "message success-text";
+
+
+await loadAdminParticipants(
+  competitionId
+);
+```
+
+}
+
+/* =========================
+APPROVE PAYMENT
+========================= */
+
+async function approvePayment(
+paymentId,
+memberId
+) {
+
+```
+if (!isAdmin) {
+  return;
+}
+
+
+const confirmed =
+  confirm(
+    "Confirm this payment?"
+  );
+
+
+if (!confirmed) {
+  return;
+}
+
+
+const {
+  error: paymentError
+} = await supabaseClient
+  .from("payments")
+  .update({
+    status:
+      "approved"
+  })
+  .eq(
+    "id",
+    paymentId
+  );
+
+
+if (paymentError) {
+
+  alert(
+    "Payment could not be confirmed: " +
+    paymentError.message
+  );
+
+  console.error(
+    paymentError
+  );
+
+  return;
+}
+
+
+const {
+  data: membership,
+  error: membershipError
+} = await supabaseClient
+  .from("memberships")
+  .select("*")
+  .eq(
+    "member_id",
     memberId
-  ) {
-
-    if (!isAdmin) {
-      return;
+  )
+  .order(
+    "end_date",
+    {
+      ascending: false
     }
+  )
+  .limit(1)
+  .maybeSingle();
 
 
-    const confirmed =
-      confirm(
-        "Confirm this payment?"
-      );
+if (membershipError) {
+
+  console.error(
+    membershipError
+  );
+
+  alert(
+    "Payment was approved, but membership status could not be updated."
+  );
+
+  await loadAdminPanel();
+
+  return;
+}
 
 
-    if (!confirmed) {
-      return;
-    }
+if (membership) {
+
+  const {
+    error
+  } = await supabaseClient
+    .from("memberships")
+    .update({
+      status:
+        "active"
+    })
+    .eq(
+      "id",
+      membership.id
+    );
 
 
-    const {
-      error: paymentError
-    } = await supabaseClient
-      .from("payments")
-      .update({
-        status:
-          "approved"
-      })
-      .eq(
-        "id",
-        paymentId
-      );
+  if (error) {
 
-
-    if (paymentError) {
-
-      alert(
-        "Payment could not be confirmed: " +
-        paymentError.message
-      );
-
-      console.error(
-        paymentError
-      );
-
-      return;
-    }
-
-
-    const {
-      data: membership,
-      error: membershipError
-    } = await supabaseClient
-      .from("memberships")
-      .select("*")
-      .eq(
-        "member_id",
-        memberId
-      )
-      .order(
-        "end_date",
-        {
-          ascending: false
-        }
-      )
-      .limit(1)
-      .maybeSingle();
-
-
-    if (membershipError) {
-
-      console.error(
-        membershipError
-      );
-
-      alert(
-        "Payment was approved, but membership status could not be updated."
-      );
-
-      await loadAdminPanel();
-
-      return;
-    }
-
-
-    if (membership) {
-
-      const {
-        error
-      } = await supabaseClient
-        .from("memberships")
-        .update({
-          status:
-            "active"
-        })
-        .eq(
-          "id",
-          membership.id
-        );
-
-
-      if (error) {
-
-        console.error(error);
-
-        alert(
-          "Payment was approved, but membership could not be activated."
-        );
-
-        await loadAdminPanel();
-
-        return;
-      }
-    }
-
+    console.error(error);
 
     alert(
-      "Payment confirmed successfully."
+      "Payment was approved, but membership could not be activated."
     );
 
-
     await loadAdminPanel();
+
+    return;
   }
+}
 
 
-  /* =========================
-     REJECT PAYMENT
-  ========================= */
+alert(
+  "Payment confirmed successfully."
+);
 
-  async function rejectPayment(
+
+await loadAdminPanel();
+```
+
+}
+
+/* =========================
+REJECT PAYMENT
+========================= */
+
+async function rejectPayment(
+paymentId
+) {
+
+```
+if (!isAdmin) {
+  return;
+}
+
+
+const confirmed =
+  confirm(
+    "Reject this payment request?"
+  );
+
+
+if (!confirmed) {
+  return;
+}
+
+
+const {
+  error
+} = await supabaseClient
+  .from("payments")
+  .update({
+    status:
+      "rejected"
+  })
+  .eq(
+    "id",
     paymentId
-  ) {
-
-    if (!isAdmin) {
-      return;
-    }
+  );
 
 
-    const confirmed =
-      confirm(
-        "Reject this payment request?"
-      );
+if (error) {
+
+  alert(
+    "Could not reject payment: " +
+    error.message
+  );
+
+  console.error(error);
+
+  return;
+}
 
 
-    if (!confirmed) {
-      return;
-    }
+await loadAdminPanel();
+```
+
+}
+
+/* =========================
+HELPERS
+========================= */
+
+function formatDate(
+dateString
+) {
+
+```
+if (!dateString) {
+  return "-";
+}
 
 
-    const {
-      error
-    } = await supabaseClient
-      .from("payments")
-      .update({
-        status:
-          "rejected"
-      })
-      .eq(
-        "id",
-        paymentId
-      );
+const date =
+  new Date(dateString);
 
 
-    if (error) {
+if (
+  isNaN(
+    date.getTime()
+  )
+) {
 
-      alert(
-        "Could not reject payment: " +
-        error.message
-      );
-
-      console.error(error);
-
-      return;
-    }
+  return dateString;
+}
 
 
-    await loadAdminPanel();
+return date.toLocaleDateString(
+  "en-GB",
+  {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
   }
+);
+```
+
+}
+
+function escapeHtml(
+value
+) {
+
+```
+if (
+  value === null ||
+  value === undefined
+) {
+
+  return "";
+}
 
 
-  /* =========================
-     HELPERS
-  ========================= */
+return String(value)
+  .replaceAll(
+    "&",
+    "&amp;"
+  )
+  .replaceAll(
+    "<",
+    "&lt;"
+  )
+  .replaceAll(
+    ">",
+    "&gt;"
+  )
+  .replaceAll(
+    '"',
+    "&quot;"
+  )
+  .replaceAll(
+    "'",
+    "&#039;"
+  );
+```
 
-  function formatDate(
-    dateString
-  ) {
-
-    if (!dateString) {
-      return "-";
-    }
-
-
-    const date =
-      new Date(dateString);
-
-
-    if (
-      isNaN(
-        date.getTime()
-      )
-    ) {
-
-      return dateString;
-    }
-
-
-    return date.toLocaleDateString(
-      "en-GB",
-      {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric"
-      }
-    );
-  }
-
-
-  function escapeHtml(
-    value
-  ) {
-
-    if (
-      value === null ||
-      value === undefined
-    ) {
-
-      return "";
-    }
-
-
-    return String(value)
-      .replaceAll(
-        "&",
-        "&amp;"
-      )
-      .replaceAll(
-        "<",
-        "&lt;"
-      )
-      .replaceAll(
-        ">",
-        "&gt;"
-      )
-      .replaceAll(
-        '"',
-        "&quot;"
-      )
-      .replaceAll(
-        "'",
-        "&#039;"
-      );
-  }
+}
 
 </script>
 
