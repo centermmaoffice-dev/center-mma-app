@@ -3,9 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>CENTER MMA</title>
 
   <style>
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -17,29 +19,27 @@
       background: #111;
       color: white;
       min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
 
     .container {
       width: 100%;
-      max-width: 430px;
-      padding: 25px 20px;
+      max-width: 500px;
+      margin: 0 auto;
+      padding: 25px 20px 100px;
     }
 
     .logo {
       text-align: center;
-      font-size: 40px;
+      font-size: 38px;
       font-weight: 900;
       letter-spacing: 3px;
-      margin-bottom: 8px;
+      margin-bottom: 5px;
     }
 
     .subtitle {
       text-align: center;
       color: #999;
-      font-size: 13px;
+      font-size: 12px;
       letter-spacing: 2px;
       margin-bottom: 30px;
     }
@@ -49,23 +49,51 @@
       border: 1px solid #333;
       border-radius: 16px;
       padding: 25px 20px;
+      margin-bottom: 20px;
     }
 
     h1 {
-      text-align: center;
       font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    h2 {
+      font-size: 18px;
       margin-bottom: 20px;
+    }
+
+    .welcome {
+      color: #999;
+      font-size: 14px;
+      margin-bottom: 25px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      color: #aaa;
+      margin-bottom: 6px;
     }
 
     input {
       width: 100%;
       padding: 14px;
-      margin-bottom: 12px;
+      margin-bottom: 15px;
       border-radius: 9px;
       border: 1px solid #444;
       background: #111;
       color: white;
       font-size: 15px;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: white;
+    }
+
+    input:disabled {
+      color: #777;
+      background: #181818;
     }
 
     button {
@@ -92,11 +120,18 @@
       margin-top: 10px;
     }
 
+    .danger {
+      background: transparent;
+      color: #aaa;
+      border: 1px solid #444;
+      margin-top: 10px;
+    }
+
     .message {
       text-align: center;
-      margin-top: 15px;
       color: #aaa;
       font-size: 14px;
+      margin-top: 15px;
       line-height: 1.5;
     }
 
@@ -104,41 +139,87 @@
       display: none;
     }
 
-    .profile-box {
-      text-align: center;
-    }
-
-    .profile-box p {
-      color: #aaa;
-      margin: 15px 0 20px;
-    }
-
-    .footer {
-      text-align: center;
-      color: #555;
-      font-size: 12px;
+    .membership-card {
+      border: 1px solid #444;
+      border-radius: 14px;
+      padding: 20px;
       margin-top: 20px;
     }
+
+    .membership-number {
+      font-size: 13px;
+      color: #999;
+      margin-bottom: 5px;
+    }
+
+    .number {
+      font-size: 22px;
+      font-weight: bold;
+    }
+
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #181818;
+      border-top: 1px solid #333;
+      display: flex;
+      justify-content: center;
+      padding: 12px;
+    }
+
+    .nav-inner {
+      width: 100%;
+      max-width: 500px;
+      display: flex;
+      justify-content: space-around;
+    }
+
+    .nav-item {
+      color: #888;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .nav-item.active {
+      color: white;
+    }
+
   </style>
+
 </head>
 
 <body>
 
 <div class="container">
 
-  <div class="logo">CENTER MMA</div>
-  <div class="subtitle">VIENNA • MMA • GRAPPLING</div>
+  <div class="logo">
+    CENTER MMA
+  </div>
+
+  <div class="subtitle">
+    VIENNA • MMA • GRAPPLING
+  </div>
+
 
   <!-- LOGIN -->
+
   <div id="loginBox" class="card">
 
     <h1>Login</h1>
+
+    <br>
+
+    <label>Email</label>
 
     <input
       id="loginEmail"
       type="email"
       placeholder="Email"
     >
+
+    <label>Password</label>
 
     <input
       id="loginPassword"
@@ -150,19 +231,30 @@
       LOGIN
     </button>
 
-    <button class="secondary" onclick="showRegister()">
+    <button
+      class="secondary"
+      onclick="showRegister()"
+    >
       CREATE ACCOUNT
     </button>
 
-    <div id="loginMessage" class="message"></div>
+    <div
+      id="loginMessage"
+      class="message"
+    ></div>
 
   </div>
 
 
   <!-- REGISTRATION -->
+
   <div id="registerBox" class="card hidden">
 
     <h1>Create Account</h1>
+
+    <br>
+
+    <label>Email</label>
 
     <input
       id="registerEmail"
@@ -170,11 +262,15 @@
       placeholder="Email"
     >
 
+    <label>Password</label>
+
     <input
       id="registerPassword"
       type="password"
       placeholder="Password"
     >
+
+    <label>Confirm Password</label>
 
     <input
       id="registerPassword2"
@@ -186,34 +282,174 @@
       REGISTER
     </button>
 
-    <button class="secondary" onclick="showLogin()">
+    <button
+      class="secondary"
+      onclick="showLogin()"
+    >
       BACK TO LOGIN
     </button>
 
-    <div id="registerMessage" class="message"></div>
+    <div
+      id="registerMessage"
+      class="message"
+    ></div>
 
   </div>
 
 
-  <!-- DASHBOARD -->
-  <div id="dashboardBox" class="card hidden">
+  <!-- PROFILE -->
 
-    <div class="profile-box">
+  <div
+    id="profileBox"
+    class="hidden"
+  >
 
-      <h1>Welcome to CENTER MMA</h1>
+    <div class="card">
 
-      <p id="userEmail"></p>
+      <h1>My Profile</h1>
 
-      <button onclick="logout()">
-        LOGOUT
+      <div class="welcome">
+        Complete your CENTER MMA member profile.
+      </div>
+
+
+      <label>Email</label>
+
+      <input
+        id="profileEmail"
+        type="email"
+        disabled
+      >
+
+
+      <label>First Name</label>
+
+      <input
+        id="firstName"
+        type="text"
+        placeholder="First Name"
+      >
+
+
+      <label>Last Name</label>
+
+      <input
+        id="lastName"
+        type="text"
+        placeholder="Last Name"
+      >
+
+
+      <label>Phone</label>
+
+      <input
+        id="phone"
+        type="tel"
+        placeholder="Phone"
+      >
+
+
+      <label>Birth Date</label>
+
+      <input
+        id="birthDate"
+        type="date"
+      >
+
+
+      <label>Membership Number</label>
+
+      <input
+        id="membershipNumber"
+        type="text"
+        disabled
+        placeholder="Assigned by CENTER MMA"
+      >
+
+
+      <button onclick="saveProfile()">
+        SAVE PROFILE
       </button>
+
+
+      <div
+        id="profileMessage"
+        class="message"
+      ></div>
 
     </div>
 
+
+    <!-- MEMBER CARD -->
+
+    <div class="card">
+
+      <h2>Membership Card</h2>
+
+      <div class="membership-card">
+
+        <div class="membership-number">
+          MITGLIEDSNUMMER
+        </div>
+
+        <div
+          id="cardNumber"
+          class="number"
+        >
+          —
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <button
+      class="danger"
+      onclick="logout()"
+    >
+      LOGOUT
+    </button>
+
   </div>
 
-  <div class="footer">
-    CENTER MMA • Vienna
+</div>
+
+
+<!-- BOTTOM NAV -->
+
+<div
+  id="bottomNav"
+  class="bottom-nav hidden"
+>
+
+  <div class="nav-inner">
+
+    <div class="nav-item active">
+      🏠<br>
+      Home
+    </div>
+
+    <div class="nav-item">
+      👤<br>
+      Profile
+    </div>
+
+    <div class="nav-item">
+      🪪<br>
+      Membership
+    </div>
+
+    <div class="nav-item">
+      🥋<br>
+      Attendance
+    </div>
+
+    <div class="nav-item">
+      💳<br>
+      Payments
+    </div>
+
   </div>
 
 </div>
@@ -221,44 +457,102 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
+
 <script>
 
-  const SUPABASE_URL = "https://klzyuczbvixodgvtsimq.supabase.co";
-
-  const SUPABASE_KEY = "sb_publishable_hTRZXpcPQLvwjBpVUru1Jw_HN3Wua2E";
-
-  const supabaseClient = supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_KEY
-  );
+  const SUPABASE_URL =
+    "https://klzyuczbvixodgvtsimq.supabase.co";
 
 
-  function showRegister() {
+  /*
+    IMPORTANT:
+    Replace the value below with your
+    Supabase PUBLISHABLE KEY.
+  */
 
-    document.getElementById("loginBox").classList.add("hidden");
-    document.getElementById("registerBox").classList.remove("hidden");
+  const SUPABASE_KEY =
+    "sb_publishable_hTRZXpcPQLvwjBpVUru1Jw_HN3Wua2E";
+
+
+  const supabaseClient =
+    supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_KEY
+    );
+
+
+  let currentUser = null;
+
+
+  // -------------------------
+  // LOGIN
+  // -------------------------
+
+  async function login() {
+
+    const email =
+      document.getElementById("loginEmail")
+        .value
+        .trim();
+
+    const password =
+      document.getElementById("loginPassword")
+        .value;
+
+    const message =
+      document.getElementById("loginMessage");
+
+
+    message.textContent =
+      "Logging in...";
+
+
+    const { data, error } =
+      await supabaseClient.auth
+        .signInWithPassword({
+
+          email: email,
+
+          password: password
+
+        });
+
+
+    if (error) {
+
+      message.textContent =
+        error.message;
+
+      return;
+
+    }
+
+
+    currentUser = data.user;
+
+    await loadProfile();
 
   }
 
 
-  function showLogin() {
-
-    document.getElementById("registerBox").classList.add("hidden");
-    document.getElementById("loginBox").classList.remove("hidden");
-
-  }
-
+  // -------------------------
+  // REGISTRATION
+  // -------------------------
 
   async function register() {
 
     const email =
-      document.getElementById("registerEmail").value.trim();
+      document.getElementById("registerEmail")
+        .value
+        .trim();
 
     const password =
-      document.getElementById("registerPassword").value;
+      document.getElementById("registerPassword")
+        .value;
 
     const password2 =
-      document.getElementById("registerPassword2").value;
+      document.getElementById("registerPassword2")
+        .value;
 
     const message =
       document.getElementById("registerMessage");
@@ -294,21 +588,25 @@
     }
 
 
-    message.textContent = "Creating account...";
+    message.textContent =
+      "Creating account...";
 
 
     const { data, error } =
-      await supabaseClient.auth.signUp({
+      await supabaseClient.auth
+        .signUp({
 
-        email: email,
-        password: password
+          email: email,
 
-      });
+          password: password
+
+        });
 
 
     if (error) {
 
-      message.textContent = error.message;
+      message.textContent =
+        error.message;
 
       return;
 
@@ -321,45 +619,16 @@
   }
 
 
-  async function login() {
+  // -------------------------
+  // LOAD PROFILE
+  // -------------------------
 
-    const email =
-      document.getElementById("loginEmail").value.trim();
+  async function loadProfile() {
 
-    const password =
-      document.getElementById("loginPassword").value;
-
-    const message =
-      document.getElementById("loginMessage");
-
-
-    message.textContent = "Logging in...";
-
-
-    const { data, error } =
-      await supabaseClient.auth.signInWithPassword({
-
-        email: email,
-        password: password
-
-      });
-
-
-    if (error) {
-
-      message.textContent = error.message;
-
+    if (!currentUser) {
       return;
-
     }
 
-
-    showDashboard(data.user);
-
-  }
-
-
-  function showDashboard(user) {
 
     document.getElementById("loginBox")
       .classList.add("hidden");
@@ -367,20 +636,187 @@
     document.getElementById("registerBox")
       .classList.add("hidden");
 
-    document.getElementById("dashboardBox")
+    document.getElementById("profileBox")
       .classList.remove("hidden");
 
-    document.getElementById("userEmail")
-      .textContent = user.email;
+    document.getElementById("bottomNav")
+      .classList.remove("hidden");
+
+
+    document.getElementById("profileEmail")
+      .value =
+      currentUser.email || "";
+
+
+    const { data, error } =
+      await supabaseClient
+        .from("members")
+        .select(
+          "first_name,last_name,email,phone,birth_date,membership_number"
+        )
+        .eq(
+          "user_id",
+          currentUser.id
+        )
+        .maybeSingle();
+
+
+    if (error) {
+
+      console.error(error);
+
+      document.getElementById("profileMessage")
+        .textContent =
+        "Could not load profile.";
+
+      return;
+
+    }
+
+
+    if (!data) {
+
+      return;
+
+    }
+
+
+    document.getElementById("firstName")
+      .value =
+      data.first_name || "";
+
+
+    document.getElementById("lastName")
+      .value =
+      data.last_name || "";
+
+
+    document.getElementById("phone")
+      .value =
+      data.phone || "";
+
+
+    document.getElementById("birthDate")
+      .value =
+      data.birth_date || "";
+
+
+    document.getElementById("membershipNumber")
+      .value =
+      data.membership_number || "";
+
+
+    document.getElementById("cardNumber")
+      .textContent =
+      data.membership_number || "—";
 
   }
 
+
+  // -------------------------
+  // SAVE PROFILE
+  // -------------------------
+
+  async function saveProfile() {
+
+    if (!currentUser) {
+      return;
+    }
+
+
+    const firstName =
+      document.getElementById("firstName")
+        .value
+        .trim();
+
+    const lastName =
+      document.getElementById("lastName")
+        .value
+        .trim();
+
+    const phone =
+      document.getElementById("phone")
+        .value
+        .trim();
+
+    const birthDate =
+      document.getElementById("birthDate")
+        .value;
+
+
+    const message =
+      document.getElementById("profileMessage");
+
+
+    if (!firstName || !lastName) {
+
+      message.textContent =
+        "First Name and Last Name are required.";
+
+      return;
+
+    }
+
+
+    message.textContent =
+      "Saving...";
+
+
+    const { error } =
+      await supabaseClient
+        .from("members")
+        .update({
+
+          first_name: firstName,
+
+          last_name: lastName,
+
+          phone: phone || null,
+
+          birth_date: birthDate || null,
+
+          email: currentUser.email
+
+        })
+        .eq(
+          "user_id",
+          currentUser.id
+        );
+
+
+    if (error) {
+
+      console.error(error);
+
+      message.textContent =
+        error.message;
+
+      return;
+
+    }
+
+
+    message.textContent =
+      "Profile saved successfully.";
+
+  }
+
+
+  // -------------------------
+  // LOGOUT
+  // -------------------------
 
   async function logout() {
 
     await supabaseClient.auth.signOut();
 
-    document.getElementById("dashboardBox")
+    currentUser = null;
+
+
+    document.getElementById("profileBox")
+      .classList.add("hidden");
+
+    document.getElementById("bottomNav")
       .classList.add("hidden");
 
     document.getElementById("loginBox")
@@ -389,14 +825,53 @@
   }
 
 
+  // -------------------------
+  // SHOW REGISTER
+  // -------------------------
+
+  function showRegister() {
+
+    document.getElementById("loginBox")
+      .classList.add("hidden");
+
+    document.getElementById("registerBox")
+      .classList.remove("hidden");
+
+  }
+
+
+  // -------------------------
+  // SHOW LOGIN
+  // -------------------------
+
+  function showLogin() {
+
+    document.getElementById("registerBox")
+      .classList.add("hidden");
+
+    document.getElementById("loginBox")
+      .classList.remove("hidden");
+
+  }
+
+
+  // -------------------------
+  // CHECK EXISTING SESSION
+  // -------------------------
+
   async function checkSession() {
 
     const { data } =
-      await supabaseClient.auth.getSession();
+      await supabaseClient.auth
+        .getSession();
+
 
     if (data.session) {
 
-      showDashboard(data.session.user);
+      currentUser =
+        data.session.user;
+
+      await loadProfile();
 
     }
 
