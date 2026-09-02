@@ -1344,6 +1344,109 @@
   </div>
 
 
+  <!-- PENDING APPROVAL -->
+  <div
+    id="pendingApprovalScreen"
+    class="container hidden"
+  >
+
+    <div
+      class="card"
+      style="
+        max-width:520px;
+        margin:80px auto 0;
+        text-align:center;
+      "
+    >
+
+      <div
+        style="
+          font-size:46px;
+          margin-bottom:14px;
+        "
+      >
+        ⏳
+      </div>
+
+      <h1>
+        Registration pending
+      </h1>
+
+      <p
+        class="muted"
+        style="
+          margin-top:12px;
+          line-height:1.7;
+        "
+      >
+        Your CENTER MMA registration has been received.
+        An administrator must approve your account before
+        you can access the club app.
+      </p>
+
+      <button
+        class="secondary"
+        onclick="logout()"
+      >
+        LOGOUT
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <!-- REGISTRATION REJECTED -->
+  <div
+    id="rejectedApprovalScreen"
+    class="container hidden"
+  >
+
+    <div
+      class="card"
+      style="
+        max-width:520px;
+        margin:80px auto 0;
+        text-align:center;
+      "
+    >
+
+      <div
+        style="
+          font-size:46px;
+          margin-bottom:14px;
+        "
+      >
+        ⛔
+      </div>
+
+      <h1>
+        Registration not approved
+      </h1>
+
+      <p
+        class="muted"
+        style="
+          margin-top:12px;
+          line-height:1.7;
+        "
+      >
+        Your registration has not been approved.
+        Please contact CENTER MMA if you think this is a mistake.
+      </p>
+
+      <button
+        class="secondary"
+        onclick="logout()"
+      >
+        LOGOUT
+      </button>
+
+    </div>
+
+  </div>
+
+
   <!-- APP -->
   <div id="appScreen" class="hidden">
 
@@ -2529,6 +2632,30 @@
     currentMember =
       member;
 
+    const approvalStatus =
+      member.approval_status ||
+      "approved";
+
+    if (
+      approvalStatus ===
+      "pending"
+    ) {
+
+      showPendingApproval();
+
+      return;
+    }
+
+    if (
+      approvalStatus ===
+      "rejected"
+    ) {
+
+      showRejectedApproval();
+
+      return;
+    }
+
     if (
       member.is_active === false
     ) {
@@ -2663,6 +2790,14 @@
       .classList.add("hidden");
 
     document
+      .getElementById("pendingApprovalScreen")
+      ?.classList.add("hidden");
+
+    document
+      .getElementById("rejectedApprovalScreen")
+      ?.classList.add("hidden");
+
+    document
       .getElementById("bottomNav")
       .classList.add("hidden");
 
@@ -2697,6 +2832,46 @@
   /* =========================
      SHOW APP
   ========================= */
+
+  function showPendingApproval() {
+
+    document
+      .getElementById("authScreen")
+      .classList.add("hidden");
+
+    document
+      .getElementById("appScreen")
+      .classList.add("hidden");
+
+    document
+      .getElementById("rejectedApprovalScreen")
+      ?.classList.add("hidden");
+
+    document
+      .getElementById("pendingApprovalScreen")
+      ?.classList.remove("hidden");
+  }
+
+
+  function showRejectedApproval() {
+
+    document
+      .getElementById("authScreen")
+      .classList.add("hidden");
+
+    document
+      .getElementById("appScreen")
+      .classList.add("hidden");
+
+    document
+      .getElementById("pendingApprovalScreen")
+      ?.classList.add("hidden");
+
+    document
+      .getElementById("rejectedApprovalScreen")
+      ?.classList.remove("hidden");
+  }
+
 
   function showApp() {
 
@@ -11214,6 +11389,7 @@
         membership_number,
         role,
         is_active,
+        approval_status,
         created_at
       `)
       .order(
@@ -11400,6 +11576,24 @@
                         : "ACCOUNT ACTIVE"
                     }
                   </span>
+
+                  <span
+                    class="status ${
+                      member.approval_status === "pending"
+                        ? "pending"
+                        : member.approval_status === "rejected"
+                          ? "inactive"
+                          : "active"
+                    }"
+                  >
+                    ${
+                      member.approval_status === "pending"
+                        ? "PENDING APPROVAL"
+                        : member.approval_status === "rejected"
+                          ? "REGISTRATION REJECTED"
+                          : "REGISTRATION APPROVED"
+                    }
+                  </span>
                 </div>
 
                 <div class="admin-edit-box">
@@ -11486,6 +11680,44 @@
                   >
                     SAVE PROFILE
                   </button>
+
+                  ${
+                    member.approval_status === "pending"
+                      ? `
+                        <button
+                          class="success"
+                          onclick="setMemberApproval(
+                            '${member.id}',
+                            'approved'
+                          )"
+                        >
+                          APPROVE MEMBER
+                        </button>
+
+                        <button
+                          class="danger"
+                          onclick="setMemberApproval(
+                            '${member.id}',
+                            'rejected'
+                          )"
+                        >
+                          REJECT REGISTRATION
+                        </button>
+                      `
+                      : member.approval_status === "rejected"
+                        ? `
+                          <button
+                            class="success"
+                            onclick="setMemberApproval(
+                              '${member.id}',
+                              'approved'
+                            )"
+                          >
+                            APPROVE MEMBER
+                          </button>
+                        `
+                        : ""
+                  }
 
                   ${
                     member.is_active === false
@@ -11780,6 +12012,69 @@
     await loadAdminPanel();
   }
 
+
+
+  async function setMemberApproval(
+    memberId,
+    approvalStatus
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    if (
+      ![
+        "approved",
+        "rejected"
+      ].includes(
+        approvalStatus
+      )
+    ) {
+      return;
+    }
+
+    const confirmed =
+      confirm(
+        approvalStatus ===
+          "approved"
+          ? "Approve this member registration?"
+          : "Reject this member registration?"
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const {
+      error
+    } = await supabaseClient
+      .rpc(
+        "admin_set_member_approval",
+        {
+          target_member_id:
+            memberId,
+          new_status:
+            approvalStatus
+        }
+      );
+
+    if (error) {
+
+      console.error(error);
+
+      alert(
+        "Could not update registration approval: " +
+        error.message
+      );
+
+      return;
+    }
+
+    await renderAdminSection(
+      "members"
+    );
+  }
 
 
   async function setMemberActive(
