@@ -8008,6 +8008,20 @@
 
         <div
           class="feature"
+          onclick="openAdminSection('notifications')"
+        >
+          <div class="feature-icon">🔔</div>
+          <div class="feature-title">
+            Notifications
+          </div>
+          <div class="feature-text">
+            Send to all or a group
+          </div>
+        </div>
+
+
+        <div
+          class="feature"
           onclick="openAdminSection('birthdays')"
         >
           <div class="feature-icon">🎂</div>
@@ -8085,6 +8099,8 @@
         "Members",
       groups:
         "Groups",
+      notifications:
+        "Notifications",
       birthdays:
         "Birthdays"
     };
@@ -8183,6 +8199,14 @@
     ) {
 
       await loadAdminGroups(
+        content
+      );
+
+    } else if (
+      section === "notifications"
+    ) {
+
+      await loadAdminNotifications(
         content
       );
 
@@ -9069,6 +9093,423 @@
     await loadAdminPanel();
 
     await loadDocuments();
+  }
+
+
+
+  /* =========================
+     ADMIN NOTIFICATIONS
+  ========================= */
+
+  async function loadAdminNotifications(
+    element
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const {
+      data: groups,
+      error
+    } = await supabaseClient
+      .from("groups")
+      .select("id, name")
+      .order(
+        "name",
+        {
+          ascending: true
+        }
+      );
+
+    if (error) {
+
+      console.error(error);
+
+      element.innerHTML += `
+        <div class="card">
+          <div class="message error">
+            Could not load groups:
+            ${escapeHtml(error.message)}
+          </div>
+        </div>
+      `;
+
+      return;
+    }
+
+    element.innerHTML += `
+
+      <div class="card">
+
+        <h3>
+          Send Notification
+        </h3>
+
+        <p class="muted small">
+          Send a notification to all members or only one group.
+        </p>
+
+        <label>
+          Recipient
+        </label>
+
+        <select
+          id="adminNotificationRecipient"
+          style="
+            width:100%;
+            background:#0d0d0d;
+            border:1px solid #333;
+            border-radius:9px;
+            color:white;
+            padding:13px;
+            font-size:15px;
+          "
+        >
+
+          <option value="all">
+            All Members
+          </option>
+
+          ${
+            (groups || [])
+              .map(
+                group => `
+                  <option value="group:${group.id}">
+                    ${escapeHtml(group.name)}
+                  </option>
+                `
+              )
+              .join("")
+          }
+
+        </select>
+
+
+        <label>
+          Title
+        </label>
+
+        <input
+          id="adminNotificationTitle"
+          type="text"
+          placeholder="e.g. Training Update"
+        >
+
+
+        <label>
+          Message
+        </label>
+
+        <textarea
+          id="adminNotificationMessage"
+          placeholder="Write notification..."
+        ></textarea>
+
+
+        <label>
+          Open section
+        </label>
+
+        <select
+          id="adminNotificationLink"
+          style="
+            width:100%;
+            background:#0d0d0d;
+            border:1px solid #333;
+            border-radius:9px;
+            color:white;
+            padding:13px;
+            font-size:15px;
+          "
+        >
+          <option value="">
+            No link
+          </option>
+
+          <option value="home">
+            Home
+          </option>
+
+          <option value="calendar">
+            Calendar
+          </option>
+
+          <option value="events">
+            Events
+          </option>
+
+          <option value="news">
+            News
+          </option>
+
+          <option value="documents">
+            Documents
+          </option>
+
+          <option value="membership">
+            Membership
+          </option>
+
+          <option value="chat">
+            Chat
+          </option>
+        </select>
+
+
+        <button
+          onclick="sendAdminNotification()"
+        >
+          SEND NOTIFICATION
+        </button>
+
+        <div
+          id="adminNotificationMessageBox"
+          class="message"
+        ></div>
+
+      </div>
+
+    `;
+  }
+
+
+  async function sendAdminNotification() {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const status =
+      document.getElementById(
+        "adminNotificationMessageBox"
+      );
+
+    const recipient =
+      document
+        .getElementById(
+          "adminNotificationRecipient"
+        )
+        .value;
+
+    const title =
+      document
+        .getElementById(
+          "adminNotificationTitle"
+        )
+        .value
+        .trim();
+
+    const message =
+      document
+        .getElementById(
+          "adminNotificationMessage"
+        )
+        .value
+        .trim();
+
+    const linkSection =
+      document
+        .getElementById(
+          "adminNotificationLink"
+        )
+        .value ||
+      null;
+
+    if (!title || !message) {
+
+      status.textContent =
+        "Title and message are required.";
+
+      status.className =
+        "message error";
+
+      return;
+    }
+
+    status.textContent =
+      "Sending notification...";
+
+    status.className =
+      "message";
+
+    let userIds = [];
+
+    if (recipient === "all") {
+
+      const {
+        data: members,
+        error
+      } = await supabaseClient
+        .from("members")
+        .select("user_id, is_active")
+        .not(
+          "user_id",
+          "is",
+          null
+        );
+
+      if (error) {
+
+        console.error(error);
+
+        status.textContent =
+          "Could not load members: " +
+          error.message;
+
+        status.className =
+          "message error";
+
+        return;
+      }
+
+      userIds =
+        (members || [])
+          .filter(
+            member =>
+              member.is_active !== false &&
+              member.user_id
+          )
+          .map(
+            member =>
+              member.user_id
+          );
+
+    } else if (
+      recipient.startsWith(
+        "group:"
+      )
+    ) {
+
+      const groupId =
+        recipient.slice(
+          "group:".length
+        );
+
+      const {
+        data: groupMembers,
+        error
+      } = await supabaseClient
+        .from("group_members")
+        .select(`
+          member_id,
+          members (
+            user_id,
+            is_active
+          )
+        `)
+        .eq(
+          "group_id",
+          groupId
+        );
+
+      if (error) {
+
+        console.error(error);
+
+        status.textContent =
+          "Could not load group members: " +
+          error.message;
+
+        status.className =
+          "message error";
+
+        return;
+      }
+
+      userIds =
+        (groupMembers || [])
+          .map(
+            item =>
+              item.members
+          )
+          .filter(
+            member =>
+              member &&
+              member.is_active !== false &&
+              member.user_id
+          )
+          .map(
+            member =>
+              member.user_id
+          );
+    }
+
+    userIds =
+      [...new Set(
+        userIds.filter(Boolean)
+      )];
+
+    if (userIds.length === 0) {
+
+      status.textContent =
+        "No active recipients found.";
+
+      status.className =
+        "message error";
+
+      return;
+    }
+
+    const rows =
+      userIds.map(
+        userId => ({
+          user_id:
+            userId,
+          title:
+            title,
+          message:
+            message,
+          type:
+            "info",
+          link_section:
+            linkSection,
+          created_by:
+            currentUser.id
+        })
+      );
+
+    const {
+      error
+    } = await supabaseClient
+      .from("notifications")
+      .insert(rows);
+
+    if (error) {
+
+      console.error(error);
+
+      status.textContent =
+        "Could not send notification: " +
+        error.message;
+
+      status.className =
+        "message error";
+
+      return;
+    }
+
+    status.textContent =
+      `Notification sent to ${userIds.length} recipient${
+        userIds.length === 1
+          ? ""
+          : "s"
+      }.`;
+
+    status.className =
+      "message success-text";
+
+    document
+      .getElementById(
+        "adminNotificationTitle"
+      )
+      .value = "";
+
+    document
+      .getElementById(
+        "adminNotificationMessage"
+      )
+      .value = "";
   }
 
 
