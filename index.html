@@ -3184,7 +3184,7 @@ ${
             session.location
               ? `
                 <div class="muted small" style="margin-top:6px;">
-                  📍 ${escapeHtml(session.location)}
+                  📍 ${escapeHtml(session.location)}${session.district ? " — " + escapeHtml(session.district) : ""}
                 </div>
               `
               : ""
