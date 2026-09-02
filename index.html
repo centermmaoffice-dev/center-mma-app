@@ -1227,6 +1227,21 @@
         <label>Membership number</label>
         <input id="profileMembershipNumber" disabled>
 
+        <label>Groups</label>
+        <div
+          id="profileGroups"
+          class="message"
+          style="
+            margin-top:0;
+            padding:12px;
+            background:#0d0d0d;
+            border:1px solid #333;
+            border-radius:9px;
+          "
+        >
+          Loading groups...
+        </div>
+
         <button onclick="saveProfile()">SAVE PROFILE</button>
 
         <div id="profileMessage" class="message"></div>
@@ -3569,7 +3584,86 @@
 
     await loadProfilePhoto();
 
+    await loadProfileGroups();
+
     await loadCompetitionRecord();
+  }
+
+
+
+  async function loadProfileGroups() {
+
+    const element =
+      document.getElementById(
+        "profileGroups"
+      );
+
+    if (
+      !element ||
+      !currentMember
+    ) {
+      return;
+    }
+
+    element.textContent =
+      "Loading groups...";
+
+    const {
+      data,
+      error
+    } = await supabaseClient
+      .from("group_members")
+      .select(`
+        group_id,
+        groups (
+          id,
+          name
+        )
+      `)
+      .eq(
+        "member_id",
+        currentMember.id
+      );
+
+    if (error) {
+
+      console.error(error);
+
+      element.textContent =
+        "Could not load groups.";
+
+      return;
+    }
+
+    const groups =
+      (data || [])
+        .map(item => item.groups)
+        .filter(Boolean);
+
+    if (groups.length === 0) {
+
+      element.textContent =
+        "No group assigned.";
+
+      return;
+    }
+
+    element.innerHTML =
+      groups
+        .map(
+          group => `
+            <span
+              class="admin-badge"
+              style="
+                display:inline-block;
+                margin:2px 4px 2px 0;
+              "
+            >
+              ${escapeHtml(group.name)}
+            </span>
+          `
+        )
+        .join("");
   }
 
 
@@ -6886,6 +6980,10 @@
       element
     );
 
+    await loadAdminGroups(
+      element
+    );
+
     await loadAdminMembers(
       element
     );
@@ -7225,6 +7323,727 @@
     }
   }
 
+
+
+
+  /* =========================
+     ADMIN GROUPS
+  ========================= */
+
+  async function loadAdminGroups(
+    element
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const [
+      groupsResult,
+      membersResult,
+      membershipsResult
+    ] = await Promise.all([
+
+      supabaseClient
+        .from("groups")
+        .select("*")
+        .order("name", {
+          ascending: true
+        }),
+
+      supabaseClient
+        .from("members")
+        .select(`
+          id,
+          first_name,
+          last_name,
+          email,
+          role
+        `)
+        .order("last_name", {
+          ascending: true
+        }),
+
+      supabaseClient
+        .from("group_members")
+        .select(`
+          group_id,
+          member_id
+        `)
+    ]);
+
+    if (groupsResult.error) {
+
+      console.error(
+        groupsResult.error
+      );
+
+      element.innerHTML += `
+        <div class="card">
+          <div class="message error">
+            Could not load groups:
+            ${escapeHtml(
+              groupsResult.error.message
+            )}
+          </div>
+        </div>
+      `;
+
+      return;
+    }
+
+    if (membersResult.error) {
+
+      console.error(
+        membersResult.error
+      );
+
+      element.innerHTML += `
+        <div class="card">
+          <div class="message error">
+            Could not load members for groups:
+            ${escapeHtml(
+              membersResult.error.message
+            )}
+          </div>
+        </div>
+      `;
+
+      return;
+    }
+
+    if (membershipsResult.error) {
+
+      console.error(
+        membershipsResult.error
+      );
+    }
+
+    const groups =
+      groupsResult.data || [];
+
+    const members =
+      (membersResult.data || [])
+        .filter(
+          member =>
+            member.role !== "admin"
+        );
+
+    const memberships =
+      membershipsResult.data || [];
+
+    element.innerHTML += `
+
+      <div class="card">
+
+        <h3>
+          Groups
+        </h3>
+
+        <p class="muted small">
+          Create groups and assign athletes.
+        </p>
+
+      </div>
+
+
+      <div class="card">
+
+        <h3>
+          Create group
+        </h3>
+
+        <label>
+          Group name
+        </label>
+
+        <input
+          id="adminGroupName"
+          type="text"
+          placeholder="e.g. MMA Adults"
+        >
+
+        <label>
+          Description
+        </label>
+
+        <textarea
+          id="adminGroupDescription"
+          placeholder="Optional group description..."
+        ></textarea>
+
+        <button
+          onclick="createGroup()"
+        >
+          CREATE GROUP
+        </button>
+
+        <div
+          id="adminGroupCreateMessage"
+          class="message"
+        ></div>
+
+      </div>
+
+
+      <div id="adminGroupsList"></div>
+
+    `;
+
+    const list =
+      document.getElementById(
+        "adminGroupsList"
+      );
+
+    if (!list) {
+      return;
+    }
+
+    if (groups.length === 0) {
+
+      list.innerHTML = `
+        <div class="card">
+          <div class="empty">
+            No groups created yet.
+          </div>
+        </div>
+      `;
+
+      return;
+    }
+
+    list.innerHTML =
+      groups.map(
+        function (group) {
+
+          const assignedIds =
+            memberships
+              .filter(
+                item =>
+                  item.group_id ===
+                  group.id
+              )
+              .map(
+                item =>
+                  item.member_id
+              );
+
+          return `
+            <div class="competition-admin-card">
+
+              <div
+                style="
+                  font-size:18px;
+                  font-weight:800;
+                  margin-bottom:5px;
+                "
+              >
+                ${escapeHtml(group.name)}
+              </div>
+
+              ${
+                group.description
+                  ? `
+                    <div
+                      class="muted small"
+                      style="
+                        margin-bottom:10px;
+                        line-height:1.5;
+                      "
+                    >
+                      ${escapeHtml(
+                        group.description
+                      )}
+                    </div>
+                  `
+                  : ""
+              }
+
+              <div
+                class="muted small"
+                style="margin-bottom:12px;"
+              >
+                ${assignedIds.length}
+                ${
+                  assignedIds.length === 1
+                    ? "athlete"
+                    : "athletes"
+                }
+              </div>
+
+              <div class="admin-edit-box">
+
+                <label>
+                  Group name
+                </label>
+
+                <input
+                  id="editGroupName-${group.id}"
+                  value="${escapeHtml(
+                    group.name || ""
+                  )}"
+                >
+
+                <label>
+                  Description
+                </label>
+
+                <textarea
+                  id="editGroupDescription-${group.id}"
+                >${escapeHtml(
+                  group.description || ""
+                )}</textarea>
+
+                <button
+                  onclick="saveGroup(
+                    '${group.id}'
+                  )"
+                >
+                  SAVE GROUP
+                </button>
+
+                <button
+                  class="danger"
+                  onclick="deleteGroup(
+                    '${group.id}'
+                  )"
+                >
+                  DELETE GROUP
+                </button>
+
+                <div
+                  id="editGroupMessage-${group.id}"
+                  class="message"
+                ></div>
+
+              </div>
+
+              <div
+                class="admin-edit-box"
+                style="margin-top:18px;"
+              >
+
+                <h3>
+                  Athletes
+                </h3>
+
+                ${
+                  members.length === 0
+                    ? `
+                      <div class="empty">
+                        No athletes found.
+                      </div>
+                    `
+                    : members
+                        .map(
+                          function (member) {
+
+                            const memberName =
+                              [
+                                member.first_name,
+                                member.last_name
+                              ]
+                                .filter(Boolean)
+                                .join(" ")
+                                .trim() ||
+                              member.email ||
+                              "Member";
+
+                            const checked =
+                              assignedIds.includes(
+                                member.id
+                              );
+
+                            return `
+                              <label
+                                style="
+                                  display:flex;
+                                  align-items:center;
+                                  gap:10px;
+                                  padding:9px 0;
+                                  margin:0;
+                                  border-bottom:1px solid #252525;
+                                  cursor:pointer;
+                                "
+                              >
+                                <input
+                                  type="checkbox"
+                                  id="groupMember-${group.id}-${member.id}"
+                                  ${checked ? "checked" : ""}
+                                  style="
+                                    width:auto;
+                                    margin:0;
+                                  "
+                                >
+
+                                <span>
+                                  ${escapeHtml(
+                                    memberName
+                                  )}
+                                </span>
+                              </label>
+                            `;
+                          }
+                        )
+                        .join("")
+                }
+
+                <button
+                  onclick="saveGroupMembers(
+                    '${group.id}'
+                  )"
+                >
+                  SAVE ATHLETES
+                </button>
+
+                <div
+                  id="groupMembersMessage-${group.id}"
+                  class="message"
+                ></div>
+
+              </div>
+
+            </div>
+          `;
+        }
+      ).join("");
+  }
+
+
+  async function createGroup() {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const message =
+      document.getElementById(
+        "adminGroupCreateMessage"
+      );
+
+    const name =
+      document
+        .getElementById(
+          "adminGroupName"
+        )
+        .value
+        .trim();
+
+    const description =
+      document
+        .getElementById(
+          "adminGroupDescription"
+        )
+        .value
+        .trim();
+
+    if (!name) {
+
+      message.textContent =
+        "Group name is required.";
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+    message.textContent =
+      "Creating group...";
+
+    message.className =
+      "message";
+
+    const {
+      error
+    } = await supabaseClient
+      .from("groups")
+      .insert({
+        name:
+          name,
+        description:
+          description || null,
+        created_by:
+          currentUser.id
+      });
+
+    if (error) {
+
+      console.error(error);
+
+      message.textContent =
+        "Could not create group: " +
+        error.message;
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+    await loadAdminPanel();
+  }
+
+
+  async function saveGroup(
+    groupId
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const message =
+      document.getElementById(
+        "editGroupMessage-" +
+        groupId
+      );
+
+    const name =
+      document
+        .getElementById(
+          "editGroupName-" +
+          groupId
+        )
+        .value
+        .trim();
+
+    const description =
+      document
+        .getElementById(
+          "editGroupDescription-" +
+          groupId
+        )
+        .value
+        .trim();
+
+    if (!name) {
+
+      message.textContent =
+        "Group name is required.";
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+    const {
+      error
+    } = await supabaseClient
+      .from("groups")
+      .update({
+        name:
+          name,
+        description:
+          description || null
+      })
+      .eq(
+        "id",
+        groupId
+      );
+
+    if (error) {
+
+      console.error(error);
+
+      message.textContent =
+        "Could not save group: " +
+        error.message;
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+    await loadAdminPanel();
+  }
+
+
+  async function deleteGroup(
+    groupId
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const confirmed =
+      confirm(
+        "Delete this group?"
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const {
+      error
+    } = await supabaseClient
+      .from("groups")
+      .delete()
+      .eq(
+        "id",
+        groupId
+      );
+
+    if (error) {
+
+      console.error(error);
+
+      alert(
+        "Could not delete group: " +
+        error.message
+      );
+
+      return;
+    }
+
+    await loadAdminPanel();
+  }
+
+
+  async function saveGroupMembers(
+    groupId
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const message =
+      document.getElementById(
+        "groupMembersMessage-" +
+        groupId
+      );
+
+    message.textContent =
+      "Saving athletes...";
+
+    message.className =
+      "message";
+
+    const {
+      data: members,
+      error: membersError
+    } = await supabaseClient
+      .from("members")
+      .select(`
+        id,
+        role
+      `);
+
+    if (membersError) {
+
+      console.error(
+        membersError
+      );
+
+      message.textContent =
+        "Could not load members.";
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+    const athleteMembers =
+      (members || [])
+        .filter(
+          member =>
+            member.role !== "admin"
+        );
+
+    const selectedIds =
+      athleteMembers
+        .filter(
+          member => {
+
+            const checkbox =
+              document.getElementById(
+                `groupMember-${groupId}-${member.id}`
+              );
+
+            return checkbox &&
+              checkbox.checked;
+          }
+        )
+        .map(
+          member =>
+            member.id
+        );
+
+    const {
+      error: deleteError
+    } = await supabaseClient
+      .from("group_members")
+      .delete()
+      .eq(
+        "group_id",
+        groupId
+      );
+
+    if (deleteError) {
+
+      console.error(
+        deleteError
+      );
+
+      message.textContent =
+        "Could not update group athletes: " +
+        deleteError.message;
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+    if (selectedIds.length > 0) {
+
+      const rows =
+        selectedIds.map(
+          memberId => ({
+            group_id:
+              groupId,
+            member_id:
+              memberId
+          })
+        );
+
+      const {
+        error: insertError
+      } = await supabaseClient
+        .from("group_members")
+        .insert(rows);
+
+      if (insertError) {
+
+        console.error(
+          insertError
+        );
+
+        message.textContent =
+          "Could not save group athletes: " +
+          insertError.message;
+
+        message.className =
+          "message error";
+
+        return;
+      }
+    }
+
+    message.textContent =
+      "Group athletes saved.";
+
+    message.className =
+      "message success-text";
+
+    await loadAdminPanel();
+  }
 
 
   /* =========================
@@ -8821,24 +9640,44 @@
       return;
     }
 
-    const {
-      data: sessions,
-      error
-    } = await supabaseClient
-      .from("training_sessions")
-      .select("*")
-      .order(
-        "training_date",
-        {
+    const [
+      sessionsResult,
+      groupsResult
+    ] = await Promise.all([
+
+      supabaseClient
+        .from("training_sessions")
+        .select("*")
+        .order(
+          "training_date",
+          {
+            ascending: true
+          }
+        )
+        .order(
+          "start_time",
+          {
+            ascending: true
+          }
+        ),
+
+      supabaseClient
+        .from("groups")
+        .select("*")
+        .order("name", {
           ascending: true
-        }
-      )
-      .order(
-        "start_time",
-        {
-          ascending: true
-        }
-      );
+        })
+
+    ]);
+
+    const sessions =
+      sessionsResult.data || [];
+
+    const error =
+      sessionsResult.error;
+
+    const groups =
+      groupsResult.data || [];
 
     if (error) {
 
@@ -8942,6 +9781,37 @@
           type="text"
           placeholder="e.g. 1150 Wien"
         >
+
+        <label>
+          Group
+        </label>
+
+        <select
+          id="adminTrainingGroup"
+          style="
+            width:100%;
+            background:#0d0d0d;
+            border:1px solid #333;
+            border-radius:9px;
+            color:white;
+            padding:13px;
+            font-size:15px;
+          "
+        >
+          <option value="">
+            All / No specific group
+          </option>
+
+          ${
+            groups.map(
+              group => `
+                <option value="${group.id}">
+                  ${escapeHtml(group.name)}
+                </option>
+              `
+            ).join("")
+          }
+        </select>
 
         <label>
           Description
@@ -9101,6 +9971,37 @@
                   value="${escapeHtml(session.district || "")}"
                 >
 
+                <label>Group</label>
+                <select
+                  id="editTrainingGroup-${session.id}"
+                  style="
+                    width:100%;
+                    background:#0d0d0d;
+                    border:1px solid #333;
+                    border-radius:9px;
+                    color:white;
+                    padding:13px;
+                    font-size:15px;
+                  "
+                >
+                  <option value="">
+                    All / No specific group
+                  </option>
+
+                  ${
+                    groups.map(
+                      group => `
+                        <option
+                          value="${group.id}"
+                          ${session.group_id === group.id ? "selected" : ""}
+                        >
+                          ${escapeHtml(group.name)}
+                        </option>
+                      `
+                    ).join("")
+                  }
+                </select>
+
                 <label>Description</label>
                 <textarea
                   id="editTrainingDescription-${session.id}"
@@ -9201,6 +10102,14 @@
         .value
         .trim();
 
+    const groupId =
+      document
+        .getElementById(
+          "adminTrainingGroup"
+        )
+        .value ||
+      null;
+
     const description =
       document
         .getElementById(
@@ -9261,6 +10170,8 @@
           location || null,
         district:
           district || null,
+        group_id:
+          groupId,
         description:
           description || null,
         created_by:
@@ -9374,6 +10285,15 @@
         .value
         .trim();
 
+    const groupId =
+      document
+        .getElementById(
+          "editTrainingGroup-" +
+          sessionId
+        )
+        .value ||
+      null;
+
     const description =
       document
         .getElementById(
@@ -9435,6 +10355,8 @@
           location || null,
         district:
           district || null,
+        group_id:
+          groupId,
         description:
           description || null
       })
