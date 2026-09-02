@@ -972,10 +972,10 @@
           <div class="feature-text">Your membership card and status</div>
         </div>
 
-        <div class="feature" onclick="openSection('payments')">
-          <div class="feature-icon">💳</div>
-          <div class="feature-title">Payments</div>
-          <div class="feature-text">Payment history</div>
+        <div class="feature" onclick="openSection('news')">
+          <div class="feature-icon">📰</div>
+          <div class="feature-title">News</div>
+          <div class="feature-text">CENTER MMA club news</div>
         </div>
 
         <div class="feature" onclick="openSection('profile')">
@@ -1031,11 +1031,19 @@
 
       <div id="membershipDetails" class="card"></div>
 
+      <div class="card">
+        <h2 style="margin-bottom:6px;">Payment History</h2>
+        <p class="muted small" style="margin-bottom:14px;">
+          Your membership payment history
+        </p>
+        <div id="paymentsList"></div>
+      </div>
+
     </div>
 
 
-    <!-- PAYMENTS -->
-    <div id="paymentsSection" class="hidden">
+    <!-- NEWS -->
+    <div id="newsSection" class="hidden">
 
       <div class="section-title">
         <button
@@ -1045,10 +1053,14 @@
           ← BACK
         </button>
 
-        <h2>Payments</h2>
+        <h2>News</h2>
       </div>
 
-      <div id="paymentsList"></div>
+      <div id="newsList">
+        <div class="empty">
+          Loading news...
+        </div>
+      </div>
 
     </div>
 
@@ -1318,11 +1330,11 @@
 
     <button
       class="nav-item"
-      id="navPayments"
-      onclick="openSection('payments')"
+      id="navNews"
+      onclick="openSection('news')"
     >
-      <span class="nav-icon">€</span>
-      Payments
+      <span class="nav-icon">📰</span>
+      News
     </button>
 
     <button
@@ -1858,6 +1870,8 @@
 
     loadPayments();
 
+    loadNews();
+
     loadProfile();
 
     loadEvents();
@@ -1927,7 +1941,7 @@
       .classList.add("hidden");
 
     document
-      .getElementById("paymentsSection")
+      .getElementById("newsSection")
       .classList.add("hidden");
 
     document
@@ -2093,7 +2107,7 @@
     const sections = [
       "home",
       "membership",
-      "payments",
+      "news",
       "profile",
       "calendar",
       "attendance",
@@ -2143,6 +2157,10 @@
       nav.classList.add("active");
     }
 
+
+    if (section === "news") {
+      loadNews();
+    }
 
     if (section === "calendar") {
       loadClubCalendar();
@@ -2431,6 +2449,124 @@
       </div>
 
     `;
+  }
+
+
+
+  /* =========================
+     NEWS
+  ========================= */
+
+  async function loadNews() {
+
+    const element =
+      document.getElementById(
+        "newsList"
+      );
+
+    if (!element) {
+      return;
+    }
+
+    element.innerHTML = `
+      <div class="empty">
+        Loading news...
+      </div>
+    `;
+
+    const {
+      data,
+      error
+    } = await supabaseClient
+      .from("news")
+      .select("*")
+      .eq("published", true)
+      .order("created_at", {
+        ascending: false
+      });
+
+    if (error) {
+
+      console.error(error);
+
+      element.innerHTML = `
+        <div class="card">
+          <div class="message error">
+            Could not load news:
+            ${escapeHtml(error.message)}
+          </div>
+        </div>
+      `;
+
+      return;
+    }
+
+    if (!data || data.length === 0) {
+
+      element.innerHTML = `
+        <div class="card">
+          <div class="empty">
+            No news yet.
+          </div>
+        </div>
+      `;
+
+      return;
+    }
+
+    element.innerHTML =
+      data.map(function (item) {
+
+        const image =
+          item.image_url
+            ? `
+              <img
+                src="${escapeHtml(item.image_url)}"
+                alt=""
+                style="
+                  width:100%;
+                  max-height:280px;
+                  object-fit:cover;
+                  border-radius:10px;
+                  margin-bottom:15px;
+                "
+              >
+            `
+            : "";
+
+        return `
+          <div class="card">
+
+            ${image}
+
+            <div
+              class="muted small"
+              style="
+                text-transform:uppercase;
+                letter-spacing:1px;
+                margin-bottom:8px;
+              "
+            >
+              ${formatDateTime(item.created_at)}
+            </div>
+
+            <h3 style="font-size:20px;">
+              ${escapeHtml(item.title || "CENTER MMA News")}
+            </h3>
+
+            <div
+              class="muted small"
+              style="
+                margin-top:10px;
+                line-height:1.7;
+                white-space:pre-wrap;
+              "
+            >${escapeHtml(item.content || "")}</div>
+
+          </div>
+        `;
+
+      }).join("");
   }
 
 
