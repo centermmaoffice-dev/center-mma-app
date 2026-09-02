@@ -2278,7 +2278,9 @@ if (section === "training") {
         "competitionRecord"
       );
 
-
+if (calendar) {
+  calendar.innerHTML = "";
+}
     if (!element) {
       return;
     }
