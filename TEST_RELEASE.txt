@@ -1,0 +1,65 @@
+CENTER MMA — FINAL TEST RELEASE
+
+UPLOAD TO GITHUB ROOT
+Replace/upload:
+- index.html
+- manifest.webmanifest
+- sw.js
+- offline.html
+- icon-192.png
+- icon-512.png
+- center-mma-logo.png
+- mma-cage-bg.png
+
+You may delete the old center-mma-logo.jpg.
+
+AFTER COMMIT
+1. Wait for Vercel Production deployment to show Ready.
+2. Open the production app URL in a private/incognito window first.
+3. Confirm login and Home screen.
+4. Test Admin account.
+5. Test Trainer account.
+6. Test Member account.
+7. Only then send the production URL to testers.
+
+INSTALL ON ANDROID
+Chrome -> open app URL -> menu -> Install app / Add to Home screen.
+
+INSTALL ON IPHONE
+Safari -> open app URL -> Share -> Add to Home Screen.
+
+TESTERS SHOULD CHECK
+- Login
+- Profile
+- Membership / payment history
+- Calendar
+- Next Training
+- Attendance & Progress
+- Competitions & Events
+- News
+- Chat
+- Documents
+- Notifications + notification preferences
+- Groups
+- Installation to Home Screen
+
+ADMIN SHOULD ALSO CHECK
+- Members
+- Search
+- Deactivate / Reactivate
+- Membership
+- Payments
+- Training Sessions
+- Attendance
+- Competitions
+- Groups
+- Documents
+- News
+- Notifications
+
+IMPORTANT
+- This is a TEST release, not the final public production version.
+- Live data needs internet.
+- Offline mode only keeps the application shell available.
+- True push notifications while the app is completely closed still require backend Web Push.
+- Do not permanently delete members yet; use Deactivate.
