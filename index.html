@@ -1211,6 +1211,12 @@
         <label>Phone</label>
         <input id="profilePhone" type="tel">
 
+        <label>Emergency contact name</label>
+        <input id="profileEmergencyName" type="text">
+
+        <label>Emergency contact phone</label>
+        <input id="profileEmergencyPhone" type="tel">
+
         <label>Birth date</label>
         <input id="profileBirthDate" type="date">
 
@@ -2864,6 +2870,22 @@
       currentMember.phone ||
       "";
 
+    document
+      .getElementById(
+        "profileEmergencyName"
+      )
+      .value =
+      currentMember.emergency_contact_name ||
+      "";
+
+    document
+      .getElementById(
+        "profileEmergencyPhone"
+      )
+      .value =
+      currentMember.emergency_contact_phone ||
+      "";
+
 
     document
       .getElementById(
@@ -3651,6 +3673,23 @@
         .trim();
 
 
+    const emergencyName =
+      document
+        .getElementById(
+          "profileEmergencyName"
+        )
+        .value
+        .trim();
+
+    const emergencyPhone =
+      document
+        .getElementById(
+          "profileEmergencyPhone"
+        )
+        .value
+        .trim();
+
+
     const birthDate =
       document
         .getElementById(
@@ -3675,6 +3714,12 @@
 
         phone:
           phone,
+
+        emergency_contact_name:
+          emergencyName || null,
+
+        emergency_contact_phone:
+          emergencyPhone || null,
 
         birth_date:
           birthDate
@@ -6534,6 +6579,8 @@
         last_name,
         email,
         phone,
+        emergency_contact_name,
+        emergency_contact_phone,
         membership_number,
         role,
         created_at
@@ -6715,6 +6762,18 @@
                   <input
                     id="adminMemberPhone-${member.id}"
                     value="${escapeHtml(member.phone || "")}"
+                  >
+
+                  <label>Emergency contact name</label>
+                  <input
+                    id="adminMemberEmergencyName-${member.id}"
+                    value="${escapeHtml(member.emergency_contact_name || "")}"
+                  >
+
+                  <label>Emergency contact phone</label>
+                  <input
+                    id="adminMemberEmergencyPhone-${member.id}"
+                    value="${escapeHtml(member.emergency_contact_phone || "")}"
                   >
 
                   <label>Membership number</label>
@@ -6944,6 +7003,24 @@
         .value
         .trim();
 
+    const emergencyName =
+      document
+        .getElementById(
+          "adminMemberEmergencyName-" +
+          memberId
+        )
+        .value
+        .trim();
+
+    const emergencyPhone =
+      document
+        .getElementById(
+          "adminMemberEmergencyPhone-" +
+          memberId
+        )
+        .value
+        .trim();
+
     const membershipNumber =
       document
         .getElementById(
@@ -6978,6 +7055,10 @@
           lastName || null,
         phone:
           phone || null,
+        emergency_contact_name:
+          emergencyName || null,
+        emergency_contact_phone:
+          emergencyPhone || null,
         membership_number:
           membershipNumber || null,
         role:
