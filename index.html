@@ -2392,8 +2392,7 @@
         .gte("training_date", today)
         .order("training_date", { ascending: true })
         .order("start_time", { ascending: true })
-        .limit(1)
-        .maybeSingle(),
+        .limit(50),
 
       supabaseClient
         .from("competitions")
@@ -2423,8 +2422,17 @@
           })
     ]);
 
+    const dashboardGroupIds =
+      await getCurrentMemberGroupIds();
+
+    const dashboardTrainings =
+      filterTrainingSessionsForMember(
+        trainingResult?.data || [],
+        dashboardGroupIds
+      );
+
     const training =
-      trainingResult?.data || null;
+      dashboardTrainings[0] || null;
 
     const competition =
       competitionResult?.data || null;
@@ -4524,6 +4532,67 @@
       "message success-text";
   }
 
+
+  async function getCurrentMemberGroupIds() {
+
+    if (!currentMember) {
+      return [];
+    }
+
+    const {
+      data,
+      error
+    } = await supabaseClient
+      .from("group_members")
+      .select("group_id")
+      .eq(
+        "member_id",
+        currentMember.id
+      );
+
+    if (error) {
+
+      console.error(
+        "Could not load member groups:",
+        error
+      );
+
+      return [];
+    }
+
+    return (data || [])
+      .map(item => item.group_id)
+      .filter(Boolean);
+  }
+
+
+  function filterTrainingSessionsForMember(
+    sessions,
+    groupIds
+  ) {
+
+    if (isStaff) {
+      return sessions || [];
+    }
+
+    const allowedGroups =
+      new Set(groupIds || []);
+
+    return (sessions || [])
+      .filter(
+        function (session) {
+
+          return (
+            !session.group_id ||
+            allowedGroups.has(
+              session.group_id
+            )
+          );
+        }
+      );
+  }
+
+
   /* =========================
      CLUB CALENDAR
   ========================= */
@@ -4568,7 +4637,8 @@
 
     const [
       trainingResult,
-      competitionResult
+      competitionResult,
+      memberGroupIds
     ] = await Promise.all([
 
       supabaseClient
@@ -4590,7 +4660,9 @@
         .lte("date", lastDate)
         .order("date", {
           ascending: true
-        })
+        }),
+
+      getCurrentMemberGroupIds()
 
     ]);
 
@@ -4638,7 +4710,10 @@
 
 
     calendarTrainingData =
-      trainingResult.data || [];
+      filterTrainingSessionsForMember(
+        trainingResult.data || [],
+        memberGroupIds
+      );
 
     calendarCompetitionData =
       competitionResult.data || [];
@@ -7122,8 +7197,27 @@
       </div>
     `;
 
-    const [membersResult, attendanceResult] =
+    const groupMembersPromise =
+      session.group_id
+        ? supabaseClient
+            .from("group_members")
+            .select("member_id")
+            .eq(
+              "group_id",
+              session.group_id
+            )
+        : Promise.resolve({
+            data: null,
+            error: null
+          });
+
+    const [
+      membersResult,
+      attendanceResult,
+      groupMembersResult
+    ] =
       await Promise.all([
+
         supabaseClient
           .from("members")
           .select("id, first_name, last_name, membership_number, role")
@@ -7133,7 +7227,10 @@
         supabaseClient
           .from("attendance")
           .select("id, member_id, attended")
-          .eq("training_date", session.training_date)
+          .eq("training_date", session.training_date),
+
+        groupMembersPromise
+
       ]);
 
     if (membersResult.error) {
@@ -7156,10 +7253,60 @@
       return;
     }
 
+    if (
+      groupMembersResult &&
+      groupMembersResult.error
+    ) {
+
+      console.error(
+        groupMembersResult.error
+      );
+
+      element.innerHTML = `
+        <div class="message error">
+          Could not load athletes for this group:
+          ${escapeHtml(
+            groupMembersResult.error.message
+          )}
+        </div>
+      `;
+
+      return;
+    }
+
+    const allowedMemberIds =
+      session.group_id
+        ? new Set(
+            (groupMembersResult.data || [])
+              .map(
+                item => item.member_id
+              )
+          )
+        : null;
+
     adminAttendanceMembers =
-      (membersResult.data || []).filter(function (member) {
-        return member.role !== "admin";
-      });
+      (membersResult.data || [])
+        .filter(
+          function (member) {
+
+            if (
+              member.role === "admin"
+            ) {
+              return false;
+            }
+
+            if (
+              allowedMemberIds &&
+              !allowedMemberIds.has(
+                member.id
+              )
+            ) {
+              return false;
+            }
+
+            return true;
+          }
+        );
 
     adminAttendanceExisting = {};
 
@@ -7169,7 +7316,13 @@
 
     if (adminAttendanceMembers.length === 0) {
       element.innerHTML = `
-        <div class="empty">No athletes found.</div>
+        <div class="empty">
+          ${
+            session.group_id
+              ? "No athletes assigned to this training group."
+              : "No athletes found."
+          }
+        </div>
       `;
       return;
     }
