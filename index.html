@@ -1054,6 +1054,78 @@
       margin-top: 3px;
     }
 
+
+    /* VISUAL RELEASE */
+    body {
+      background:
+        linear-gradient(rgba(5,5,5,.70),rgba(5,5,5,.91)),
+        url("/mma-cage-bg.png") center top / cover fixed no-repeat;
+    }
+    body::before {
+      content:""; position:fixed; inset:0; pointer-events:none; z-index:-1;
+      background:
+        radial-gradient(circle at 50% 8%,rgba(255,255,255,.11),transparent 34%),
+        linear-gradient(to bottom,rgba(0,0,0,.02),rgba(0,0,0,.78));
+    }
+    .container{max-width:900px;padding-top:22px}
+    #appScreen .top-bar{
+      position:sticky;top:0;z-index:90;padding:10px 0 14px;margin-bottom:0;
+      background:linear-gradient(to bottom,rgba(7,7,7,.97),rgba(7,7,7,.78),transparent);
+      backdrop-filter:blur(6px)
+    }
+    #appScreen .top-bar>div:first-child{display:none}
+    .top-actions{margin-left:auto}
+    .home-hero{text-align:center;padding:8px 0 22px}
+    .home-logo{
+      width:min(340px,80vw);max-height:270px;object-fit:contain;display:block;
+      margin:0 auto 14px;filter:drop-shadow(0 12px 30px rgba(0,0,0,.5));border-radius:6px
+    }
+    .home-welcome-label{color:#999;font-size:12px;letter-spacing:1.6px;text-transform:uppercase;margin-bottom:4px}
+    .home-welcome-name{font-size:clamp(26px,4vw,38px);font-weight:900;margin-bottom:6px;text-shadow:0 2px 12px #000}
+    .home-member-subtitle{color:#aaa;font-size:14px}
+    .home-membership-card{
+      background:linear-gradient(135deg,rgba(24,24,24,.96),rgba(12,12,12,.94));
+      border:1px solid #3a3a3a;box-shadow:0 12px 30px rgba(0,0,0,.22);padding:20px
+    }
+    .home-membership-top{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+    .home-membership-title{font-size:14px;color:#999;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px}
+    .membership-status-chip{display:inline-flex;padding:7px 11px;border-radius:20px;font-size:12px;font-weight:900;text-transform:uppercase;margin-bottom:12px}
+    .membership-status-chip.active{background:#173a22;color:#7cff91;border:1px solid #2e7040}
+    .membership-status-chip.inactive{background:#351818;color:#ff7777;border:1px solid #522020}
+    .membership-valid-label{color:#888;font-size:12px;margin-bottom:3px}
+    .membership-valid-date{font-size:20px;font-weight:900}
+    .membership-card-icon{font-size:40px;opacity:.22;padding-top:10px}
+    .dashboard-highlight-grid,.dashboard-main-grid{
+      display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0
+    }
+    .home-tile{
+      min-height:154px;background:linear-gradient(145deg,rgba(25,25,25,.94),rgba(10,10,10,.94));
+      border:1px solid #474747;border-radius:18px;padding:18px 14px;cursor:pointer;text-align:center;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;transition:.15s;
+      box-shadow:0 14px 28px rgba(0,0,0,.18)
+    }
+    .home-tile:hover{transform:translateY(-2px);border-color:#777}
+    .home-tile-icon{font-size:32px;margin-bottom:12px;filter:grayscale(1)}
+    .home-tile-title{font-size:15px;font-weight:900;line-height:1.25}
+    .home-tile-text{margin-top:7px;color:#aaa;font-size:12px;line-height:1.45}
+    .home-tile.admin-tile{border-color:#733}
+    .home-tile.admin-tile .home-tile-icon,.home-tile.admin-tile .home-tile-title{color:#ff4545;filter:none}
+    #homeDashboard{display:none!important}
+    #adminHomeButton button{display:none!important}
+    .bottom-nav{height:76px;background:rgba(7,7,7,.97);backdrop-filter:blur(10px);border-top:1px solid #393939}
+    .nav-inner{max-width:900px}
+    .nav-item{color:#aaa;font-size:10px;font-weight:700}
+    .nav-item.active{color:#ff2b2b}
+    .nav-icon{font-size:22px}
+    @media(max-width:760px){
+      .dashboard-highlight-grid,.dashboard-main-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .home-tile{min-height:145px}
+    }
+    @media(max-width:420px){
+      .home-logo{width:min(290px,84vw)}
+      .home-tile{min-height:137px;padding:16px 10px}
+      .home-tile-title{font-size:14px}.home-tile-text{font-size:11px}
+    }
     @media (max-width: 420px) {
       .attendance-admin-row {
         grid-template-columns: 1fr;
@@ -1151,108 +1223,57 @@
 
     <!-- HOME -->
     <div id="homeSection">
-
-      <div class="welcome">
-        <div class="muted small">WELCOME BACK</div>
-        <div id="welcomeName" class="welcome-name">Member</div>
+      <div class="home-hero">
+        <img src="/center-mma-logo.jpg" alt="CENTER MMA" class="home-logo">
+        <div class="home-welcome-label">Welcome back</div>
+        <div id="welcomeName" class="home-welcome-name">Member</div>
+        <div id="homeMemberSubtitle" class="home-member-subtitle">CENTER MMA member</div>
       </div>
 
       <div id="birthdayBanner"></div>
 
-      <div
-        id="installAppCard"
-        class="card install-card hidden"
-      >
+      <div id="installAppCard" class="card install-card hidden">
         <h3>Install CENTER MMA</h3>
-        <p class="muted small">
-          Install the app on this device for a faster full-screen experience.
-        </p>
-        <button onclick="installCenterMmaApp()">
-          INSTALL APP
-        </button>
+        <p class="muted small">Install the app on this device for a faster full-screen experience.</p>
+        <button onclick="installCenterMmaApp()">INSTALL APP</button>
       </div>
 
-      <div id="membershipSummary" class="card"></div>
+      <div id="membershipSummary" class="card home-membership-card"></div>
 
+      <div class="dashboard-highlight-grid">
+        <div class="home-tile" onclick="openSection('calendar')">
+          <div class="home-tile-icon">📅</div><div class="home-tile-title">Next Training</div>
+          <div id="homeNextTrainingText" class="home-tile-text">Loading...</div>
+        </div>
+        <div class="home-tile" onclick="openSection('calendar')">
+          <div class="home-tile-icon">🗓️</div><div class="home-tile-title">Training</div>
+          <div class="home-tile-text">View full schedule</div>
+        </div>
+        <div class="home-tile" onclick="openSection('events')">
+          <div class="home-tile-icon">🏆</div><div class="home-tile-title">Competitions & Events</div>
+          <div id="homeNextEventText" class="home-tile-text">Upcoming events & results</div>
+        </div>
+        <div class="home-tile" onclick="openSection('news')">
+          <div class="home-tile-icon">📰</div><div class="home-tile-title">News</div>
+          <div id="homeLatestNewsText" class="home-tile-text">Latest club news</div>
+        </div>
+      </div>
+
+      <div class="dashboard-main-grid">
+        <div class="home-tile" onclick="openSection('profile')"><div class="home-tile-icon">👤</div><div class="home-tile-title">Profile</div><div class="home-tile-text">View & edit your profile</div></div>
+        <div class="home-tile" onclick="openSection('membership')"><div class="home-tile-icon">🪪</div><div class="home-tile-title">Membership</div><div class="home-tile-text">Membership details</div></div>
+        <div class="home-tile" onclick="openSection('membership')"><div class="home-tile-icon">€</div><div class="home-tile-title">Payments</div><div class="home-tile-text">Payment history</div></div>
+        <div class="home-tile" onclick="openSection('attendance')"><div class="home-tile-icon">📊</div><div class="home-tile-title">Attendance & Progress</div><div id="homeAttendanceText" class="home-tile-text">Your training overview</div></div>
+        <div class="home-tile" onclick="openSection('profile')"><div class="home-tile-icon">👥</div><div class="home-tile-title">Groups</div><div class="home-tile-text">Your groups</div></div>
+        <div class="home-tile" onclick="openSection('chat')"><div class="home-tile-icon">💬</div><div class="home-tile-title">Chat</div><div class="home-tile-text">Club chat</div></div>
+        <div class="home-tile" onclick="openSection('documents')"><div class="home-tile-icon">📄</div><div class="home-tile-title">Documents</div><div class="home-tile-text">Club documents & files</div></div>
+        <div id="adminHomeButton" class="home-tile admin-tile hidden" onclick="openStaffPanel()">
+          <div class="home-tile-icon">🛡️</div><div id="staffHomeTitle" class="home-tile-title">Admin</div>
+          <div id="staffHomeText" class="home-tile-text">Admin panel</div>
+          <button id="staffHomeButton" class="hidden" onclick="openStaffPanel()">OPEN ADMIN PANEL</button>
+        </div>
+      </div>
       <div id="homeDashboard"></div>
-
-
-      <!-- EVENTS QUICK LINK -->
-      <div
-        class="card"
-        onclick="openSection('events')"
-        style="cursor:pointer;"
-      >
-
-        <div style="font-size:24px; margin-bottom:8px;">
-          🥊
-        </div>
-
-        <h3>
-          Events & Competitions
-        </h3>
-
-        <p class="muted small">
-          Upcoming competitions and participation
-        </p>
-
-      </div>
-
-
-      <div class="feature-grid">
-
-        <div class="feature" onclick="openSection('membership')">
-          <div class="feature-icon">🪪</div>
-          <div class="feature-title">Membership</div>
-          <div class="feature-text">Your membership card and status</div>
-        </div>
-
-        <div class="feature" onclick="openSection('news')">
-          <div class="feature-icon">📰</div>
-          <div class="feature-title">News</div>
-          <div class="feature-text">CENTER MMA club news</div>
-        </div>
-
-        <div class="feature" onclick="openSection('profile')">
-          <div class="feature-icon">👤</div>
-          <div class="feature-title">Profile</div>
-          <div class="feature-text">Your personal information</div>
-        </div>
-
-        <div class="feature" onclick="openSection('calendar')">
-          <div class="feature-icon">🗓️</div>
-          <div class="feature-title">Calendar</div>
-          <div class="feature-text">Training and competitions</div>
-        </div>
-
-        <div class="feature" onclick="openSection('attendance')">
-          <div class="feature-icon">📊</div>
-          <div class="feature-title">Progress</div>
-          <div class="feature-text">Your attendance progress</div>
-        </div>
-
-        <div class="feature" onclick="openSection('documents')">
-          <div class="feature-icon">📄</div>
-          <div class="feature-title">Documents</div>
-          <div class="feature-text">Club files and information</div>
-        </div>
-
-        <div class="feature" onclick="openSection('chat')">
-          <div class="feature-icon">💬</div>
-          <div class="feature-title">Chat</div>
-          <div class="feature-text">CENTER MMA club chat</div>
-        </div>
-        
-      </div>
-
-      <div id="adminHomeButton" class="card hidden" style="margin-top:15px;">
-        <h3 id="staffHomeTitle">ADMINISTRATION</h3>
-        <p id="staffHomeText" class="muted small">
-          Manage members, payments and competitions.
-        </p>
-        <button id="staffHomeButton" onclick="openStaffPanel()">OPEN ADMIN PANEL</button>
-      </div>
-
     </div>
 
 
@@ -2008,56 +2029,13 @@
 
 <!-- BOTTOM NAV -->
 <div id="bottomNav" class="bottom-nav hidden">
-
   <div class="nav-inner">
-
-    <button
-      class="nav-item active"
-      id="navHome"
-      onclick="openSection('home')"
-    >
-      <span class="nav-icon">⌂</span>
-      Home
-    </button>
-
-    <button
-      class="nav-item"
-      id="navMembership"
-      onclick="openSection('membership')"
-    >
-      <span class="nav-icon">🪪</span>
-      Membership
-    </button>
-
-    <button
-      class="nav-item"
-      id="navNews"
-      onclick="openSection('news')"
-    >
-      <span class="nav-icon">📰</span>
-      News
-    </button>
-
-    <button
-      class="nav-item"
-      id="navProfile"
-      onclick="openSection('profile')"
-    >
-      <span class="nav-icon">♙</span>
-      Profile
-    </button>
-
-    <button
-      class="nav-item"
-      id="navEvents"
-      onclick="openSection('events')"
-    >
-      <span class="nav-icon">🥊</span>
-      Events
-    </button>
-
+    <button class="nav-item active" id="navHome" onclick="openSection('home')"><span class="nav-icon">⌂</span>Home</button>
+    <button class="nav-item" id="navCalendar" onclick="openSection('calendar')"><span class="nav-icon">🗓️</span>Calendar</button>
+    <button class="nav-item" id="navChat" onclick="openSection('chat')"><span class="nav-icon">💬</span>Chat</button>
+    <button class="nav-item" id="navNotifications" onclick="openSection('notifications')"><span class="nav-icon">🔔</span>Notifications</button>
+    <button class="nav-item" id="navProfile" onclick="openSection('profile')"><span class="nav-icon">👤</span>Profile</button>
   </div>
-
 </div>
 
 
@@ -2593,6 +2571,11 @@
       name;
 
 
+    const memberSubtitle=document.getElementById("homeMemberSubtitle");
+    if(memberSubtitle){
+      memberSubtitle.textContent=isAdmin?"Administrator":isTrainer?"Trainer":"Active member";
+    }
+
     const staffHomeButton =
       document.getElementById(
         "adminHomeButton"
@@ -2621,10 +2604,10 @@
       if (isTrainer) {
 
         title.textContent =
-          "TRAINER";
+          "Trainer";
 
         text.textContent =
-          "Manage athlete attendance.";
+          "Trainer panel";
 
         button.textContent =
           "OPEN TRAINER PANEL";
@@ -2632,10 +2615,10 @@
       } else {
 
         title.textContent =
-          "ADMINISTRATION";
+          "Admin";
 
         text.textContent =
-          "Manage members, payments and competitions.";
+          "Admin panel";
 
         button.textContent =
           "OPEN ADMIN PANEL";
@@ -3026,343 +3009,45 @@
   ========================= */
 
   async function loadHomeDashboard() {
+    const tEl=document.getElementById("homeNextTrainingText");
+    const eEl=document.getElementById("homeNextEventText");
+    const nEl=document.getElementById("homeLatestNewsText");
+    const aEl=document.getElementById("homeAttendanceText");
+    const today=getLocalDateString();
 
-    const element =
-      document.getElementById(
-        "homeDashboard"
-      );
-
-    if (!element) {
-      return;
-    }
-
-    element.innerHTML = `
-      <div class="card">
-        <div class="empty">
-          Loading dashboard...
-        </div>
-      </div>
-    `;
-
-    const today =
-      getLocalDateString();
-
-    const [
-      trainingResult,
-      competitionResult,
-      newsResult,
-      progressResult
-    ] = await Promise.all([
-
-      supabaseClient
-        .from("training_sessions")
-        .select("*")
-        .gte("training_date", today)
-        .order("training_date", { ascending: true })
-        .order("start_time", { ascending: true })
-        .limit(50),
-
-      supabaseClient
-        .from("competitions")
-        .select("*")
-        .gte("date", today)
-        .order("date", { ascending: true })
-        .limit(1)
-        .maybeSingle(),
-
-      supabaseClient
-        .from("news")
-        .select("*")
-        .eq("published", true)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-
-      currentMember
-        ? supabaseClient
-            .from("member_attendance_progress")
-            .select("*")
-            .eq("member_id", currentMember.id)
-            .maybeSingle()
-        : Promise.resolve({
-            data: null,
-            error: null
-          })
+    const [tr,cr,nr,pr,gids]=await Promise.all([
+      supabaseClient.from("training_sessions").select("*").gte("training_date",today).order("training_date",{ascending:true}).order("start_time",{ascending:true}).limit(50),
+      supabaseClient.from("competitions").select("*").gte("date",today).order("date",{ascending:true}).limit(1).maybeSingle(),
+      supabaseClient.from("news").select("*").eq("published",true).order("created_at",{ascending:false}).limit(1).maybeSingle(),
+      currentMember?supabaseClient.from("member_attendance_progress").select("*").eq("member_id",currentMember.id).maybeSingle():Promise.resolve({data:null,error:null}),
+      getCurrentMemberGroupIds()
     ]);
 
-    const dashboardGroupIds =
-      await getCurrentMemberGroupIds();
-
-    const dashboardTrainings =
-      filterTrainingSessionsForMember(
-        trainingResult?.data || [],
-        dashboardGroupIds
-      );
-
-    const training =
-      dashboardTrainings[0] || null;
-
-    const competition =
-      competitionResult?.data || null;
-
-    const news =
-      newsResult?.data || null;
-
-    const progress =
-      progressResult?.data || null;
-
-    let attendancePercentage =
-      Number(
-        progress?.attendance_percentage || 0
-      );
-
-    if (
-      currentMember &&
-      (
-        !progress ||
-        progressResult?.error
-      )
-    ) {
-
-      const {
-        data: attendanceRows,
-        error: attendanceFallbackError
-      } = await supabaseClient
-        .from("attendance")
-        .select("attended")
-        .eq(
-          "member_id",
-          currentMember.id
-        );
-
-      if (!attendanceFallbackError) {
-
-        const rows =
-          attendanceRows || [];
-
-        const total =
-          rows.length;
-
-        const attended =
-          rows.filter(
-            item => item.attended === true
-          ).length;
-
-        attendancePercentage =
-          total > 0
-            ? Math.round(
-                (attended / total) * 100
-              )
-            : 0;
-      }
+    const trainings=filterTrainingSessionsForMember(tr?.data||[],gids||[]);
+    const training=trainings[0]||null;
+    if(tEl){
+      if(training){
+        const tm=training.start_time?String(training.start_time).slice(0,5):"";
+        tEl.innerHTML=`${formatDate(training.training_date)}${tm?`<br>${escapeHtml(tm)}`:""}${training.location?`<br>${escapeHtml(training.location)}`:""}`;
+      }else tEl.textContent="No upcoming training";
     }
 
-    attendancePercentage =
-      Math.max(
-        0,
-        Math.min(
-          100,
-          Number(
-            attendancePercentage || 0
-          )
-        )
-      );
+    const comp=cr?.data||null;
+    if(eEl)eEl.textContent=comp?`${comp.title||"Competition"} • ${formatDate(comp.date)}`:"No upcoming events";
 
-    element.innerHTML = `
+    const news=nr?.data||null;
+    if(nEl)nEl.textContent=news?(news.title||"Latest club news"):"No news yet";
 
-      <div class="card">
+    let pct=Number(pr?.data?.attendance_percentage||0);
+    if(currentMember&&(!pr?.data||pr?.error)){
+      const {data:rowsData}=await supabaseClient.from("attendance").select("attended").eq("member_id",currentMember.id);
+      const rows=rowsData||[]; const attended=rows.filter(x=>x.attended===true).length;
+      pct=rows.length?Math.round(attended/rows.length*100):0;
+    }
+    if(aEl)aEl.textContent=`${Math.round(pct)}% attendance`;
 
-        <div
-          style="
-            font-size:11px;
-            color:#777;
-            text-transform:uppercase;
-            letter-spacing:1px;
-            margin-bottom:8px;
-          "
-        >
-          Next training
-        </div>
-
-        ${
-          training
-            ? `
-              <div
-                style="
-                  font-size:18px;
-                  font-weight:800;
-                "
-              >
-                ${escapeHtml(
-                  training.title ||
-                  training.training ||
-                  "Training"
-                )}
-              </div>
-
-              <div
-                class="muted small"
-                style="margin-top:7px;"
-              >
-                📅 ${formatDate(
-                  training.training_date
-                )}
-                ${
-                  training.start_time
-                    ? " • " +
-                      escapeHtml(
-                        String(
-                          training.start_time
-                        ).slice(0, 5)
-                      )
-                    : ""
-                }
-              </div>
-
-              ${
-                training.location
-                  ? `
-                    <div
-                      class="muted small"
-                      style="margin-top:5px;"
-                    >
-                      📍 ${escapeHtml(
-                        training.location
-                      )}
-                      ${
-                        training.district
-                          ? " • " +
-                            escapeHtml(
-                              training.district
-                            )
-                          : ""
-                      }
-                    </div>
-                  `
-                  : ""
-              }
-            `
-            : `
-              <div class="muted small">
-                No upcoming training.
-              </div>
-            `
-        }
-
-      </div>
-
-
-      <div class="feature-grid">
-
-        <div
-          class="feature"
-          onclick="openSection('events')"
-        >
-          <div class="feature-icon">
-            🏆
-          </div>
-
-          <div class="feature-title">
-            Next Competition
-          </div>
-
-          <div class="feature-text">
-            ${
-              competition
-                ? `${escapeHtml(
-                    competition.title ||
-                    "Competition"
-                  )} • ${formatDate(
-                    competition.date
-                  )}`
-                : "No upcoming competition"
-            }
-          </div>
-        </div>
-
-
-        <div
-          class="feature"
-          onclick="openSection('attendance')"
-        >
-          <div class="feature-icon">
-            📊
-          </div>
-
-          <div class="feature-title">
-            Attendance
-          </div>
-
-          <div class="feature-text">
-            ${attendancePercentage}% progress
-          </div>
-        </div>
-
-      </div>
-
-
-      <div
-        class="card"
-        onclick="openSection('news')"
-        style="
-          cursor:pointer;
-          margin-top:15px;
-        "
-      >
-
-        <div
-          style="
-            font-size:11px;
-            color:#777;
-            text-transform:uppercase;
-            letter-spacing:1px;
-            margin-bottom:8px;
-          "
-        >
-          Latest news
-        </div>
-
-        ${
-          news
-            ? `
-              <h3>
-                ${escapeHtml(
-                  news.title ||
-                  "CENTER MMA News"
-                )}
-              </h3>
-
-              <div
-                class="muted small"
-                style="
-                  line-height:1.5;
-                  margin-top:6px;
-                "
-              >
-                ${escapeHtml(
-                  String(
-                    news.content || ""
-                  ).slice(0, 140)
-                )}
-                ${
-                  String(
-                    news.content || ""
-                  ).length > 140
-                    ? "..."
-                    : ""
-                }
-              </div>
-            `
-            : `
-              <div class="muted small">
-                No news yet.
-              </div>
-            `
-        }
-
-      </div>
-
-    `;
+    const old=document.getElementById("homeDashboard");
+    if(old)old.innerHTML="";
   }
 
 
@@ -3713,99 +3398,14 @@
   ========================= */
 
   function renderMembershipSummary() {
-
-    const element =
-      document.getElementById(
-        "membershipSummary"
-      );
-
-
-    if (!currentMembership) {
-
-      element.innerHTML = `
-
-        <h3>
-          Membership
-        </h3>
-
-        <p class="muted small">
-          No membership found.
-        </p>
-
-      `;
-
+    const element=document.getElementById("membershipSummary");
+    if(!element)return;
+    if(!currentMembership){
+      element.innerHTML=`<div class="home-membership-top"><div><div class="home-membership-title">Membership Status</div><div class="membership-status-chip inactive">INACTIVE</div><div class="membership-valid-label">No active membership</div></div><div class="membership-card-icon">🪪</div></div>`;
       return;
     }
-
-
-    const today =
-      getLocalDateString();
-
-
-    const active =
-      currentMembership.status === "active" &&
-      currentMembership.end_date >= today;
-
-
-    element.innerHTML = `
-
-      <div class="info-row">
-
-        <div class="info-label">
-          Status
-        </div>
-
-        <div class="info-value">
-
-          <span
-            class="status ${
-              active
-                ? "active"
-                : "inactive"
-            }"
-          >
-            ${
-              active
-                ? "Active"
-                : "Inactive"
-            }
-          </span>
-
-        </div>
-
-      </div>
-
-
-      <div class="info-row">
-
-        <div class="info-label">
-          Membership
-        </div>
-
-        <div class="info-value">
-          ${escapeHtml(
-            currentMembership.type || "-"
-          )}
-        </div>
-
-      </div>
-
-
-      <div class="info-row">
-
-        <div class="info-label">
-          Valid until
-        </div>
-
-        <div class="info-value">
-          ${formatDate(
-            currentMembership.end_date
-          )}
-        </div>
-
-      </div>
-
-    `;
+    const active=currentMembership.status==="active"&&currentMembership.end_date>=getLocalDateString();
+    element.innerHTML=`<div class="home-membership-top"><div><div class="home-membership-title">Membership Status</div><div class="membership-status-chip ${active?"active":"inactive"}">${active?"ACTIVE":"INACTIVE"}</div><div class="membership-valid-label">Valid until</div><div class="membership-valid-date">${currentMembership.end_date?formatDate(currentMembership.end_date):"-"}</div></div><div class="membership-card-icon">🪪</div></div>`;
   }
 
 
