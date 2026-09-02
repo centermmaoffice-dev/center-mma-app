@@ -1117,6 +1117,151 @@
     .nav-item{color:#aaa;font-size:10px;font-weight:700}
     .nav-item.active{color:#ff2b2b}
     .nav-icon{font-size:22px}
+
+    /* POLISHED HEADER / TRANSPARENT LOGO / AUTH */
+
+    #appScreen .top-bar {
+      position: fixed;
+      top: 14px;
+      right: 18px;
+      left: auto;
+      width: auto;
+      padding: 0;
+      margin: 0;
+      background: transparent;
+      backdrop-filter: none;
+      z-index: 120;
+    }
+
+    #appScreen .top-bar > div:first-child {
+      display: none !important;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin: 0;
+    }
+
+    .notification-bell,
+    .logout {
+      height: 42px;
+      min-width: 42px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.20);
+      background: rgba(12,12,12,.58);
+      backdrop-filter: blur(12px);
+      box-shadow:
+        0 8px 22px rgba(0,0,0,.30),
+        inset 0 1px 0 rgba(255,255,255,.05);
+    }
+
+    .notification-bell {
+      font-size: 18px;
+      padding: 0 12px;
+    }
+
+    .logout {
+      padding: 0 14px;
+      color: #ddd;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .4px;
+    }
+
+    .notification-bell:hover,
+    .logout:hover {
+      border-color: rgba(255,255,255,.36);
+      background: rgba(28,28,28,.72);
+    }
+
+    .notification-badge {
+      top: -5px;
+      right: -5px;
+      border-color: #0b0b0b;
+    }
+
+    .home-hero {
+      padding-top: 26px;
+    }
+
+    .home-logo {
+      width: min(310px, 72vw);
+      max-height: 300px;
+      object-fit: contain;
+      background: transparent !important;
+      border-radius: 0;
+      filter:
+        brightness(0)
+        invert(1)
+        drop-shadow(0 10px 24px rgba(0,0,0,.55));
+      margin-bottom: 12px;
+    }
+
+    #authScreen {
+      min-height: calc(100vh - 80px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 24px 0 50px;
+    }
+
+    .auth-brand {
+      text-align: center;
+      margin-bottom: 22px;
+    }
+
+    .auth-logo {
+      width: min(170px, 48vw);
+      max-height: 170px;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto 8px;
+      filter:
+        brightness(0)
+        invert(1)
+        drop-shadow(0 8px 22px rgba(0,0,0,.48));
+    }
+
+    .auth-tagline {
+      color: #8b8b8b;
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    #authScreen .card {
+      background: rgba(16,16,16,.88);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,.14);
+      box-shadow: 0 20px 50px rgba(0,0,0,.32);
+    }
+
+    @media(max-width:520px) {
+      #appScreen .top-bar {
+        top: 10px;
+        right: 10px;
+      }
+
+      .notification-bell,
+      .logout {
+        height: 39px;
+      }
+
+      .logout {
+        padding: 0 11px;
+      }
+
+      .home-hero {
+        padding-top: 42px;
+      }
+
+      .home-logo {
+        width: min(270px, 74vw);
+      }
+    }
+
     @media(max-width:760px){
       .dashboard-highlight-grid,.dashboard-main-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
       .home-tile{min-height:145px}
@@ -1142,8 +1287,16 @@
   <!-- AUTH -->
   <div id="authScreen">
 
-    <div class="logo">CENTER MMA</div>
-    <div class="subtitle">VIENNA • MMA • GRAPPLING</div>
+    <div class="auth-brand">
+      <img
+        src="/center-mma-logo.png"
+        alt="CENTER MMA"
+        class="auth-logo"
+      >
+      <div class="auth-tagline">
+        VIENNA • MMA • GRAPPLING
+      </div>
+    </div>
 
     <!-- LOGIN -->
     <div id="loginBox" class="card">
@@ -1224,7 +1377,7 @@
     <!-- HOME -->
     <div id="homeSection">
       <div class="home-hero">
-        <img src="/center-mma-logo.jpg" alt="CENTER MMA" class="home-logo">
+        <img src="/center-mma-logo.png" alt="CENTER MMA" class="home-logo">
         <div class="home-welcome-label">Welcome back</div>
         <div id="welcomeName" class="home-welcome-name">Member</div>
         <div id="homeMemberSubtitle" class="home-member-subtitle">CENTER MMA member</div>
