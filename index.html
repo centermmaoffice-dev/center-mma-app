@@ -1077,11 +1077,11 @@
       </div>
 
       <div id="adminHomeButton" class="card hidden" style="margin-top:15px;">
-        <h3>ADMINISTRATION</h3>
-        <p class="muted small">
+        <h3 id="staffHomeTitle">ADMINISTRATION</h3>
+        <p id="staffHomeText" class="muted small">
           Manage members, payments and competitions.
         </p>
-        <button onclick="openAdminPanel()">OPEN ADMIN PANEL</button>
+        <button id="staffHomeButton" onclick="openStaffPanel()">OPEN ADMIN PANEL</button>
       </div>
 
     </div>
@@ -1364,7 +1364,7 @@
           ← BACK
         </button>
 
-        <h2>Admin Panel</h2>
+        <h2 id="staffPanelTitle">Admin Panel</h2>
 
       </div>
 
@@ -1459,6 +1459,8 @@
   let currentMember = null;
   let currentMembership = null;
   let isAdmin = false;
+  let isTrainer = false;
+  let isStaff = false;
   let chatRealtimeChannel = null;
   let chatRefreshTimer = null;
   let adminAttendanceSessions = [];
@@ -1691,6 +1693,8 @@
     currentMember = null;
     currentMembership = null;
     isAdmin = false;
+    isTrainer = false;
+    isStaff = false;
 
     stopChatRealtime();
 
@@ -1750,6 +1754,12 @@
     isAdmin =
       member.role === "admin";
 
+    isTrainer =
+      member.role === "trainer";
+
+    isStaff =
+      isAdmin || isTrainer;
+
 
     const {
       data: membership,
@@ -1783,10 +1793,10 @@
 
 
     /*
-      Admin always has access.
+      Admin and trainer always have staff access.
     */
 
-    if (isAdmin) {
+    if (isStaff) {
 
       showApp();
 
@@ -1926,16 +1936,57 @@
       name;
 
 
-    if (isAdmin) {
+    const staffHomeButton =
+      document.getElementById(
+        "adminHomeButton"
+      );
 
-      document
-        .getElementById("adminHomeButton")
+    if (isStaff) {
+
+      staffHomeButton
         .classList.remove("hidden");
+
+      const title =
+        document.getElementById(
+          "staffHomeTitle"
+        );
+
+      const text =
+        document.getElementById(
+          "staffHomeText"
+        );
+
+      const button =
+        document.getElementById(
+          "staffHomeButton"
+        );
+
+      if (isTrainer) {
+
+        title.textContent =
+          "TRAINER";
+
+        text.textContent =
+          "Manage athlete attendance.";
+
+        button.textContent =
+          "OPEN TRAINER PANEL";
+
+      } else {
+
+        title.textContent =
+          "ADMINISTRATION";
+
+        text.textContent =
+          "Manage members, payments and competitions.";
+
+        button.textContent =
+          "OPEN ADMIN PANEL";
+      }
 
     } else {
 
-      document
-        .getElementById("adminHomeButton")
+      staffHomeButton
         .classList.add("hidden");
     }
 
@@ -6023,15 +6074,65 @@
      ADMIN PANEL
   ========================= */
 
-  function openAdminPanel() {
+  function openStaffPanel() {
 
-    if (!isAdmin) {
+    if (!isStaff) {
       return;
     }
 
     openSection("admin");
 
-    loadAdminPanel();
+    const title =
+      document.getElementById(
+        "staffPanelTitle"
+      );
+
+    if (isTrainer) {
+
+      title.textContent =
+        "Trainer Panel";
+
+      loadTrainerPanel();
+
+    } else {
+
+      title.textContent =
+        "Admin Panel";
+
+      loadAdminPanel();
+    }
+  }
+
+
+  function openAdminPanel() {
+
+    openStaffPanel();
+  }
+
+
+  async function loadTrainerPanel() {
+
+    const element =
+      document.getElementById(
+        "adminContent"
+      );
+
+    if (!element) {
+      return;
+    }
+
+    element.innerHTML = `
+      <div class="card">
+        <h3>Trainer Panel</h3>
+        <p class="muted small">
+          Select a training session and mark athlete attendance.
+        </p>
+      </div>
+    `;
+
+    await loadAdminAttendance(
+      element
+    );
   }
 
 
@@ -6080,7 +6181,7 @@
 
   async function loadAdminAttendance(element) {
 
-    if (!isAdmin || !element) {
+    if (!isStaff || !element) {
       return;
     }
 
@@ -6166,7 +6267,7 @@
 
   async function loadAdminAttendanceForSession(sessionId) {
 
-    if (!isAdmin) {
+    if (!isStaff) {
       return;
     }
 
@@ -6309,7 +6410,7 @@
 
   async function saveAdminAttendance(sessionId) {
 
-    if (!isAdmin) {
+    if (!isStaff) {
       return;
     }
 
