@@ -6561,11 +6561,43 @@
       return;
     }
 
+    const {
+      data: memberships,
+      error: membershipError
+    } = await supabaseClient
+      .from("memberships")
+      .select("*")
+      .order(
+        "end_date",
+        {
+          ascending: false
+        }
+      );
+
+    if (membershipError) {
+      console.error(membershipError);
+    }
+
+    const latestMembershipByMember = {};
+
+    for (const membership of (memberships || [])) {
+
+      if (
+        !latestMembershipByMember[
+          membership.member_id
+        ]
+      ) {
+        latestMembershipByMember[
+          membership.member_id
+        ] = membership;
+      }
+    }
+
     element.innerHTML += `
       <div class="card">
         <h3>Members</h3>
         <p class="muted small">
-          Manage member profiles, membership numbers and roles.
+          Manage profiles, roles and memberships.
         </p>
       </div>
 
@@ -6609,6 +6641,15 @@
               member.email ||
               "Member";
 
+            const membership =
+              latestMembershipByMember[
+                member.id
+              ] || null;
+
+            const membershipStatus =
+              membership?.status ||
+              "inactive";
+
             return `
               <div
                 class="competition-admin-card"
@@ -6629,13 +6670,34 @@
                   ${escapeHtml(member.email || "")}
                 </div>
 
-                <div style="margin-top:10px;">
+                <div
+                  style="
+                    margin-top:10px;
+                    display:flex;
+                    gap:6px;
+                    flex-wrap:wrap;
+                  "
+                >
                   <span class="admin-badge">
                     ${escapeHtml(member.role || "member")}
+                  </span>
+
+                  <span
+                    class="status ${escapeHtml(
+                      membershipStatus
+                    )}"
+                  >
+                    ${escapeHtml(
+                      membershipStatus
+                    )}
                   </span>
                 </div>
 
                 <div class="admin-edit-box">
+
+                  <h3>
+                    Profile
+                  </h3>
 
                   <label>First name</label>
                   <input
@@ -6701,11 +6763,132 @@
                       '${member.id}'
                     )"
                   >
-                    SAVE MEMBER
+                    SAVE PROFILE
                   </button>
 
                   <div
                     id="adminMemberMessage-${member.id}"
+                    class="message"
+                  ></div>
+
+                </div>
+
+                <div class="admin-edit-box">
+
+                  <h3>
+                    Membership
+                  </h3>
+
+                  <label>Type</label>
+                  <select
+                    id="adminMembershipType-${member.id}"
+                    style="
+                      width:100%;
+                      background:#0d0d0d;
+                      border:1px solid #333;
+                      border-radius:9px;
+                      color:white;
+                      padding:13px;
+                      font-size:15px;
+                    "
+                  >
+                    <option
+                      value="monthly"
+                      ${(membership?.type || "monthly") === "monthly" ? "selected" : ""}
+                    >
+                      Monthly
+                    </option>
+
+                    <option
+                      value="half_year"
+                      ${membership?.type === "half_year" ? "selected" : ""}
+                    >
+                      Half year
+                    </option>
+
+                    <option
+                      value="yearly"
+                      ${membership?.type === "yearly" ? "selected" : ""}
+                    >
+                      Yearly
+                    </option>
+
+                    <option
+                      value="other"
+                      ${membership?.type === "other" ? "selected" : ""}
+                    >
+                      Other
+                    </option>
+                  </select>
+
+                  <label>Start date</label>
+                  <input
+                    id="adminMembershipStart-${member.id}"
+                    type="date"
+                    value="${escapeHtml(
+                      membership?.start_date || ""
+                    )}"
+                  >
+
+                  <label>End date</label>
+                  <input
+                    id="adminMembershipEnd-${member.id}"
+                    type="date"
+                    value="${escapeHtml(
+                      membership?.end_date || ""
+                    )}"
+                  >
+
+                  <label>Price (€)</label>
+                  <input
+                    id="adminMembershipPrice-${member.id}"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value="${escapeHtml(
+                      membership?.price ?? ""
+                    )}"
+                  >
+
+                  <label>Status</label>
+                  <select
+                    id="adminMembershipStatus-${member.id}"
+                    style="
+                      width:100%;
+                      background:#0d0d0d;
+                      border:1px solid #333;
+                      border-radius:9px;
+                      color:white;
+                      padding:13px;
+                      font-size:15px;
+                    "
+                  >
+                    <option
+                      value="active"
+                      ${membershipStatus === "active" ? "selected" : ""}
+                    >
+                      Active
+                    </option>
+
+                    <option
+                      value="inactive"
+                      ${membershipStatus !== "active" ? "selected" : ""}
+                    >
+                      Inactive
+                    </option>
+                  </select>
+
+                  <button
+                    onclick="saveAdminMembership(
+                      '${member.id}',
+                      '${membership?.id || ""}'
+                    )"
+                  >
+                    SAVE MEMBERSHIP
+                  </button>
+
+                  <div
+                    id="adminMembershipMessage-${member.id}"
                     class="message"
                   ></div>
 
@@ -6821,6 +7004,174 @@
 
     message.textContent =
       "Member saved successfully.";
+
+    message.className =
+      "message success-text";
+
+    await loadAdminPanel();
+  }
+
+
+
+  async function saveAdminMembership(
+    memberId,
+    membershipId
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const message =
+      document.getElementById(
+        "adminMembershipMessage-" +
+        memberId
+      );
+
+    const type =
+      document
+        .getElementById(
+          "adminMembershipType-" +
+          memberId
+        )
+        .value;
+
+    const startDate =
+      document
+        .getElementById(
+          "adminMembershipStart-" +
+          memberId
+        )
+        .value;
+
+    const endDate =
+      document
+        .getElementById(
+          "adminMembershipEnd-" +
+          memberId
+        )
+        .value;
+
+    const priceValue =
+      document
+        .getElementById(
+          "adminMembershipPrice-" +
+          memberId
+        )
+        .value
+        .trim();
+
+    const status =
+      document
+        .getElementById(
+          "adminMembershipStatus-" +
+          memberId
+        )
+        .value;
+
+    const price =
+      priceValue === ""
+        ? 0
+        : Number(priceValue);
+
+    if (!startDate || !endDate) {
+
+      message.textContent =
+        "Start date and end date are required.";
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+    if (
+      Number.isNaN(price) ||
+      price < 0
+    ) {
+
+      message.textContent =
+        "Please enter a valid price.";
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+    if (endDate < startDate) {
+
+      message.textContent =
+        "End date cannot be before start date.";
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+    message.textContent =
+      "Saving membership...";
+
+    message.className =
+      "message";
+
+    const payload = {
+      member_id:
+        memberId,
+      type:
+        type,
+      start_date:
+        startDate,
+      end_date:
+        endDate,
+      price:
+        price,
+      status:
+        status
+    };
+
+    let error = null;
+
+    if (membershipId) {
+
+      const result =
+        await supabaseClient
+          .from("memberships")
+          .update(payload)
+          .eq(
+            "id",
+            membershipId
+          );
+
+      error = result.error;
+
+    } else {
+
+      const result =
+        await supabaseClient
+          .from("memberships")
+          .insert(payload);
+
+      error = result.error;
+    }
+
+    if (error) {
+
+      console.error(error);
+
+      message.textContent =
+        "Could not save membership: " +
+        error.message;
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+    message.textContent =
+      "Membership saved successfully.";
 
     message.className =
       "message success-text";
