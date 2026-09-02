@@ -814,6 +814,52 @@
       padding: 13px 16px;
     }
 
+    .attendance-admin-session {
+      margin-top: 12px;
+    }
+
+    .attendance-admin-session select,
+    .attendance-admin-row select {
+      width: 100%;
+      background: #0d0d0d;
+      border: 1px solid #333;
+      border-radius: 9px;
+      color: #fff;
+      padding: 12px;
+      font-size: 14px;
+      outline: none;
+    }
+
+    .attendance-admin-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 130px;
+      gap: 10px;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid #252525;
+    }
+
+    .attendance-admin-row:last-child {
+      border-bottom: none;
+    }
+
+    .attendance-admin-name {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .attendance-admin-number {
+      color: #777;
+      font-size: 11px;
+      margin-top: 3px;
+    }
+
+    @media (max-width: 420px) {
+      .attendance-admin-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
   </style>
 </head>
 
@@ -1329,6 +1375,9 @@
   let currentMember = null;
   let currentMembership = null;
   let isAdmin = false;
+  let adminAttendanceSessions = [];
+  let adminAttendanceMembers = [];
+  let adminAttendanceExisting = {};
 
   let calendarCursor = new Date();
   calendarCursor = new Date(
@@ -5486,6 +5535,344 @@
     await loadAdminCompetitions(
       element
     );
+
+    await loadAdminAttendance(
+      element
+    );
+  }
+
+
+  /* =========================
+     ADMIN ATTENDANCE
+  ========================= */
+
+  async function loadAdminAttendance(element) {
+
+    if (!isAdmin || !element) {
+      return;
+    }
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+
+    const startDateString =
+      startDate.getFullYear() + "-" +
+      String(startDate.getMonth() + 1).padStart(2, "0") + "-" +
+      String(startDate.getDate()).padStart(2, "0");
+
+    const {
+      data: sessions,
+      error
+    } = await supabaseClient
+      .from("training_sessions")
+      .select("*")
+      .gte("training_date", startDateString)
+      .order("training_date", { ascending: false })
+      .order("start_time", { ascending: true });
+
+    if (error) {
+      console.error(error);
+
+      element.innerHTML += `
+        <div class="card">
+          <h3>Attendance</h3>
+          <div class="message error">
+            Could not load training sessions for attendance:
+            ${escapeHtml(error.message)}
+          </div>
+        </div>
+      `;
+
+      return;
+    }
+
+    adminAttendanceSessions = sessions || [];
+
+    element.innerHTML += `
+      <div class="card">
+        <h3>Attendance</h3>
+        <p class="muted small" style="line-height:1.5;">
+          Select a training session and mark each athlete as present or absent.
+          Athletes see the result in their Progress screen.
+        </p>
+
+        <div class="attendance-admin-session">
+          <label>Training session</label>
+          <select
+            id="adminAttendanceSession"
+            onchange="loadAdminAttendanceForSession(this.value)"
+          >
+            <option value="">Select training...</option>
+            ${adminAttendanceSessions.map(function (session) {
+              const label =
+                formatDate(session.training_date) +
+                " • " +
+                String(session.start_time || "").slice(0, 5) +
+                " • " +
+                (session.title || session.training || "Training");
+
+              return `
+                <option value="${escapeHtml(session.id)}">
+                  ${escapeHtml(label)}
+                </option>
+              `;
+            }).join("")}
+          </select>
+        </div>
+
+        <div id="adminAttendanceMembers">
+          ${
+            adminAttendanceSessions.length === 0
+              ? `<div class="empty">No training sessions found.</div>`
+              : `<div class="empty">Choose a training session.</div>`
+          }
+        </div>
+      </div>
+    `;
+  }
+
+
+  async function loadAdminAttendanceForSession(sessionId) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const element =
+      document.getElementById("adminAttendanceMembers");
+
+    if (!element) {
+      return;
+    }
+
+    if (!sessionId) {
+      element.innerHTML = `
+        <div class="empty">
+          Choose a training session.
+        </div>
+      `;
+      return;
+    }
+
+    const session =
+      adminAttendanceSessions.find(function (item) {
+        return item.id === sessionId;
+      });
+
+    if (!session) {
+      element.innerHTML = `
+        <div class="message error">
+          Training session not found.
+        </div>
+      `;
+      return;
+    }
+
+    element.innerHTML = `
+      <div class="empty">
+        Loading athletes...
+      </div>
+    `;
+
+    const [membersResult, attendanceResult] =
+      await Promise.all([
+        supabaseClient
+          .from("members")
+          .select("id, first_name, last_name, membership_number, role")
+          .order("last_name", { ascending: true })
+          .order("first_name", { ascending: true }),
+
+        supabaseClient
+          .from("attendance")
+          .select("id, member_id, attended")
+          .eq("training_date", session.training_date)
+      ]);
+
+    if (membersResult.error) {
+      console.error(membersResult.error);
+      element.innerHTML = `
+        <div class="message error">
+          Could not load members: ${escapeHtml(membersResult.error.message)}
+        </div>
+      `;
+      return;
+    }
+
+    if (attendanceResult.error) {
+      console.error(attendanceResult.error);
+      element.innerHTML = `
+        <div class="message error">
+          Could not load attendance: ${escapeHtml(attendanceResult.error.message)}
+        </div>
+      `;
+      return;
+    }
+
+    adminAttendanceMembers =
+      (membersResult.data || []).filter(function (member) {
+        return member.role !== "admin";
+      });
+
+    adminAttendanceExisting = {};
+
+    (attendanceResult.data || []).forEach(function (item) {
+      adminAttendanceExisting[item.member_id] = item;
+    });
+
+    if (adminAttendanceMembers.length === 0) {
+      element.innerHTML = `
+        <div class="empty">No athletes found.</div>
+      `;
+      return;
+    }
+
+    element.innerHTML = `
+      <div style="margin-top:18px;">
+        <div class="muted small" style="margin-bottom:8px;">
+          ${formatDate(session.training_date)} •
+          ${escapeHtml(String(session.start_time || "").slice(0, 5))} •
+          ${escapeHtml(session.title || session.training || "Training")}
+        </div>
+
+        ${adminAttendanceMembers.map(function (member) {
+          const existing = adminAttendanceExisting[member.id];
+          let selected = "";
+
+          if (existing) {
+            selected = existing.attended ? "true" : "false";
+          }
+
+          return `
+            <div class="attendance-admin-row">
+              <div>
+                <div class="attendance-admin-name">
+                  ${escapeHtml(
+                    ((member.first_name || "") + " " + (member.last_name || "")).trim() ||
+                    "Member"
+                  )}
+                </div>
+                <div class="attendance-admin-number">
+                  ${escapeHtml(member.membership_number || "No member number")}
+                </div>
+              </div>
+
+              <select id="attendanceStatus-${escapeHtml(member.id)}">
+                <option value="" ${selected === "" ? "selected" : ""}>Not marked</option>
+                <option value="true" ${selected === "true" ? "selected" : ""}>Present</option>
+                <option value="false" ${selected === "false" ? "selected" : ""}>Absent</option>
+              </select>
+            </div>
+          `;
+        }).join("")}
+
+        <button onclick="saveAdminAttendance('${escapeHtml(sessionId)}')">
+          SAVE ATTENDANCE
+        </button>
+
+        <div id="adminAttendanceMessage" class="message"></div>
+      </div>
+    `;
+  }
+
+
+  async function saveAdminAttendance(sessionId) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const message =
+      document.getElementById("adminAttendanceMessage");
+
+    const session =
+      adminAttendanceSessions.find(function (item) {
+        return item.id === sessionId;
+      });
+
+    if (!session) {
+      if (message) {
+        message.textContent = "Training session not found.";
+        message.className = "message error";
+      }
+      return;
+    }
+
+    if (message) {
+      message.textContent = "Saving attendance...";
+      message.className = "message";
+    }
+
+    try {
+      for (const member of adminAttendanceMembers) {
+
+        const select =
+          document.getElementById("attendanceStatus-" + member.id);
+
+        if (!select) {
+          continue;
+        }
+
+        const value = select.value;
+        const existing = adminAttendanceExisting[member.id];
+
+        if (value === "") {
+          if (existing) {
+            const { error } = await supabaseClient
+              .from("attendance")
+              .delete()
+              .eq("id", existing.id);
+
+            if (error) {
+              throw error;
+            }
+          }
+          continue;
+        }
+
+        const attended = value === "true";
+
+        if (existing) {
+          const { error } = await supabaseClient
+            .from("attendance")
+            .update({ attended: attended })
+            .eq("id", existing.id);
+
+          if (error) {
+            throw error;
+          }
+
+        } else {
+          const { error } = await supabaseClient
+            .from("attendance")
+            .insert({
+              member_id: member.id,
+              training_date: session.training_date,
+              attended: attended
+            });
+
+          if (error) {
+            throw error;
+          }
+        }
+      }
+
+      if (message) {
+        message.textContent = "Attendance saved successfully.";
+        message.className = "message success-text";
+      }
+
+      await loadAdminAttendanceForSession(sessionId);
+
+    } catch (error) {
+      console.error(error);
+
+      if (message) {
+        message.textContent =
+          "Could not save attendance: " +
+          (error?.message || "Unknown error");
+        message.className = "message error";
+      }
+    }
   }
 
 
