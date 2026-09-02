@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CENTER MMA</title>
 
+  <meta name="theme-color" content="#0b0b0b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="CENTER MMA">
+
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
@@ -402,6 +410,21 @@
       color: #666;
       font-size: 10px;
       margin-top: 8px;
+    }
+
+    .install-card {
+      border-style: dashed;
+    }
+
+    .device-alert-status {
+      margin-top: 10px;
+      color: #888;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .member-search {
+      margin-bottom: 14px;
     }
 
     .notification-setting-row {
@@ -1136,6 +1159,19 @@
 
       <div id="birthdayBanner"></div>
 
+      <div
+        id="installAppCard"
+        class="card install-card hidden"
+      >
+        <h3>Install CENTER MMA</h3>
+        <p class="muted small">
+          Install the app on this device for a faster full-screen experience.
+        </p>
+        <button onclick="installCenterMmaApp()">
+          INSTALL APP
+        </button>
+      </div>
+
       <div id="membershipSummary" class="card"></div>
 
       <div id="homeDashboard"></div>
@@ -1857,6 +1893,31 @@
           >
         </div>
 
+        <div
+          class="notification-setting-row"
+        >
+          <div class="notification-setting-copy">
+            <div class="notification-setting-title">
+              📱 Device alerts
+            </div>
+            <div class="notification-setting-text">
+              Allow this device to show browser/PWA alerts while CENTER MMA is active.
+            </div>
+          </div>
+        </div>
+
+        <button
+          class="secondary"
+          onclick="enableDeviceAlerts()"
+        >
+          ENABLE DEVICE ALERTS
+        </button>
+
+        <div
+          id="deviceAlertStatus"
+          class="device-alert-status"
+        ></div>
+
         <button
           onclick="saveNotificationPreferencesFromNotifications()"
         >
@@ -2031,6 +2092,9 @@
   let isStaff = false;
   let chatRealtimeChannel = null;
   let chatRefreshTimer = null;
+  let notificationRealtimeChannel = null;
+  let deferredInstallPrompt = null;
+  let pendingNotificationIdFromUrl = null;
   let adminAttendanceSessions = [];
   let adminAttendanceMembers = [];
   let adminAttendanceExisting = {};
@@ -2056,6 +2120,17 @@
   window.addEventListener(
     "load",
     async function () {
+
+      initializePwa();
+
+      const params =
+        new URLSearchParams(
+          window.location.search
+        );
+
+      pendingNotificationIdFromUrl =
+        params.get("notification");
+
       await checkSession();
     }
   );
@@ -2267,6 +2342,7 @@
     currentAdminSection = null;
 
     stopChatRealtime();
+    stopNotificationRealtime();
 
     showAuth();
   }
@@ -2592,7 +2668,39 @@
 
     loadEvents();
 
+    startNotificationRealtime();
+
     openSection("home");
+
+    if (pendingNotificationIdFromUrl) {
+
+      const notificationId =
+        pendingNotificationIdFromUrl;
+
+      pendingNotificationIdFromUrl =
+        null;
+
+      window.history.replaceState(
+        {},
+        "",
+        window.location.pathname
+      );
+
+      setTimeout(
+        async function () {
+
+          openSection(
+            "notifications"
+          );
+
+          await openNotificationDetail(
+            notificationId
+          );
+
+        },
+        250
+      );
+    }
   }
 
 
@@ -11415,6 +11523,14 @@
         <p class="muted small">
           Manage profiles, roles and memberships.
         </p>
+
+        <input
+          id="adminMemberSearch"
+          class="member-search"
+          type="search"
+          placeholder="Search name, email or member number..."
+          oninput="filterAdminMembers()"
+        >
       </div>
 
       <div id="adminMembersList"></div>
@@ -11468,8 +11584,17 @@
 
             return `
               <div
-                class="competition-admin-card"
+                class="competition-admin-card admin-member-card"
                 id="adminMember-${member.id}"
+                data-search="${escapeHtml(
+                  (
+                    displayName +
+                    " " +
+                    (member.email || "") +
+                    " " +
+                    (member.membership_number || "")
+                  ).toLowerCase()
+                )}"
               >
 
                 <div
@@ -11856,26 +11981,26 @@
     const {
       error
     } = await supabaseClient
-      .from("members")
-      .update({
-        first_name:
-          firstName || null,
-        last_name:
-          lastName || null,
-        phone:
-          phone || null,
-        emergency_contact_name:
-          emergencyName || null,
-        emergency_contact_phone:
-          emergencyPhone || null,
-        membership_number:
-          membershipNumber || null,
-        role:
-          role
-      })
-      .eq(
-        "id",
-        memberId
+      .rpc(
+        "admin_update_member",
+        {
+          target_member_id:
+            memberId,
+          new_first_name:
+            firstName || null,
+          new_last_name:
+            lastName || null,
+          new_phone:
+            phone || null,
+          new_emergency_contact_name:
+            emergencyName || null,
+          new_emergency_contact_phone:
+            emergencyPhone || null,
+          new_membership_number:
+            membershipNumber || null,
+          new_role:
+            role
+        }
       );
 
     if (error) {
@@ -11926,14 +12051,14 @@
     const {
       error
     } = await supabaseClient
-      .from("members")
-      .update({
-        is_active:
-          active
-      })
-      .eq(
-        "id",
-        memberId
+      .rpc(
+        "admin_set_member_active",
+        {
+          target_member_id:
+            memberId,
+          new_active:
+            active
+        }
       );
 
     if (error) {
@@ -15813,6 +15938,321 @@
 
 
     await loadAdminPanel();
+  }
+
+
+
+  /* =========================
+     PWA / DEVICE ALERTS
+  ========================= */
+
+  function initializePwa() {
+
+    if ("serviceWorker" in navigator) {
+
+      navigator.serviceWorker
+        .register("/sw.js")
+        .catch(function (error) {
+          console.error(
+            "Service worker registration failed:",
+            error
+          );
+        });
+    }
+
+    window.addEventListener(
+      "beforeinstallprompt",
+      function (event) {
+
+        event.preventDefault();
+
+        deferredInstallPrompt =
+          event;
+
+        const card =
+          document.getElementById(
+            "installAppCard"
+          );
+
+        if (card) {
+          card.classList.remove(
+            "hidden"
+          );
+        }
+      }
+    );
+
+    window.addEventListener(
+      "appinstalled",
+      function () {
+
+        deferredInstallPrompt =
+          null;
+
+        const card =
+          document.getElementById(
+            "installAppCard"
+          );
+
+        if (card) {
+          card.classList.add(
+            "hidden"
+          );
+        }
+      }
+    );
+
+    setTimeout(
+      updateDeviceAlertStatus,
+      0
+    );
+  }
+
+
+  async function installCenterMmaApp() {
+
+    if (!deferredInstallPrompt) {
+
+      alert(
+        "If the install button is not available, use your browser menu and choose Add to Home Screen / Install App."
+      );
+
+      return;
+    }
+
+    deferredInstallPrompt.prompt();
+
+    await deferredInstallPrompt
+      .userChoice;
+
+    deferredInstallPrompt =
+      null;
+
+    const card =
+      document.getElementById(
+        "installAppCard"
+      );
+
+    if (card) {
+      card.classList.add(
+        "hidden"
+      );
+    }
+  }
+
+
+  async function enableDeviceAlerts() {
+
+    if (!("Notification" in window)) {
+
+      alert(
+        "This browser does not support notifications."
+      );
+
+      return;
+    }
+
+    await Notification
+      .requestPermission();
+
+    updateDeviceAlertStatus();
+  }
+
+
+  function updateDeviceAlertStatus() {
+
+    const element =
+      document.getElementById(
+        "deviceAlertStatus"
+      );
+
+    if (!element) {
+      return;
+    }
+
+    if (!("Notification" in window)) {
+
+      element.textContent =
+        "Device alerts are not supported by this browser.";
+
+      return;
+    }
+
+    if (
+      Notification.permission ===
+      "granted"
+    ) {
+
+      element.textContent =
+        "Device alerts are enabled on this device.";
+
+    } else if (
+      Notification.permission ===
+      "denied"
+    ) {
+
+      element.textContent =
+        "Device alerts are blocked in browser settings.";
+
+    } else {
+
+      element.textContent =
+        "Device alerts are not enabled yet.";
+    }
+  }
+
+
+  function startNotificationRealtime() {
+
+    if (!currentUser) {
+      return;
+    }
+
+    stopNotificationRealtime();
+
+    notificationRealtimeChannel =
+      supabaseClient
+        .channel(
+          "center-mma-notifications"
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "notifications"
+          },
+          async function (payload) {
+
+            const item =
+              payload.new;
+
+            if (
+              item.user_id &&
+              item.user_id !==
+                currentUser.id
+            ) {
+              return;
+            }
+
+            await loadNotificationBadge();
+
+            const preferences =
+              await getNotificationPreferences();
+
+            if (
+              !notificationAllowedByPreferences(
+                item,
+                preferences
+              )
+            ) {
+              return;
+            }
+
+            if (
+              !("Notification" in window) ||
+              Notification.permission !==
+                "granted"
+            ) {
+              return;
+            }
+
+            if (
+              document.visibilityState ===
+              "visible"
+            ) {
+              return;
+            }
+
+            try {
+
+              const registration =
+                await navigator
+                  .serviceWorker
+                  .ready;
+
+              await registration
+                .showNotification(
+                  item.title ||
+                    "CENTER MMA",
+                  {
+                    body:
+                      item.message || "",
+                    icon:
+                      "/icon-192.png",
+                    badge:
+                      "/icon-192.png",
+                    tag:
+                      "center-mma-" +
+                      item.id,
+                    data: {
+                      notificationId:
+                        item.id,
+                      linkSection:
+                        item.link_section ||
+                        null
+                    }
+                  }
+                );
+
+            } catch (error) {
+
+              console.error(
+                "Could not show device alert:",
+                error
+              );
+            }
+          }
+        )
+        .subscribe();
+  }
+
+
+  function stopNotificationRealtime() {
+
+    if (notificationRealtimeChannel) {
+
+      supabaseClient
+        .removeChannel(
+          notificationRealtimeChannel
+        );
+
+      notificationRealtimeChannel =
+        null;
+    }
+  }
+
+
+  function filterAdminMembers() {
+
+    const input =
+      document.getElementById(
+        "adminMemberSearch"
+      );
+
+    const query =
+      String(
+        input?.value || ""
+      )
+        .trim()
+        .toLowerCase();
+
+    document
+      .querySelectorAll(
+        ".admin-member-card"
+      )
+      .forEach(function (card) {
+
+        const haystack =
+          card.dataset.search ||
+          "";
+
+        card.classList.toggle(
+          "hidden",
+          Boolean(query) &&
+          !haystack.includes(query)
+        );
+      });
   }
 
 
