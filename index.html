@@ -1694,6 +1694,191 @@
 
       </div>
 
+      <div class="card">
+
+        <h3>
+          Notification Preferences
+        </h3>
+
+        <p class="muted small">
+          Choose which optional notifications you want to receive.
+        </p>
+
+        <div
+          class="notification-setting-row"
+        >
+          <div class="notification-setting-copy">
+            <div class="notification-setting-title">
+              🔒 Important club notifications
+            </div>
+            <div class="notification-setting-text">
+              Admin, group, payment and membership notifications. Always enabled.
+            </div>
+          </div>
+
+          <input
+            type="checkbox"
+            class="notification-checkbox"
+            checked
+            disabled
+          >
+        </div>
+
+        <div
+          class="notification-setting-row"
+        >
+          <div class="notification-setting-copy">
+            <div class="notification-setting-title">
+              💬 Chat messages
+            </div>
+            <div class="notification-setting-text">
+              Notify me about new club chat messages.
+            </div>
+          </div>
+
+          <input
+            id="notifPrefChat"
+            type="checkbox"
+            class="notification-checkbox"
+          >
+        </div>
+
+        <div
+          class="notification-setting-row"
+        >
+          <div class="notification-setting-copy">
+            <div class="notification-setting-title">
+              ⏰ Training reminders
+            </div>
+            <div class="notification-setting-text">
+              Reminders before upcoming training sessions.
+            </div>
+          </div>
+
+          <input
+            id="notifPrefTrainingReminders"
+            type="checkbox"
+            class="notification-checkbox"
+          >
+        </div>
+
+        <div
+          class="notification-setting-row"
+        >
+          <div class="notification-setting-copy">
+            <div class="notification-setting-title">
+              🥋 Training changes
+            </div>
+            <div class="notification-setting-text">
+              New, changed or cancelled training sessions.
+            </div>
+          </div>
+
+          <input
+            id="notifPrefTrainingChanges"
+            type="checkbox"
+            class="notification-checkbox"
+          >
+        </div>
+
+        <div
+          class="notification-setting-row"
+        >
+          <div class="notification-setting-copy">
+            <div class="notification-setting-title">
+              🏆 Competitions
+            </div>
+            <div class="notification-setting-text">
+              New competitions and competition updates.
+            </div>
+          </div>
+
+          <input
+            id="notifPrefCompetitions"
+            type="checkbox"
+            class="notification-checkbox"
+          >
+        </div>
+
+        <div
+          class="notification-setting-row"
+        >
+          <div class="notification-setting-copy">
+            <div class="notification-setting-title">
+              📰 News
+            </div>
+            <div class="notification-setting-text">
+              Notify me when new club news is published.
+            </div>
+          </div>
+
+          <input
+            id="notifPrefNews"
+            type="checkbox"
+            class="notification-checkbox"
+          >
+        </div>
+
+        <div
+          class="notification-setting-row"
+        >
+          <div class="notification-setting-copy">
+            <div class="notification-setting-title">
+              📄 Documents
+            </div>
+            <div class="notification-setting-text">
+              Notify me when new club documents are added.
+            </div>
+          </div>
+
+          <input
+            id="notifPrefDocuments"
+            type="checkbox"
+            class="notification-checkbox"
+          >
+        </div>
+
+        <div
+          class="notification-setting-row"
+        >
+          <div class="notification-setting-copy">
+            <div class="notification-setting-title">
+              🎂 Birthday reminders
+            </div>
+            <div class="notification-setting-text">
+              Birthday and club celebration reminders.
+            </div>
+          </div>
+
+          <input
+            id="notifPrefBirthdays"
+            type="checkbox"
+            class="notification-checkbox"
+          >
+        </div>
+
+        <button
+          onclick="saveNotificationPreferencesFromNotifications()"
+        >
+          SAVE PREFERENCES
+        </button>
+
+        <div
+          id="notificationsPreferencesMessage"
+          class="message"
+        ></div>
+
+      </div>
+
+
+      <div class="card">
+        <h3>Notification History</h3>
+        <p class="muted small">
+          Your recent notifications.
+        </p>
+      </div>
+
+
       <div id="notificationsList">
         <div class="empty">
           Loading notifications...
@@ -3401,6 +3586,7 @@
         notificationDetail.innerHTML = "";
       }
 
+      loadNotificationPreferences();
       loadNotifications(true);
     }
 
@@ -4194,6 +4380,37 @@
           }
         }
       );
+
+    const notificationPageMapping = {
+      notifPrefChat:
+        preferences.chat_messages,
+      notifPrefTrainingReminders:
+        preferences.training_reminders,
+      notifPrefTrainingChanges:
+        preferences.training_changes,
+      notifPrefCompetitions:
+        preferences.competitions,
+      notifPrefNews:
+        preferences.news,
+      notifPrefDocuments:
+        preferences.documents,
+      notifPrefBirthdays:
+        preferences.birthdays
+    };
+
+    Object.entries(
+      notificationPageMapping
+    ).forEach(
+      function ([id, checked]) {
+
+        const element =
+          document.getElementById(id);
+
+        if (element) {
+          element.checked = checked;
+        }
+      }
+    );
   }
 
 
@@ -4289,6 +4506,102 @@
       message.className =
         "message success-text";
     }
+
+    await loadNotificationBadge();
+  }
+
+
+
+  async function saveNotificationPreferencesFromNotifications() {
+
+    if (!currentUser) {
+      return;
+    }
+
+    const message =
+      document.getElementById(
+        "notificationsPreferencesMessage"
+      );
+
+    const payload = {
+      user_id:
+        currentUser.id,
+      chat_messages:
+        document.getElementById(
+          "notifPrefChat"
+        )?.checked !== false,
+      training_reminders:
+        document.getElementById(
+          "notifPrefTrainingReminders"
+        )?.checked !== false,
+      training_changes:
+        document.getElementById(
+          "notifPrefTrainingChanges"
+        )?.checked !== false,
+      competitions:
+        document.getElementById(
+          "notifPrefCompetitions"
+        )?.checked !== false,
+      news:
+        document.getElementById(
+          "notifPrefNews"
+        )?.checked !== false,
+      documents:
+        document.getElementById(
+          "notifPrefDocuments"
+        )?.checked !== false,
+      birthdays:
+        document.getElementById(
+          "notifPrefBirthdays"
+        )?.checked !== false,
+      updated_at:
+        new Date().toISOString()
+    };
+
+    if (message) {
+      message.textContent =
+        "Saving...";
+      message.className =
+        "message";
+    }
+
+    const {
+      error
+    } = await supabaseClient
+      .from("notification_preferences")
+      .upsert(
+        payload,
+        {
+          onConflict:
+            "user_id"
+        }
+      );
+
+    if (error) {
+
+      console.error(error);
+
+      if (message) {
+        message.textContent =
+          "Could not save notification settings: " +
+          error.message;
+        message.className =
+          "message error";
+      }
+
+      return;
+    }
+
+    if (message) {
+      message.textContent =
+        "Notification settings saved.";
+      message.className =
+        "message success-text";
+    }
+
+    await loadNotificationPreferences();
+
+    await loadNotifications(false);
 
     await loadNotificationBadge();
   }
