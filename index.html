@@ -3163,7 +3163,13 @@ async function loadTrainingSessions() {
           <h3>
             ${escapeHtml(session.title || "Training")}
           </h3>
-
+${
+  session.training
+    ? `<div class="muted small" style="margin-top:6px;">
+         🥋 ${escapeHtml(session.training)}
+       </div>`
+    : ""
+}
           <div class="muted small">
             📅 ${formatDate(session.training_date)}
           </div>
