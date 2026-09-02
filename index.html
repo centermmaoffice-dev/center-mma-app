@@ -1011,6 +1011,8 @@
         <div id="welcomeName" class="welcome-name">Member</div>
       </div>
 
+      <div id="birthdayBanner"></div>
+
       <div id="membershipSummary" class="card"></div>
 
       <div id="homeDashboard"></div>
@@ -1999,6 +2001,8 @@
     }
 
 
+    renderBirthdayBanner();
+
     renderMembershipSummary();
 
     renderMembershipDetails();
@@ -2016,6 +2020,322 @@
     openSection("home");
   }
 
+
+
+
+  /* =========================
+     BIRTHDAYS
+  ========================= */
+
+  function getBirthdayThisYear(
+    birthDateString
+  ) {
+
+    if (!birthDateString) {
+      return null;
+    }
+
+    const parts =
+      String(birthDateString)
+        .split("-")
+        .map(Number);
+
+    if (
+      parts.length !== 3 ||
+      parts.some(Number.isNaN)
+    ) {
+      return null;
+    }
+
+    const now =
+      new Date();
+
+    return new Date(
+      now.getFullYear(),
+      parts[1] - 1,
+      parts[2]
+    );
+  }
+
+
+  function renderBirthdayBanner() {
+
+    const element =
+      document.getElementById(
+        "birthdayBanner"
+      );
+
+    if (!element) {
+      return;
+    }
+
+    element.innerHTML = "";
+
+    if (
+      !currentMember ||
+      !currentMember.birth_date
+    ) {
+      return;
+    }
+
+    const birthday =
+      getBirthdayThisYear(
+        currentMember.birth_date
+      );
+
+    if (!birthday) {
+      return;
+    }
+
+    const now =
+      new Date();
+
+    const isToday =
+      birthday.getMonth() ===
+        now.getMonth() &&
+      birthday.getDate() ===
+        now.getDate();
+
+    if (!isToday) {
+      return;
+    }
+
+    const name =
+      currentMember.first_name ||
+      "Member";
+
+    element.innerHTML = `
+      <div
+        class="card"
+        style="
+          text-align:center;
+          padding:24px 18px;
+        "
+      >
+        <div
+          style="
+            font-size:34px;
+            margin-bottom:10px;
+          "
+        >
+          🎉
+        </div>
+
+        <h2 style="margin-bottom:6px;">
+          Happy Birthday, ${escapeHtml(name)}!
+        </h2>
+
+        <div class="muted small">
+          CENTER MMA wishes you a great year, strong health and new victories.
+        </div>
+      </div>
+    `;
+  }
+
+
+  async function loadAdminBirthdays(
+    element
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const {
+      data: members,
+      error
+    } = await supabaseClient
+      .from("members")
+      .select(`
+        id,
+        first_name,
+        last_name,
+        email,
+        birth_date
+      `)
+      .not(
+        "birth_date",
+        "is",
+        null
+      );
+
+    if (error) {
+
+      console.error(error);
+
+      element.innerHTML += `
+        <div class="card">
+          <div class="message error">
+            Could not load birthdays:
+            ${escapeHtml(error.message)}
+          </div>
+        </div>
+      `;
+
+      return;
+    }
+
+    const now =
+      new Date();
+
+    now.setHours(
+      0, 0, 0, 0
+    );
+
+    const upcoming =
+      (members || [])
+        .map(
+          function (member) {
+
+            let birthday =
+              getBirthdayThisYear(
+                member.birth_date
+              );
+
+            if (!birthday) {
+              return null;
+            }
+
+            birthday.setHours(
+              0, 0, 0, 0
+            );
+
+            if (
+              birthday <
+              now
+            ) {
+              birthday.setFullYear(
+                birthday.getFullYear() + 1
+              );
+            }
+
+            const diffDays =
+              Math.round(
+                (
+                  birthday.getTime() -
+                  now.getTime()
+                ) /
+                86400000
+              );
+
+            return {
+              member,
+              birthday,
+              diffDays
+            };
+          }
+        )
+        .filter(
+          item =>
+            item &&
+            item.diffDays >= 0 &&
+            item.diffDays <= 30
+        )
+        .sort(
+          (a, b) =>
+            a.diffDays -
+            b.diffDays
+        );
+
+    element.innerHTML += `
+      <div class="card">
+
+        <h3>
+          Upcoming Birthdays
+        </h3>
+
+        <p class="muted small">
+          Birthdays in the next 30 days.
+        </p>
+
+        <div id="adminBirthdaysList"></div>
+
+      </div>
+    `;
+
+    const list =
+      document.getElementById(
+        "adminBirthdaysList"
+      );
+
+    if (!list) {
+      return;
+    }
+
+    if (
+      upcoming.length === 0
+    ) {
+
+      list.innerHTML = `
+        <div class="empty">
+          No birthdays in the next 30 days.
+        </div>
+      `;
+
+      return;
+    }
+
+    list.innerHTML =
+      upcoming.map(
+        function (item) {
+
+          const member =
+            item.member;
+
+          const name =
+            [
+              member.first_name,
+              member.last_name
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .trim() ||
+            member.email ||
+            "Member";
+
+          const dayText =
+            item.diffDays === 0
+              ? "Today"
+              : item.diffDays === 1
+                ? "Tomorrow"
+                : `In ${item.diffDays} days`;
+
+          return `
+            <div class="info-row">
+
+              <div>
+                <div
+                  style="
+                    font-size:14px;
+                    font-weight:700;
+                  "
+                >
+                  🎂 ${escapeHtml(name)}
+                </div>
+
+                <div
+                  class="muted small"
+                  style="margin-top:3px;"
+                >
+                  ${escapeHtml(dayText)}
+                </div>
+              </div>
+
+              <div class="info-value">
+                ${item.birthday.toLocaleDateString(
+                  "en-GB",
+                  {
+                    day: "2-digit",
+                    month: "2-digit"
+                  }
+                )}
+              </div>
+
+            </div>
+          `;
+        }
+      ).join("");
+  }
 
 
   /* =========================
@@ -6559,6 +6879,10 @@
     );
 
     await loadAdminPayments(
+      element
+    );
+
+    await loadAdminBirthdays(
       element
     );
 
