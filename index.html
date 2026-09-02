@@ -1521,6 +1521,25 @@
           >
         </div>
 
+        <div
+          class="notification-setting-row"
+        >
+          <div class="notification-setting-copy">
+            <div class="notification-setting-title">
+              🎂 Birthday reminders
+            </div>
+            <div class="notification-setting-text">
+              Birthday and club celebration reminders.
+            </div>
+          </div>
+
+          <input
+            id="prefBirthdays"
+            type="checkbox"
+            class="notification-checkbox"
+          >
+        </div>
+
         <button
           onclick="saveNotificationPreferences()"
         >
@@ -1680,6 +1699,11 @@
           Loading notifications...
         </div>
       </div>
+
+      <div
+        id="notificationDetail"
+        class="hidden"
+      ></div>
 
     </div>
 
@@ -3353,6 +3377,30 @@
     }
 
     if (section === "notifications") {
+
+      const notificationsList =
+        document.getElementById(
+          "notificationsList"
+        );
+
+      const notificationDetail =
+        document.getElementById(
+          "notificationDetail"
+        );
+
+      if (notificationsList) {
+        notificationsList.classList.remove(
+          "hidden"
+        );
+      }
+
+      if (notificationDetail) {
+        notificationDetail.classList.add(
+          "hidden"
+        );
+        notificationDetail.innerHTML = "";
+      }
+
       loadNotifications(true);
     }
 
@@ -4051,7 +4099,8 @@
       training_changes: true,
       competitions: true,
       news: true,
-      documents: true
+      documents: true,
+      birthdays: true
     };
   }
 
@@ -4100,7 +4149,9 @@
       news:
         data.news !== false,
       documents:
-        data.documents !== false
+        data.documents !== false,
+      birthdays:
+        data.birthdays !== false
     };
   }
 
@@ -4126,7 +4177,9 @@
       prefNews:
         preferences.news,
       prefDocuments:
-        preferences.documents
+        preferences.documents,
+      prefBirthdays:
+        preferences.birthdays
     };
 
     Object.entries(mapping)
@@ -4181,6 +4234,10 @@
       documents:
         document.getElementById(
           "prefDocuments"
+        )?.checked !== false,
+      birthdays:
+        document.getElementById(
+          "prefBirthdays"
         )?.checked !== false,
       updated_at:
         new Date().toISOString()
@@ -4287,6 +4344,10 @@
 
     if (type === "document") {
       return preferences.documents;
+    }
+
+    if (type === "birthday") {
+      return preferences.birthdays;
     }
 
     return true;
@@ -6955,74 +7016,6 @@
 
     status.textContent = "";
 
-    /*
-      Create optional chat notifications for other active members.
-      Their personal preferences decide whether these are shown/pushed.
-    */
-    const {
-      data: chatMembers,
-      error: chatMembersError
-    } = await supabaseClient
-      .from("members")
-      .select("user_id, is_active")
-      .not(
-        "user_id",
-        "is",
-        null
-      );
-
-    if (!chatMembersError) {
-
-      const recipients =
-        (chatMembers || [])
-          .filter(
-            member =>
-              member.is_active !== false &&
-              member.user_id &&
-              member.user_id !== currentUser.id
-          )
-          .map(
-            member =>
-              member.user_id
-          );
-
-      if (recipients.length > 0) {
-
-        const rows =
-          recipients.map(
-            userId => ({
-              user_id:
-                userId,
-              title:
-                "New chat message",
-              message:
-                message.length > 120
-                  ? message.slice(0, 120) + "..."
-                  : message,
-              type:
-                "chat",
-              link_section:
-                "chat",
-              created_by:
-                currentUser.id
-            })
-          );
-
-        const {
-          error: notificationError
-        } = await supabaseClient
-          .from("notifications")
-          .insert(rows);
-
-        if (notificationError) {
-          console.error(
-            "Could not create chat notifications:",
-            notificationError
-          );
-        }
-      }
-    }
-
     await loadChatMessages();
   }
 
@@ -7494,9 +7487,11 @@
                   ? "🥋"
                   : item.type === "document"
                     ? "📄"
-                    : item.type === "news"
-                      ? "📰"
-                      : "🔔";
+                    : item.type === "birthday"
+                      ? "🎂"
+                      : item.type === "news"
+                        ? "📰"
+                        : "🔔";
 
           return `
             <div
@@ -7505,11 +7500,8 @@
                   ? "unread"
                   : ""
               }"
-              onclick="openNotification(
-                '${item.id}',
-                '${escapeHtml(
-                  item.link_section || ""
-                )}'
+              onclick="openNotificationDetail(
+                '${item.id}'
               )"
             >
 
@@ -7582,6 +7574,247 @@
     }
 
     await loadNotificationBadge();
+  }
+
+
+
+  function getNotificationTypeLabel(
+    type
+  ) {
+
+    const normalized =
+      String(type || "info")
+        .toLowerCase();
+
+    if (normalized === "admin") {
+      return "Important club notification";
+    }
+
+    if (normalized === "chat") {
+      return "Chat";
+    }
+
+    if (
+      normalized === "training" ||
+      normalized === "training_change"
+    ) {
+      return "Training";
+    }
+
+    if (
+      normalized === "training_reminder"
+    ) {
+      return "Training reminder";
+    }
+
+    if (
+      normalized === "competition" ||
+      normalized === "competition_update"
+    ) {
+      return "Competition";
+    }
+
+    if (normalized === "payment") {
+      return "Payment";
+    }
+
+    if (normalized === "membership") {
+      return "Membership";
+    }
+
+    if (normalized === "news") {
+      return "News";
+    }
+
+    if (normalized === "document") {
+      return "Document";
+    }
+
+    if (normalized === "birthday") {
+      return "Birthday";
+    }
+
+    return "Notification";
+  }
+
+
+  async function openNotificationDetail(
+    notificationId
+  ) {
+
+    if (!currentUser) {
+      return;
+    }
+
+    const list =
+      document.getElementById(
+        "notificationsList"
+      );
+
+    const detail =
+      document.getElementById(
+        "notificationDetail"
+      );
+
+    if (!detail) {
+      return;
+    }
+
+    const {
+      data: item,
+      error
+    } = await supabaseClient
+      .from("notifications")
+      .select("*")
+      .eq(
+        "id",
+        notificationId
+      )
+      .maybeSingle();
+
+    if (
+      error ||
+      !item
+    ) {
+
+      console.error(error);
+
+      return;
+    }
+
+    await supabaseClient
+      .from("notification_reads")
+      .upsert(
+        {
+          notification_id:
+            notificationId,
+          user_id:
+            currentUser.id
+        },
+        {
+          onConflict:
+            "notification_id,user_id"
+        }
+      );
+
+    if (list) {
+      list.classList.add("hidden");
+    }
+
+    detail.classList.remove("hidden");
+
+    detail.innerHTML = `
+
+      <button
+        class="secondary back-button"
+        onclick="backToNotificationsList()"
+        style="margin-bottom:15px;"
+      >
+        ← BACK TO NOTIFICATIONS
+      </button>
+
+      <div class="card">
+
+        <div
+          class="muted small"
+          style="
+            text-transform:uppercase;
+            letter-spacing:1px;
+            margin-bottom:8px;
+          "
+        >
+          ${escapeHtml(
+            getNotificationTypeLabel(
+              item.type
+            )
+          )}
+        </div>
+
+        <h2 style="margin-bottom:10px;">
+          ${escapeHtml(
+            item.title ||
+            "Notification"
+          )}
+        </h2>
+
+        <div
+          style="
+            line-height:1.7;
+            white-space:pre-wrap;
+            font-size:14px;
+          "
+        >${escapeHtml(
+          item.message || ""
+        )}</div>
+
+        <div
+          class="muted small"
+          style="margin-top:18px;"
+        >
+          ${formatDateTime(
+            item.created_at
+          )}
+        </div>
+
+        ${
+          item.link_section
+            ? `
+              <button
+                onclick="openNotificationRelatedSection(
+                  '${item.id}',
+                  '${escapeHtml(
+                    item.link_section
+                  )}'
+                )"
+              >
+                OPEN RELATED PAGE
+              </button>
+            `
+            : ""
+        }
+
+      </div>
+
+    `;
+
+    await loadNotificationBadge();
+  }
+
+
+  async function backToNotificationsList() {
+
+    const list =
+      document.getElementById(
+        "notificationsList"
+      );
+
+    const detail =
+      document.getElementById(
+        "notificationDetail"
+      );
+
+    if (detail) {
+      detail.classList.add("hidden");
+      detail.innerHTML = "";
+    }
+
+    if (list) {
+      list.classList.remove("hidden");
+    }
+
+    await loadNotifications(false);
+  }
+
+
+  async function openNotificationRelatedSection(
+    notificationId,
+    linkSection
+  ) {
+
+    await openNotification(
+      notificationId,
+      linkSection
+    );
   }
 
 
