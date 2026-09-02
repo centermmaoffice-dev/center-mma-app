@@ -3096,7 +3096,119 @@ if (section === "training") {
       "message success-text";
   }
 
+async function loadTrainingSessions() {
 
+  const element =
+    document.getElementById("trainingSessionsList");
+
+  if (!element) {
+    return;
+  }
+
+  element.innerHTML = `
+    <div class="empty">
+      Loading training sessions...
+    </div>
+  `;
+
+  const {
+    data,
+    error
+  } = await supabaseClient
+    .from("training_sessions")
+    .select("*")
+    .gte("training_date", getLocalDateString())
+    .order("training_date", {
+      ascending: true
+    })
+    .order("start_time", {
+      ascending: true
+    });
+
+  if (error) {
+
+    console.error(error);
+
+    element.innerHTML = `
+      <div class="card">
+        <div class="message error">
+          Could not load training sessions:
+          ${escapeHtml(error.message)}
+        </div>
+      </div>
+    `;
+
+    return;
+  }
+
+  if (!data || data.length === 0) {
+
+    element.innerHTML = `
+      <div class="card">
+        <div class="empty">
+          No upcoming training sessions.
+        </div>
+      </div>
+    `;
+
+    return;
+  }
+
+  element.innerHTML =
+    data.map(function (session) {
+
+      return `
+        <div class="card">
+
+          <h3>
+            ${escapeHtml(session.title || "Training")}
+          </h3>
+
+          <div class="muted small">
+            📅 ${formatDate(session.training_date)}
+          </div>
+
+          <div class="muted small" style="margin-top:6px;">
+            🕒 ${escapeHtml(session.start_time || "")}
+            -
+            ${escapeHtml(session.end_time || "")}
+          </div>
+
+          ${
+            session.location
+              ? `
+                <div class="muted small" style="margin-top:6px;">
+                  📍 ${escapeHtml(session.location)}
+                </div>
+              `
+              : ""
+          }
+
+          ${
+            session.district
+              ? `
+                <div class="muted small" style="margin-top:4px;">
+                  ${escapeHtml(session.district)}
+                </div>
+              `
+              : ""
+          }
+
+          ${
+            session.description
+              ? `
+                <p class="muted small" style="margin-top:12px; line-height:1.5;">
+                  ${escapeHtml(session.description)}
+                </p>
+              `
+              : ""
+          }
+
+        </div>
+      `;
+
+    }).join("");
+}
   /* =========================
      EVENTS
   ========================= */
