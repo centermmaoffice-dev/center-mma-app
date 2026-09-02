@@ -790,10 +790,82 @@
       background: #222;
     }
 
+    .chat-row {
+      display: flex;
+      gap: 9px;
+      align-items: flex-end;
+      margin-bottom: 10px;
+    }
+
+    .chat-row.mine {
+      flex-direction: row-reverse;
+    }
+
+    .chat-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      overflow: hidden;
+      flex: 0 0 34px;
+      background: #222;
+      border: 1px solid #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .chat-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .chat-bubble-wrap {
+      max-width: calc(85% - 43px);
+    }
+
+    .chat-sender {
+      color: #aaa;
+      font-size: 10px;
+      font-weight: 700;
+      margin: 0 0 4px 2px;
+    }
+
+    .chat-row.mine .chat-sender {
+      text-align: right;
+      margin: 0 2px 4px 0;
+    }
+
+    .chat-message {
+      max-width: none;
+      margin-bottom: 0;
+    }
+
     .chat-meta {
       color: #666;
       font-size: 10px;
       margin-top: 5px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .chat-delete {
+      width: auto;
+      border: none;
+      background: transparent;
+      color: #777;
+      padding: 0;
+      margin: 0;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .chat-delete:hover {
+      color: #ff8585;
     }
 
     .chat-compose {
@@ -1387,6 +1459,8 @@
   let currentMember = null;
   let currentMembership = null;
   let isAdmin = false;
+  let chatRealtimeChannel = null;
+  let chatRefreshTimer = null;
   let adminAttendanceSessions = [];
   let adminAttendanceMembers = [];
   let adminAttendanceExisting = {};
@@ -1617,6 +1691,8 @@
     currentMember = null;
     currentMembership = null;
     isAdmin = false;
+
+    stopChatRealtime();
 
     showAuth();
   }
@@ -2172,6 +2248,9 @@
 
     if (section === "chat") {
       loadChatMessages();
+      startChatRealtime();
+    } else {
+      stopChatRealtime();
     }
 
     if (section === "events") {
@@ -4733,7 +4812,138 @@
      CLUB CHAT
   ========================= */
 
-  async function loadChatMessages() {
+  async function getChatProfiles(userIds) {
+
+    const uniqueIds =
+      [...new Set(
+        (userIds || []).filter(Boolean)
+      )];
+
+    if (uniqueIds.length === 0) {
+      return {};
+    }
+
+    const {
+      data,
+      error
+    } = await supabaseClient
+      .rpc(
+        "get_chat_profiles",
+        {
+          requested_user_ids:
+            uniqueIds
+        }
+      );
+
+    if (error) {
+
+      console.error(
+        "Could not load chat profiles:",
+        error
+      );
+
+      return {};
+    }
+
+    const profileMap = {};
+
+    for (const profile of (data || [])) {
+
+      let photoUrl = "";
+
+      if (profile.photo_path) {
+
+        const {
+          data: signedData,
+          error: signedError
+        } = await supabaseClient
+          .storage
+          .from("member-photos")
+          .createSignedUrl(
+            profile.photo_path,
+            3600
+          );
+
+        if (
+          !signedError &&
+          signedData?.signedUrl
+        ) {
+          photoUrl =
+            signedData.signedUrl;
+        }
+      }
+
+      profileMap[profile.user_id] = {
+        first_name:
+          profile.first_name || "",
+        last_name:
+          profile.last_name || "",
+        photo_url:
+          photoUrl
+      };
+    }
+
+    return profileMap;
+  }
+
+
+  function getChatDisplayName(
+    profile,
+    isMine
+  ) {
+
+    if (profile) {
+
+      const fullName =
+        [
+          profile.first_name,
+          profile.last_name
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .trim();
+
+      if (fullName) {
+        return fullName;
+      }
+    }
+
+    return isMine
+      ? "You"
+      : "Member";
+  }
+
+
+  function renderChatAvatar(profile) {
+
+    if (
+      profile &&
+      profile.photo_url
+    ) {
+
+      return `
+        <div class="chat-avatar">
+          <img
+            src="${escapeHtml(
+              profile.photo_url
+            )}"
+            alt=""
+          >
+        </div>
+      `;
+    }
+
+    return `
+      <div class="chat-avatar">
+        👤
+      </div>
+    `;
+  }
+
+
+  async function loadChatMessages(
+    preserveScroll = false
+  ) {
 
     const element =
       document.getElementById(
@@ -4744,15 +4954,21 @@
       return;
     }
 
+    const wasNearBottom =
+      element.scrollHeight -
+      element.scrollTop -
+      element.clientHeight < 90;
 
-    element.innerHTML = `
+    if (!preserveScroll) {
 
-      <div class="empty">
-        Loading chat...
-      </div>
+      element.innerHTML = `
 
-    `;
+        <div class="empty">
+          Loading chat...
+        </div>
 
+      `;
+    }
 
     const {
       data,
@@ -4785,10 +5001,8 @@
       return;
     }
 
-
     const messages =
       data || [];
-
 
     if (messages.length === 0) {
 
@@ -4803,6 +5017,12 @@
       return;
     }
 
+    const profileMap =
+      await getChatProfiles(
+        messages.map(
+          item => item.user_id
+        )
+      );
 
     element.innerHTML =
       messages
@@ -4814,30 +5034,77 @@
               item.user_id ===
               currentUser.id;
 
+            const profile =
+              profileMap[item.user_id] ||
+              null;
+
+            const senderName =
+              getChatDisplayName(
+                profile,
+                mine
+              );
+
+            const deleteButton =
+              (
+                isAdmin ||
+                mine
+              )
+                ? `
+                  <button
+                    class="chat-delete"
+                    onclick="deleteChatMessage(
+                      '${item.id}'
+                    )"
+                  >
+                    Delete
+                  </button>
+                `
+                : "";
+
             return `
 
               <div
-                class="chat-message ${
+                class="chat-row ${
                   mine ? "mine" : ""
                 }"
               >
 
-                <div>
-                  ${escapeHtml(
-                    item.message || ""
-                  )}
-                </div>
+                ${renderChatAvatar(profile)}
 
-                <div class="chat-meta">
-                  ${
-                    mine
-                      ? "You"
-                      : "Member"
-                  }
-                  ·
-                  ${formatDateTime(
-                    item.created_at
-                  )}
+                <div class="chat-bubble-wrap">
+
+                  <div class="chat-sender">
+                    ${escapeHtml(
+                      senderName
+                    )}
+                  </div>
+
+                  <div
+                    class="chat-message ${
+                      mine ? "mine" : ""
+                    }"
+                  >
+
+                    <div>
+                      ${escapeHtml(
+                        item.message || ""
+                      )}
+                    </div>
+
+                    <div class="chat-meta">
+
+                      <span>
+                        ${formatDateTime(
+                          item.created_at
+                        )}
+                      </span>
+
+                      ${deleteButton}
+
+                    </div>
+
+                  </div>
+
                 </div>
 
               </div>
@@ -4848,9 +5115,14 @@
         )
         .join("");
 
+    if (
+      !preserveScroll ||
+      wasNearBottom
+    ) {
 
-    element.scrollTop =
-      element.scrollHeight;
+      element.scrollTop =
+        element.scrollHeight;
+    }
   }
 
 
@@ -4859,7 +5131,6 @@
     if (!currentUser) {
       return;
     }
-
 
     const input =
       document.getElementById(
@@ -4875,22 +5146,18 @@
       return;
     }
 
-
     const message =
       input.value.trim();
-
 
     if (!message) {
       return;
     }
-
 
     status.textContent =
       "Sending...";
 
     status.className =
       "message";
-
 
     const {
       error
@@ -4902,7 +5169,6 @@
         message:
           message
       });
-
 
     if (error) {
 
@@ -4918,12 +5184,134 @@
       return;
     }
 
-
     input.value = "";
 
     status.textContent = "";
 
     await loadChatMessages();
+  }
+
+
+  async function deleteChatMessage(
+    messageId
+  ) {
+
+    if (!currentUser) {
+      return;
+    }
+
+    const confirmed =
+      confirm(
+        "Delete this message?"
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const {
+      error
+    } = await supabaseClient
+      .from("chat_messages")
+      .delete()
+      .eq(
+        "id",
+        messageId
+      );
+
+    if (error) {
+
+      console.error(error);
+
+      alert(
+        "Could not delete message: " +
+        error.message
+      );
+
+      return;
+    }
+
+    await loadChatMessages(true);
+  }
+
+
+  function startChatRealtime() {
+
+    if (!currentUser) {
+      return;
+    }
+
+    stopChatRealtime();
+
+    chatRealtimeChannel =
+      supabaseClient
+        .channel(
+          "club-chat-live"
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "chat_messages"
+          },
+          function () {
+
+            if (chatRefreshTimer) {
+              clearTimeout(
+                chatRefreshTimer
+              );
+            }
+
+            chatRefreshTimer =
+              setTimeout(
+                function () {
+
+                  const chatSection =
+                    document.getElementById(
+                      "chatSection"
+                    );
+
+                  if (
+                    chatSection &&
+                    !chatSection.classList.contains(
+                      "hidden"
+                    )
+                  ) {
+                    loadChatMessages(true);
+                  }
+
+                },
+                180
+              );
+          }
+        )
+        .subscribe();
+  }
+
+
+  function stopChatRealtime() {
+
+    if (chatRefreshTimer) {
+
+      clearTimeout(
+        chatRefreshTimer
+      );
+
+      chatRefreshTimer =
+        null;
+    }
+
+    if (chatRealtimeChannel) {
+
+      supabaseClient
+        .removeChannel(
+          chatRealtimeChannel
+        );
+
+      chatRealtimeChannel =
+        null;
+    }
   }
 
 
