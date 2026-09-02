@@ -682,13 +682,11 @@
           <div class="feature-text">Your personal information</div>
         </div>
 
-        <div class="feature">
-          <div class="feature-icon">🥊</div>
-          <div class="feature-title">Attendance</div>
-          <div class="feature-text">Coming soon</div>
+               <div class="feature" onclick="openSection('training')">
+          <div class="feature-icon">🥋</div>
+          <div class="feature-title">Training Sessions</div>
+          <div class="feature-text">Training schedule and sessions</div>
         </div>
-
-      </div>
 
 
       <div id="adminHomeButton" class="card hidden" style="margin-top:15px;">
@@ -848,7 +846,31 @@
 
     </div>
 
+    <!-- TRAINING SESSIONS -->
+    <div id="trainingSection" class="hidden">
 
+      <div class="section-title">
+
+        <button
+          class="secondary back-button"
+          onclick="openSection('home')"
+        >
+          ← BACK
+        </button>
+
+        <h2>Training Sessions</h2>
+
+      </div>
+
+      <div id="trainingSessionsList">
+
+        <div class="empty">
+          Loading training sessions...
+        </div>
+
+      </div>
+
+    </div>
     <!-- EVENTS -->
     <div id="eventsSection" class="hidden">
 
