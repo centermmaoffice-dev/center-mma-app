@@ -1013,6 +1013,8 @@
 
       <div id="membershipSummary" class="card"></div>
 
+      <div id="homeDashboard"></div>
+
 
       <!-- EVENTS QUICK LINK -->
       <div
@@ -2001,6 +2003,8 @@
 
     renderMembershipDetails();
 
+    loadHomeDashboard();
+
     loadPayments();
 
     loadNews();
@@ -2010,6 +2014,292 @@
     loadEvents();
 
     openSection("home");
+  }
+
+
+
+  /* =========================
+     HOME DASHBOARD
+  ========================= */
+
+  async function loadHomeDashboard() {
+
+    const element =
+      document.getElementById(
+        "homeDashboard"
+      );
+
+    if (!element) {
+      return;
+    }
+
+    element.innerHTML = `
+      <div class="card">
+        <div class="empty">
+          Loading dashboard...
+        </div>
+      </div>
+    `;
+
+    const today =
+      getLocalDateString();
+
+    const [
+      trainingResult,
+      competitionResult,
+      newsResult,
+      progressResult
+    ] = await Promise.all([
+
+      supabaseClient
+        .from("training_sessions")
+        .select("*")
+        .gte("training_date", today)
+        .order("training_date", { ascending: true })
+        .order("start_time", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+
+      supabaseClient
+        .from("competitions")
+        .select("*")
+        .gte("date", today)
+        .order("date", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+
+      supabaseClient
+        .from("news")
+        .select("*")
+        .eq("published", true)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+
+      currentMember
+        ? supabaseClient
+            .from("member_attendance_progress")
+            .select("*")
+            .eq("member_id", currentMember.id)
+            .maybeSingle()
+        : Promise.resolve({
+            data: null,
+            error: null
+          })
+    ]);
+
+    const training =
+      trainingResult?.data || null;
+
+    const competition =
+      competitionResult?.data || null;
+
+    const news =
+      newsResult?.data || null;
+
+    const progress =
+      progressResult?.data || null;
+
+    const attendancePercentage =
+      Number(
+        progress?.attendance_percentage || 0
+      );
+
+    element.innerHTML = `
+
+      <div class="card">
+
+        <div
+          style="
+            font-size:11px;
+            color:#777;
+            text-transform:uppercase;
+            letter-spacing:1px;
+            margin-bottom:8px;
+          "
+        >
+          Next training
+        </div>
+
+        ${
+          training
+            ? `
+              <div
+                style="
+                  font-size:18px;
+                  font-weight:800;
+                "
+              >
+                ${escapeHtml(
+                  training.title ||
+                  training.training ||
+                  "Training"
+                )}
+              </div>
+
+              <div
+                class="muted small"
+                style="margin-top:7px;"
+              >
+                📅 ${formatDate(
+                  training.training_date
+                )}
+                ${
+                  training.start_time
+                    ? " • " +
+                      escapeHtml(
+                        String(
+                          training.start_time
+                        ).slice(0, 5)
+                      )
+                    : ""
+                }
+              </div>
+
+              ${
+                training.location
+                  ? `
+                    <div
+                      class="muted small"
+                      style="margin-top:5px;"
+                    >
+                      📍 ${escapeHtml(
+                        training.location
+                      )}
+                      ${
+                        training.district
+                          ? " • " +
+                            escapeHtml(
+                              training.district
+                            )
+                          : ""
+                      }
+                    </div>
+                  `
+                  : ""
+              }
+            `
+            : `
+              <div class="muted small">
+                No upcoming training.
+              </div>
+            `
+        }
+
+      </div>
+
+
+      <div class="feature-grid">
+
+        <div
+          class="feature"
+          onclick="openSection('events')"
+        >
+          <div class="feature-icon">
+            🏆
+          </div>
+
+          <div class="feature-title">
+            Next Competition
+          </div>
+
+          <div class="feature-text">
+            ${
+              competition
+                ? `${escapeHtml(
+                    competition.title ||
+                    "Competition"
+                  )} • ${formatDate(
+                    competition.date
+                  )}`
+                : "No upcoming competition"
+            }
+          </div>
+        </div>
+
+
+        <div
+          class="feature"
+          onclick="openSection('progress')"
+        >
+          <div class="feature-icon">
+            📊
+          </div>
+
+          <div class="feature-title">
+            Attendance
+          </div>
+
+          <div class="feature-text">
+            ${attendancePercentage}% progress
+          </div>
+        </div>
+
+      </div>
+
+
+      <div
+        class="card"
+        onclick="openSection('news')"
+        style="
+          cursor:pointer;
+          margin-top:15px;
+        "
+      >
+
+        <div
+          style="
+            font-size:11px;
+            color:#777;
+            text-transform:uppercase;
+            letter-spacing:1px;
+            margin-bottom:8px;
+          "
+        >
+          Latest news
+        </div>
+
+        ${
+          news
+            ? `
+              <h3>
+                ${escapeHtml(
+                  news.title ||
+                  "CENTER MMA News"
+                )}
+              </h3>
+
+              <div
+                class="muted small"
+                style="
+                  line-height:1.5;
+                  margin-top:6px;
+                "
+              >
+                ${escapeHtml(
+                  String(
+                    news.content || ""
+                  ).slice(0, 140)
+                )}
+                ${
+                  String(
+                    news.content || ""
+                  ).length > 140
+                    ? "..."
+                    : ""
+                }
+              </div>
+            `
+            : `
+              <div class="muted small">
+                No news yet.
+              </div>
+            `
+        }
+
+      </div>
+
+    `;
   }
 
 
