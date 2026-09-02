@@ -5668,6 +5668,10 @@
       element
     );
 
+    await loadAdminNews(
+      element
+    );
+
     await loadAdminCompetitions(
       element
     );
@@ -6226,6 +6230,664 @@
 
       `;
     }
+  }
+
+
+
+  /* =========================
+     ADMIN NEWS
+  ========================= */
+
+  async function loadAdminNews(
+    element
+  ) {
+
+    const {
+      data: newsItems,
+      error
+    } = await supabaseClient
+      .from("news")
+      .select("*")
+      .order(
+        "created_at",
+        {
+          ascending: false
+        }
+      );
+
+
+    if (error) {
+
+      console.error(error);
+
+      element.innerHTML += `
+
+        <div class="card">
+
+          <div class="message error">
+            Could not load news:
+            ${escapeHtml(
+              error.message
+            )}
+          </div>
+
+        </div>
+
+      `;
+
+      return;
+    }
+
+
+    element.innerHTML += `
+
+      <div class="card">
+
+        <h3>
+          News
+        </h3>
+
+        <p class="muted small">
+          Create and manage CENTER MMA news.
+        </p>
+
+      </div>
+
+
+      <div class="card">
+
+        <h3>
+          Create news
+        </h3>
+
+
+        <label>
+          Title
+        </label>
+
+        <input
+          id="adminNewsTitle"
+          type="text"
+          placeholder="News title"
+        >
+
+
+        <label>
+          Content
+        </label>
+
+        <textarea
+          id="adminNewsContent"
+          placeholder="Write the news..."
+        ></textarea>
+
+
+        <label>
+          Image URL
+        </label>
+
+        <input
+          id="adminNewsImageUrl"
+          type="url"
+          placeholder="https://..."
+        >
+
+
+        <label>
+          Published
+        </label>
+
+        <select
+          id="adminNewsPublished"
+          style="
+            width:100%;
+            background:#0d0d0d;
+            border:1px solid #333;
+            border-radius:9px;
+            color:white;
+            padding:13px;
+            font-size:15px;
+          "
+        >
+          <option value="true">Published</option>
+          <option value="false">Draft</option>
+        </select>
+
+
+        <button
+          onclick="createNewsItem()"
+        >
+          CREATE NEWS
+        </button>
+
+
+        <div
+          id="adminNewsCreateMessage"
+          class="message"
+        ></div>
+
+      </div>
+
+
+      <div id="adminNewsList"></div>
+
+    `;
+
+
+    const list =
+      document.getElementById(
+        "adminNewsList"
+      );
+
+
+    if (
+      !newsItems ||
+      newsItems.length === 0
+    ) {
+
+      list.innerHTML = `
+
+        <div class="card">
+
+          <div class="empty">
+            No news created yet.
+          </div>
+
+        </div>
+
+      `;
+
+      return;
+    }
+
+
+    list.innerHTML =
+      newsItems
+        .map(
+          function (item) {
+
+            const statusText =
+              item.published
+                ? "Published"
+                : "Draft";
+
+            const statusClass =
+              item.published
+                ? "approved"
+                : "pending";
+
+            return `
+
+              <div class="competition-admin-card">
+
+                <div
+                  style="
+                    font-size:11px;
+                    color:#777;
+                    text-transform:uppercase;
+                    letter-spacing:1px;
+                    margin-bottom:6px;
+                  "
+                >
+                  ${formatDateTime(
+                    item.created_at
+                  )}
+                </div>
+
+
+                <div
+                  style="
+                    font-size:18px;
+                    font-weight:800;
+                    margin-bottom:8px;
+                  "
+                >
+                  ${escapeHtml(
+                    item.title || "CENTER MMA News"
+                  )}
+                </div>
+
+
+                <span
+                  class="status ${statusClass}"
+                >
+                  ${statusText}
+                </span>
+
+
+                <div
+                  class="muted small"
+                  style="
+                    margin-top:12px;
+                    line-height:1.6;
+                    white-space:pre-wrap;
+                  "
+                >
+                  ${escapeHtml(
+                    item.content || ""
+                  )}
+                </div>
+
+
+                <div class="admin-edit-box">
+
+                  <label>
+                    Title
+                  </label>
+
+                  <input
+                    id="adminNewsTitle-${item.id}"
+                    value="${escapeHtml(
+                      item.title || ""
+                    )}"
+                  >
+
+
+                  <label>
+                    Content
+                  </label>
+
+                  <textarea
+                    id="adminNewsContent-${item.id}"
+                  >${escapeHtml(
+                    item.content || ""
+                  )}</textarea>
+
+
+                  <label>
+                    Image URL
+                  </label>
+
+                  <input
+                    id="adminNewsImageUrl-${item.id}"
+                    value="${escapeHtml(
+                      item.image_url || ""
+                    )}"
+                  >
+
+
+                  <label>
+                    Published
+                  </label>
+
+                  <select
+                    id="adminNewsPublished-${item.id}"
+                    style="
+                      width:100%;
+                      background:#0d0d0d;
+                      border:1px solid #333;
+                      border-radius:9px;
+                      color:white;
+                      padding:13px;
+                      font-size:15px;
+                    "
+                  >
+                    <option
+                      value="true"
+                      ${item.published ? "selected" : ""}
+                    >
+                      Published
+                    </option>
+
+                    <option
+                      value="false"
+                      ${!item.published ? "selected" : ""}
+                    >
+                      Draft
+                    </option>
+                  </select>
+
+
+                  <button
+                    onclick="saveNewsItem(
+                      '${item.id}'
+                    )"
+                  >
+                    SAVE NEWS
+                  </button>
+
+
+                  <button
+                    class="danger"
+                    onclick="deleteNewsItem(
+                      '${item.id}'
+                    )"
+                  >
+                    DELETE NEWS
+                  </button>
+
+
+                  <div
+                    id="adminNewsMessage-${item.id}"
+                    class="message"
+                  ></div>
+
+                </div>
+
+              </div>
+
+            `;
+
+          }
+        )
+        .join("");
+  }
+
+
+  async function createNewsItem() {
+
+    if (!isAdmin) {
+      return;
+    }
+
+
+    const message =
+      document.getElementById(
+        "adminNewsCreateMessage"
+      );
+
+
+    const title =
+      document
+        .getElementById(
+          "adminNewsTitle"
+        )
+        .value
+        .trim();
+
+
+    const content =
+      document
+        .getElementById(
+          "adminNewsContent"
+        )
+        .value
+        .trim();
+
+
+    const imageUrl =
+      document
+        .getElementById(
+          "adminNewsImageUrl"
+        )
+        .value
+        .trim();
+
+
+    const published =
+      document
+        .getElementById(
+          "adminNewsPublished"
+        )
+        .value === "true";
+
+
+    if (!title || !content) {
+
+      message.textContent =
+        "Title and content are required.";
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+
+    message.textContent =
+      "Creating news...";
+
+    message.className =
+      "message";
+
+
+    const {
+      error
+    } = await supabaseClient
+      .from("news")
+      .insert({
+
+        title:
+          title,
+
+        content:
+          content,
+
+        image_url:
+          imageUrl || null,
+
+        published:
+          published,
+
+        created_by:
+          currentUser.id
+
+      });
+
+
+    if (error) {
+
+      console.error(error);
+
+      message.textContent =
+        "Could not create news: " +
+        error.message;
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+
+    message.textContent =
+      "News created successfully.";
+
+    message.className =
+      "message success-text";
+
+
+    document
+      .getElementById(
+        "adminNewsTitle"
+      )
+      .value = "";
+
+
+    document
+      .getElementById(
+        "adminNewsContent"
+      )
+      .value = "";
+
+
+    document
+      .getElementById(
+        "adminNewsImageUrl"
+      )
+      .value = "";
+
+
+    await loadAdminPanel();
+
+    await loadNews();
+  }
+
+
+  async function saveNewsItem(
+    newsId
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+
+    const message =
+      document.getElementById(
+        "adminNewsMessage-" +
+        newsId
+      );
+
+
+    const title =
+      document
+        .getElementById(
+          "adminNewsTitle-" +
+          newsId
+        )
+        .value
+        .trim();
+
+
+    const content =
+      document
+        .getElementById(
+          "adminNewsContent-" +
+          newsId
+        )
+        .value
+        .trim();
+
+
+    const imageUrl =
+      document
+        .getElementById(
+          "adminNewsImageUrl-" +
+          newsId
+        )
+        .value
+        .trim();
+
+
+    const published =
+      document
+        .getElementById(
+          "adminNewsPublished-" +
+          newsId
+        )
+        .value === "true";
+
+
+    if (!title || !content) {
+
+      message.textContent =
+        "Title and content are required.";
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+
+    message.textContent =
+      "Saving...";
+
+    message.className =
+      "message";
+
+
+    const {
+      error
+    } = await supabaseClient
+      .from("news")
+      .update({
+
+        title:
+          title,
+
+        content:
+          content,
+
+        image_url:
+          imageUrl || null,
+
+        published:
+          published
+
+      })
+      .eq(
+        "id",
+        newsId
+      );
+
+
+    if (error) {
+
+      console.error(error);
+
+      message.textContent =
+        "Could not save news: " +
+        error.message;
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+
+    message.textContent =
+      "News saved successfully.";
+
+    message.className =
+      "message success-text";
+
+
+    await loadAdminPanel();
+
+    await loadNews();
+  }
+
+
+  async function deleteNewsItem(
+    newsId
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+
+    const confirmed =
+      confirm(
+        "Delete this news item?"
+      );
+
+
+    if (!confirmed) {
+      return;
+    }
+
+
+    const {
+      error
+    } = await supabaseClient
+      .from("news")
+      .delete()
+      .eq(
+        "id",
+        newsId
+      );
+
+
+    if (error) {
+
+      console.error(error);
+
+      alert(
+        "Could not delete news: " +
+        error.message
+      );
+
+      return;
+    }
+
+
+    await loadAdminPanel();
+
+    await loadNews();
   }
 
 
