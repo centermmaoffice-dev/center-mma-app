@@ -336,6 +336,74 @@
       border: 1px solid #292929;
     }
 
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .notification-bell {
+      position: relative;
+      width: 42px;
+      height: 38px;
+      margin: 0;
+      padding: 0;
+      border-radius: 9px;
+      background: #181818;
+      color: #fff;
+      border: 1px solid #292929;
+      font-size: 18px;
+    }
+
+    .notification-badge {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      min-width: 19px;
+      height: 19px;
+      padding: 0 5px;
+      border-radius: 20px;
+      background: #fff;
+      color: #000;
+      border: 2px solid #0b0b0b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 900;
+    }
+
+    .notification-item {
+      background: #151515;
+      border: 1px solid #292929;
+      border-radius: 13px;
+      padding: 15px;
+      margin-bottom: 10px;
+      cursor: pointer;
+    }
+
+    .notification-item.unread {
+      border-color: #666;
+    }
+
+    .notification-title {
+      font-size: 15px;
+      font-weight: 800;
+      margin-bottom: 5px;
+    }
+
+    .notification-text {
+      color: #999;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .notification-meta {
+      color: #666;
+      font-size: 10px;
+      margin-top: 8px;
+    }
+
     .bottom-nav {
       position: fixed;
       bottom: 0;
@@ -999,7 +1067,25 @@
         <div class="subtitle" style="margin-bottom:0;">VIENNA • MMA • GRAPPLING</div>
       </div>
 
-      <button class="logout" onclick="logout()">LOGOUT</button>
+      <div class="top-actions">
+
+        <button
+          class="notification-bell"
+          onclick="openSection('notifications')"
+          aria-label="Notifications"
+        >
+          🔔
+          <span
+            id="notificationBadge"
+            class="notification-badge hidden"
+          >
+            0
+          </span>
+        </button>
+
+        <button class="logout" onclick="logout()">LOGOUT</button>
+
+      </div>
     </div>
 
 
@@ -1374,6 +1460,31 @@
         </div>
 
         <div id="chatMessageStatus" class="message"></div>
+      </div>
+
+    </div>
+
+
+    <!-- NOTIFICATIONS -->
+    <div id="notificationsSection" class="hidden">
+
+      <div class="section-title">
+
+        <button
+          class="secondary back-button"
+          onclick="openSection('home')"
+        >
+          ← BACK
+        </button>
+
+        <h2>Notifications</h2>
+
+      </div>
+
+      <div id="notificationsList">
+        <div class="empty">
+          Loading notifications...
+        </div>
       </div>
 
     </div>
@@ -2071,6 +2182,8 @@
     loadNews();
 
     loadDocuments();
+
+    loadNotificationBadge();
 
     loadProfile();
 
@@ -2975,6 +3088,7 @@
       "attendance",
       "documents",
       "chat",
+      "notifications",
       "events",
       "admin"
     ];
@@ -3042,6 +3156,10 @@
       startChatRealtime();
     } else {
       stopChatRealtime();
+    }
+
+    if (section === "notifications") {
+      loadNotifications(true);
     }
 
     if (section === "events") {
@@ -6513,6 +6631,450 @@
   }
 
 
+
+  /* =========================
+     NOTIFICATIONS
+  ========================= */
+
+  async function createNotification(
+    title,
+    message,
+    type = "info",
+    linkSection = null,
+    targetUserId = null
+  ) {
+
+    if (!currentUser) {
+      return;
+    }
+
+    const {
+      error
+    } = await supabaseClient
+      .from("notifications")
+      .insert({
+        user_id:
+          targetUserId,
+        title:
+          title,
+        message:
+          message,
+        type:
+          type,
+        link_section:
+          linkSection,
+        created_by:
+          currentUser.id
+      });
+
+    if (error) {
+
+      console.error(
+        "Could not create notification:",
+        error
+      );
+    }
+  }
+
+
+  async function notifyMemberByMemberId(
+    memberId,
+    title,
+    message,
+    type = "info",
+    linkSection = null
+  ) {
+
+    const {
+      data: member,
+      error
+    } = await supabaseClient
+      .from("members")
+      .select("user_id")
+      .eq(
+        "id",
+        memberId
+      )
+      .maybeSingle();
+
+    if (
+      error ||
+      !member?.user_id
+    ) {
+
+      console.error(
+        "Could not resolve notification user:",
+        error
+      );
+
+      return;
+    }
+
+    await createNotification(
+      title,
+      message,
+      type,
+      linkSection,
+      member.user_id
+    );
+  }
+
+
+  async function loadNotificationBadge() {
+
+    if (!currentUser) {
+      return;
+    }
+
+    const badge =
+      document.getElementById(
+        "notificationBadge"
+      );
+
+    if (!badge) {
+      return;
+    }
+
+    const {
+      data: notifications,
+      error
+    } = await supabaseClient
+      .from("notifications")
+      .select("id")
+      .order(
+        "created_at",
+        {
+          ascending: false
+        }
+      )
+      .limit(100);
+
+    if (error) {
+
+      console.error(error);
+
+      badge.classList.add(
+        "hidden"
+      );
+
+      return;
+    }
+
+    const ids =
+      (notifications || [])
+        .map(item => item.id);
+
+    if (ids.length === 0) {
+
+      badge.classList.add(
+        "hidden"
+      );
+
+      return;
+    }
+
+    const {
+      data: reads,
+      error: readsError
+    } = await supabaseClient
+      .from("notification_reads")
+      .select("notification_id")
+      .eq(
+        "user_id",
+        currentUser.id
+      )
+      .in(
+        "notification_id",
+        ids
+      );
+
+    if (readsError) {
+
+      console.error(
+        readsError
+      );
+
+      return;
+    }
+
+    const readSet =
+      new Set(
+        (reads || [])
+          .map(
+            item =>
+              item.notification_id
+          )
+      );
+
+    const unreadCount =
+      ids.filter(
+        id => !readSet.has(id)
+      ).length;
+
+    if (unreadCount <= 0) {
+
+      badge.classList.add(
+        "hidden"
+      );
+
+      return;
+    }
+
+    badge.textContent =
+      unreadCount > 99
+        ? "99+"
+        : String(unreadCount);
+
+    badge.classList.remove(
+      "hidden"
+    );
+  }
+
+
+  async function loadNotifications(
+    markRead = false
+  ) {
+
+    const element =
+      document.getElementById(
+        "notificationsList"
+      );
+
+    if (
+      !element ||
+      !currentUser
+    ) {
+      return;
+    }
+
+    element.innerHTML = `
+      <div class="empty">
+        Loading notifications...
+      </div>
+    `;
+
+    const {
+      data: notifications,
+      error
+    } = await supabaseClient
+      .from("notifications")
+      .select("*")
+      .order(
+        "created_at",
+        {
+          ascending: false
+        }
+      )
+      .limit(100);
+
+    if (error) {
+
+      console.error(error);
+
+      element.innerHTML = `
+        <div class="card">
+          <div class="message error">
+            Could not load notifications:
+            ${escapeHtml(error.message)}
+          </div>
+        </div>
+      `;
+
+      return;
+    }
+
+    const items =
+      notifications || [];
+
+    if (items.length === 0) {
+
+      element.innerHTML = `
+        <div class="card">
+          <div class="empty">
+            No notifications yet.
+          </div>
+        </div>
+      `;
+
+      await loadNotificationBadge();
+
+      return;
+    }
+
+    const ids =
+      items.map(item => item.id);
+
+    const {
+      data: reads,
+      error: readsError
+    } = await supabaseClient
+      .from("notification_reads")
+      .select("notification_id")
+      .eq(
+        "user_id",
+        currentUser.id
+      )
+      .in(
+        "notification_id",
+        ids
+      );
+
+    if (readsError) {
+      console.error(readsError);
+    }
+
+    const readSet =
+      new Set(
+        (reads || [])
+          .map(
+            item =>
+              item.notification_id
+          )
+      );
+
+    element.innerHTML =
+      items.map(
+        function (item) {
+
+          const unread =
+            !readSet.has(
+              item.id
+            );
+
+          const icon =
+            item.type === "payment"
+              ? "💳"
+              : item.type === "competition"
+                ? "🏆"
+                : item.type === "training"
+                  ? "🥋"
+                  : item.type === "document"
+                    ? "📄"
+                    : item.type === "news"
+                      ? "📰"
+                      : "🔔";
+
+          return `
+            <div
+              class="notification-item ${
+                unread
+                  ? "unread"
+                  : ""
+              }"
+              onclick="openNotification(
+                '${item.id}',
+                '${escapeHtml(
+                  item.link_section || ""
+                )}'
+              )"
+            >
+
+              <div class="notification-title">
+                ${icon}
+                ${escapeHtml(
+                  item.title ||
+                  "Notification"
+                )}
+              </div>
+
+              <div class="notification-text">
+                ${escapeHtml(
+                  item.message || ""
+                )}
+              </div>
+
+              <div class="notification-meta">
+                ${formatDateTime(
+                  item.created_at
+                )}
+              </div>
+
+            </div>
+          `;
+        }
+      ).join("");
+
+    if (markRead) {
+
+      const unreadIds =
+        ids.filter(
+          id =>
+            !readSet.has(id)
+        );
+
+      if (
+        unreadIds.length > 0
+      ) {
+
+        const rows =
+          unreadIds.map(
+            notificationId => ({
+              notification_id:
+                notificationId,
+              user_id:
+                currentUser.id
+            })
+          );
+
+        const {
+          error: markError
+        } = await supabaseClient
+          .from("notification_reads")
+          .upsert(
+            rows,
+            {
+              onConflict:
+                "notification_id,user_id"
+            }
+          );
+
+        if (markError) {
+
+          console.error(
+            markError
+          );
+        }
+      }
+    }
+
+    await loadNotificationBadge();
+  }
+
+
+  async function openNotification(
+    notificationId,
+    linkSection
+  ) {
+
+    if (!currentUser) {
+      return;
+    }
+
+    await supabaseClient
+      .from("notification_reads")
+      .upsert(
+        {
+          notification_id:
+            notificationId,
+          user_id:
+            currentUser.id
+        },
+        {
+          onConflict:
+            "notification_id,user_id"
+        }
+      );
+
+    await loadNotificationBadge();
+
+    if (linkSection) {
+      openSection(
+        linkSection
+      );
+    }
+  }
+
+
   /* =========================
      EVENTS
   ========================= */
@@ -8428,6 +8990,13 @@
     message.className =
       "message success-text";
 
+    await createNotification(
+      "New document",
+      title,
+      "document",
+      "documents"
+    );
+
     await loadAdminPanel();
 
     await loadDocuments();
@@ -9403,7 +9972,7 @@
                       membershipStatus
                     )}"
                   >
-                    ${escapeHtml(
+                    MEMBERSHIP ${escapeHtml(
                       membershipStatus
                     )}
                   </span>
@@ -9417,8 +9986,8 @@
                   >
                     ${
                       member.is_active === false
-                        ? "Deactivated"
-                        : "Active"
+                        ? "ACCOUNT DEACTIVATED"
+                        : "ACCOUNT ACTIVE"
                     }
                   </span>
                 </div>
@@ -10691,6 +11260,15 @@
     message.className =
       "message success-text";
 
+    if (published) {
+      await createNotification(
+        "New club news",
+        title,
+        "news",
+        "news"
+      );
+    }
+
 
     document
       .getElementById(
@@ -11466,6 +12044,13 @@
 
     message.className =
       "message success-text";
+
+    await createNotification(
+      "New training session",
+      `${title} • ${formatDate(date)} • ${startTime}`,
+      "training",
+      "calendar"
+    );
 
     await loadAdminPanel();
 
@@ -12673,6 +13258,13 @@
 
     message.className =
       "message success-text";
+
+    await createNotification(
+      "New competition",
+      title,
+      "competition",
+      "events"
+    );
 
 
     document
