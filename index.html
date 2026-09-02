@@ -2100,9 +2100,61 @@
     const progress =
       progressResult?.data || null;
 
-    const attendancePercentage =
+    let attendancePercentage =
       Number(
         progress?.attendance_percentage || 0
+      );
+
+    if (
+      currentMember &&
+      (
+        !progress ||
+        progressResult?.error
+      )
+    ) {
+
+      const {
+        data: attendanceRows,
+        error: attendanceFallbackError
+      } = await supabaseClient
+        .from("attendance")
+        .select("attended")
+        .eq(
+          "member_id",
+          currentMember.id
+        );
+
+      if (!attendanceFallbackError) {
+
+        const rows =
+          attendanceRows || [];
+
+        const total =
+          rows.length;
+
+        const attended =
+          rows.filter(
+            item => item.attended === true
+          ).length;
+
+        attendancePercentage =
+          total > 0
+            ? Math.round(
+                (attended / total) * 100
+              )
+            : 0;
+      }
+    }
+
+    attendancePercentage =
+      Math.max(
+        0,
+        Math.min(
+          100,
+          Number(
+            attendancePercentage || 0
+          )
+        )
       );
 
     element.innerHTML = `
