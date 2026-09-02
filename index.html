@@ -404,6 +404,43 @@
       margin-top: 8px;
     }
 
+    .notification-setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 13px 0;
+      border-bottom: 1px solid #252525;
+    }
+
+    .notification-setting-row:last-child {
+      border-bottom: none;
+    }
+
+    .notification-setting-copy {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .notification-setting-title {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .notification-setting-text {
+      color: #777;
+      font-size: 11px;
+      line-height: 1.4;
+      margin-top: 3px;
+    }
+
+    .notification-checkbox {
+      width: 20px;
+      height: 20px;
+      flex: 0 0 20px;
+      accent-color: #fff;
+    }
+
     .bottom-nav {
       position: fixed;
       bottom: 0;
@@ -1337,6 +1374,163 @@
         <button onclick="saveProfile()">SAVE PROFILE</button>
 
         <div id="profileMessage" class="message"></div>
+
+      </div>
+
+
+      <!-- NOTIFICATION SETTINGS -->
+      <div class="card">
+
+        <div class="section-title">
+          <h2 style="margin-bottom:0;">
+            Notification Settings
+          </h2>
+        </div>
+
+        <div
+          class="notification-setting-row"
+        >
+          <div class="notification-setting-copy">
+            <div class="notification-setting-title">
+              🔒 Important club notifications
+            </div>
+            <div class="notification-setting-text">
+              Admin, group, payment and membership notifications. Always enabled.
+            </div>
+          </div>
+
+          <input
+            type="checkbox"
+            class="notification-checkbox"
+            checked
+            disabled
+          >
+        </div>
+
+        <div
+          class="notification-setting-row"
+        >
+          <div class="notification-setting-copy">
+            <div class="notification-setting-title">
+              💬 Chat messages
+            </div>
+            <div class="notification-setting-text">
+              Notifications about new club chat messages.
+            </div>
+          </div>
+
+          <input
+            id="prefChat"
+            type="checkbox"
+            class="notification-checkbox"
+          >
+        </div>
+
+        <div
+          class="notification-setting-row"
+        >
+          <div class="notification-setting-copy">
+            <div class="notification-setting-title">
+              ⏰ Training reminders
+            </div>
+            <div class="notification-setting-text">
+              Reminders before upcoming training sessions.
+            </div>
+          </div>
+
+          <input
+            id="prefTrainingReminders"
+            type="checkbox"
+            class="notification-checkbox"
+          >
+        </div>
+
+        <div
+          class="notification-setting-row"
+        >
+          <div class="notification-setting-copy">
+            <div class="notification-setting-title">
+              🥋 Training changes
+            </div>
+            <div class="notification-setting-text">
+              Changes, cancellations or new training sessions.
+            </div>
+          </div>
+
+          <input
+            id="prefTrainingChanges"
+            type="checkbox"
+            class="notification-checkbox"
+          >
+        </div>
+
+        <div
+          class="notification-setting-row"
+        >
+          <div class="notification-setting-copy">
+            <div class="notification-setting-title">
+              🏆 Competitions
+            </div>
+            <div class="notification-setting-text">
+              New competitions and competition updates.
+            </div>
+          </div>
+
+          <input
+            id="prefCompetitions"
+            type="checkbox"
+            class="notification-checkbox"
+          >
+        </div>
+
+        <div
+          class="notification-setting-row"
+        >
+          <div class="notification-setting-copy">
+            <div class="notification-setting-title">
+              📰 News
+            </div>
+            <div class="notification-setting-text">
+              Notifications when new club news is published.
+            </div>
+          </div>
+
+          <input
+            id="prefNews"
+            type="checkbox"
+            class="notification-checkbox"
+          >
+        </div>
+
+        <div
+          class="notification-setting-row"
+        >
+          <div class="notification-setting-copy">
+            <div class="notification-setting-title">
+              📄 Documents
+            </div>
+            <div class="notification-setting-text">
+              Notifications when new club documents are added.
+            </div>
+          </div>
+
+          <input
+            id="prefDocuments"
+            type="checkbox"
+            class="notification-checkbox"
+          >
+        </div>
+
+        <button
+          onclick="saveNotificationPreferences()"
+        >
+          SAVE NOTIFICATION SETTINGS
+        </button>
+
+        <div
+          id="notificationPreferencesMessage"
+          class="message"
+        ></div>
 
       </div>
 
@@ -3761,6 +3955,8 @@
 
     await loadProfileGroups();
 
+    await loadNotificationPreferences();
+
     await loadCompetitionRecord();
   }
 
@@ -3839,6 +4035,261 @@
           `
         )
         .join("");
+  }
+
+
+
+  /* =========================
+     NOTIFICATION PREFERENCES
+  ========================= */
+
+  function getDefaultNotificationPreferences() {
+
+    return {
+      chat_messages: true,
+      training_reminders: true,
+      training_changes: true,
+      competitions: true,
+      news: true,
+      documents: true
+    };
+  }
+
+
+  async function getNotificationPreferences() {
+
+    if (!currentUser) {
+      return getDefaultNotificationPreferences();
+    }
+
+    const {
+      data,
+      error
+    } = await supabaseClient
+      .from("notification_preferences")
+      .select("*")
+      .eq(
+        "user_id",
+        currentUser.id
+      )
+      .maybeSingle();
+
+    if (error) {
+
+      console.error(
+        "Could not load notification preferences:",
+        error
+      );
+
+      return getDefaultNotificationPreferences();
+    }
+
+    if (!data) {
+      return getDefaultNotificationPreferences();
+    }
+
+    return {
+      chat_messages:
+        data.chat_messages !== false,
+      training_reminders:
+        data.training_reminders !== false,
+      training_changes:
+        data.training_changes !== false,
+      competitions:
+        data.competitions !== false,
+      news:
+        data.news !== false,
+      documents:
+        data.documents !== false
+    };
+  }
+
+
+  async function loadNotificationPreferences() {
+
+    if (!currentUser) {
+      return;
+    }
+
+    const preferences =
+      await getNotificationPreferences();
+
+    const mapping = {
+      prefChat:
+        preferences.chat_messages,
+      prefTrainingReminders:
+        preferences.training_reminders,
+      prefTrainingChanges:
+        preferences.training_changes,
+      prefCompetitions:
+        preferences.competitions,
+      prefNews:
+        preferences.news,
+      prefDocuments:
+        preferences.documents
+    };
+
+    Object.entries(mapping)
+      .forEach(
+        function ([id, checked]) {
+
+          const element =
+            document.getElementById(id);
+
+          if (element) {
+            element.checked = checked;
+          }
+        }
+      );
+  }
+
+
+  async function saveNotificationPreferences() {
+
+    if (!currentUser) {
+      return;
+    }
+
+    const message =
+      document.getElementById(
+        "notificationPreferencesMessage"
+      );
+
+    const payload = {
+      user_id:
+        currentUser.id,
+      chat_messages:
+        document.getElementById(
+          "prefChat"
+        )?.checked !== false,
+      training_reminders:
+        document.getElementById(
+          "prefTrainingReminders"
+        )?.checked !== false,
+      training_changes:
+        document.getElementById(
+          "prefTrainingChanges"
+        )?.checked !== false,
+      competitions:
+        document.getElementById(
+          "prefCompetitions"
+        )?.checked !== false,
+      news:
+        document.getElementById(
+          "prefNews"
+        )?.checked !== false,
+      documents:
+        document.getElementById(
+          "prefDocuments"
+        )?.checked !== false,
+      updated_at:
+        new Date().toISOString()
+    };
+
+    if (message) {
+
+      message.textContent =
+        "Saving...";
+
+      message.className =
+        "message";
+    }
+
+    const {
+      error
+    } = await supabaseClient
+      .from("notification_preferences")
+      .upsert(
+        payload,
+        {
+          onConflict:
+            "user_id"
+        }
+      );
+
+    if (error) {
+
+      console.error(error);
+
+      if (message) {
+
+        message.textContent =
+          "Could not save notification settings: " +
+          error.message;
+
+        message.className =
+          "message error";
+      }
+
+      return;
+    }
+
+    if (message) {
+
+      message.textContent =
+        "Notification settings saved.";
+
+      message.className =
+        "message success-text";
+    }
+
+    await loadNotificationBadge();
+  }
+
+
+  function notificationAllowedByPreferences(
+    notification,
+    preferences
+  ) {
+
+    const type =
+      String(
+        notification?.type || "info"
+      ).toLowerCase();
+
+    /*
+      Mandatory notifications cannot be disabled.
+    */
+    if (
+      type === "admin" ||
+      type === "payment" ||
+      type === "membership" ||
+      type === "account"
+    ) {
+      return true;
+    }
+
+    if (type === "chat") {
+      return preferences.chat_messages;
+    }
+
+    if (type === "training_reminder") {
+      return preferences.training_reminders;
+    }
+
+    if (
+      type === "training" ||
+      type === "training_change"
+    ) {
+      return preferences.training_changes;
+    }
+
+    if (
+      type === "competition" ||
+      type === "competition_update"
+    ) {
+      return preferences.competitions;
+    }
+
+    if (type === "news") {
+      return preferences.news;
+    }
+
+    if (type === "document") {
+      return preferences.documents;
+    }
+
+    return true;
   }
 
 
@@ -6504,6 +6955,74 @@
 
     status.textContent = "";
 
+    /*
+      Create optional chat notifications for other active members.
+      Their personal preferences decide whether these are shown/pushed.
+    */
+    const {
+      data: chatMembers,
+      error: chatMembersError
+    } = await supabaseClient
+      .from("members")
+      .select("user_id, is_active")
+      .not(
+        "user_id",
+        "is",
+        null
+      );
+
+    if (!chatMembersError) {
+
+      const recipients =
+        (chatMembers || [])
+          .filter(
+            member =>
+              member.is_active !== false &&
+              member.user_id &&
+              member.user_id !== currentUser.id
+          )
+          .map(
+            member =>
+              member.user_id
+          );
+
+      if (recipients.length > 0) {
+
+        const rows =
+          recipients.map(
+            userId => ({
+              user_id:
+                userId,
+              title:
+                "New chat message",
+              message:
+                message.length > 120
+                  ? message.slice(0, 120) + "..."
+                  : message,
+              type:
+                "chat",
+              link_section:
+                "chat",
+              created_by:
+                currentUser.id
+            })
+          );
+
+        const {
+          error: notificationError
+        } = await supabaseClient
+          .from("notifications")
+          .insert(rows);
+
+        if (notificationError) {
+          console.error(
+            "Could not create chat notifications:",
+            notificationError
+          );
+        }
+      }
+    }
+
     await loadChatMessages();
   }
 
@@ -6740,7 +7259,7 @@
       error
     } = await supabaseClient
       .from("notifications")
-      .select("id")
+      .select("*")
       .order(
         "created_at",
         {
@@ -6760,8 +7279,21 @@
       return;
     }
 
-    const ids =
+    const preferences =
+      await getNotificationPreferences();
+
+    const visibleNotifications =
       (notifications || [])
+        .filter(
+          item =>
+            notificationAllowedByPreferences(
+              item,
+              preferences
+            )
+        );
+
+    const ids =
+      visibleNotifications
         .map(item => item.id);
 
     if (ids.length === 0) {
@@ -6883,8 +7415,18 @@
       return;
     }
 
+    const preferences =
+      await getNotificationPreferences();
+
     const items =
-      notifications || [];
+      (notifications || [])
+        .filter(
+          item =>
+            notificationAllowedByPreferences(
+              item,
+              preferences
+            )
+        );
 
     if (items.length === 0) {
 
@@ -6942,8 +7484,10 @@
             );
 
           const icon =
-            item.type === "payment"
-              ? "💳"
+            item.type === "admin"
+              ? "📣"
+              : item.type === "payment"
+                ? "💳"
               : item.type === "competition"
                 ? "🏆"
                 : item.type === "training"
@@ -9461,7 +10005,7 @@
           message:
             message,
           type:
-            "info",
+            "admin",
           link_section:
             linkSection,
           created_by:
