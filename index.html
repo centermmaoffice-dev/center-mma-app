@@ -6198,11 +6198,13 @@
     `;
 
 
-    await loadAdminPayments(
+    element.innerHTML = "";
+
+    await loadAdminTrainingSessions(
       element
     );
 
-    await loadAdminNews(
+    await loadAdminAttendance(
       element
     );
 
@@ -6210,7 +6212,11 @@
       element
     );
 
-    await loadAdminAttendance(
+    await loadAdminNews(
+      element
+    );
+
+    await loadAdminPayments(
       element
     );
 
@@ -8133,6 +8139,726 @@
     await loadAdminPanel();
 
     await loadNews();
+  }
+
+
+
+  /* =========================
+     ADMIN TRAINING SESSIONS
+  ========================= */
+
+  async function loadAdminTrainingSessions(
+    element
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const {
+      data: sessions,
+      error
+    } = await supabaseClient
+      .from("training_sessions")
+      .select("*")
+      .order(
+        "training_date",
+        {
+          ascending: true
+        }
+      )
+      .order(
+        "start_time",
+        {
+          ascending: true
+        }
+      );
+
+    if (error) {
+
+      console.error(error);
+
+      element.innerHTML += `
+        <div class="card">
+          <div class="message error">
+            Could not load training sessions:
+            ${escapeHtml(error.message)}
+          </div>
+        </div>
+      `;
+
+      return;
+    }
+
+    element.innerHTML += `
+      <div class="card">
+
+        <h3>
+          Training Sessions
+        </h3>
+
+        <p class="muted small">
+          Create and manage the training schedule.
+        </p>
+
+      </div>
+
+
+      <div class="card">
+
+        <h3>
+          Create training session
+        </h3>
+
+        <label>
+          Training
+        </label>
+
+        <input
+          id="adminTrainingType"
+          type="text"
+          placeholder="e.g. MMA"
+        >
+
+        <label>
+          Title
+        </label>
+
+        <input
+          id="adminTrainingTitle"
+          type="text"
+          placeholder="e.g. MMA Training"
+        >
+
+        <label>
+          Date
+        </label>
+
+        <input
+          id="adminTrainingDate"
+          type="date"
+        >
+
+        <label>
+          Start time
+        </label>
+
+        <input
+          id="adminTrainingStart"
+          type="time"
+        >
+
+        <label>
+          End time
+        </label>
+
+        <input
+          id="adminTrainingEnd"
+          type="time"
+        >
+
+        <label>
+          Location
+        </label>
+
+        <input
+          id="adminTrainingLocation"
+          type="text"
+          placeholder="e.g. Fitness Union"
+        >
+
+        <label>
+          District
+        </label>
+
+        <input
+          id="adminTrainingDistrict"
+          type="text"
+          placeholder="e.g. 1150 Wien"
+        >
+
+        <label>
+          Description
+        </label>
+
+        <textarea
+          id="adminTrainingDescription"
+          placeholder="Optional training information..."
+        ></textarea>
+
+        <button
+          onclick="createTrainingSession()"
+        >
+          CREATE TRAINING SESSION
+        </button>
+
+        <div
+          id="adminTrainingCreateMessage"
+          class="message"
+        ></div>
+
+      </div>
+
+      <div id="adminTrainingSessionsList"></div>
+    `;
+
+    const list =
+      document.getElementById(
+        "adminTrainingSessionsList"
+      );
+
+    if (
+      !sessions ||
+      sessions.length === 0
+    ) {
+
+      list.innerHTML = `
+        <div class="card">
+          <div class="empty">
+            No training sessions created yet.
+          </div>
+        </div>
+      `;
+
+      return;
+    }
+
+    list.innerHTML =
+      sessions.map(
+        function (session) {
+
+          return `
+            <div class="competition-admin-card">
+
+              <div
+                style="
+                  font-size:11px;
+                  color:#777;
+                  text-transform:uppercase;
+                  letter-spacing:1px;
+                  margin-bottom:6px;
+                "
+              >
+                ${formatDate(session.training_date)}
+                •
+                ${escapeHtml(session.start_time || "")}
+                ${session.end_time ? "– " + escapeHtml(session.end_time) : ""}
+              </div>
+
+              <div
+                style="
+                  font-size:18px;
+                  font-weight:800;
+                  margin-bottom:5px;
+                "
+              >
+                ${escapeHtml(
+                  session.title ||
+                  session.training ||
+                  "Training"
+                )}
+              </div>
+
+              ${
+                session.training
+                  ? `
+                    <div class="muted small">
+                      🥋 ${escapeHtml(session.training)}
+                    </div>
+                  `
+                  : ""
+              }
+
+              ${
+                session.location
+                  ? `
+                    <div class="muted small" style="margin-top:4px;">
+                      📍 ${escapeHtml(session.location)}
+                      ${session.district ? " • " + escapeHtml(session.district) : ""}
+                    </div>
+                  `
+                  : ""
+              }
+
+              <div class="admin-edit-box">
+
+                <label>Training</label>
+                <input
+                  id="editTrainingType-${session.id}"
+                  value="${escapeHtml(session.training || "")}"
+                >
+
+                <label>Title</label>
+                <input
+                  id="editTrainingTitle-${session.id}"
+                  value="${escapeHtml(session.title || "")}"
+                >
+
+                <label>Date</label>
+                <input
+                  id="editTrainingDate-${session.id}"
+                  type="date"
+                  value="${escapeHtml(session.training_date || "")}"
+                >
+
+                <label>Start time</label>
+                <input
+                  id="editTrainingStart-${session.id}"
+                  type="time"
+                  value="${escapeHtml(
+                    session.start_time
+                      ? String(session.start_time).slice(0, 5)
+                      : ""
+                  )}"
+                >
+
+                <label>End time</label>
+                <input
+                  id="editTrainingEnd-${session.id}"
+                  type="time"
+                  value="${escapeHtml(
+                    session.end_time
+                      ? String(session.end_time).slice(0, 5)
+                      : ""
+                  )}"
+                >
+
+                <label>Location</label>
+                <input
+                  id="editTrainingLocation-${session.id}"
+                  value="${escapeHtml(session.location || "")}"
+                >
+
+                <label>District</label>
+                <input
+                  id="editTrainingDistrict-${session.id}"
+                  value="${escapeHtml(session.district || "")}"
+                >
+
+                <label>Description</label>
+                <textarea
+                  id="editTrainingDescription-${session.id}"
+                >${escapeHtml(session.description || "")}</textarea>
+
+                <button
+                  onclick="saveTrainingSession(
+                    '${session.id}'
+                  )"
+                >
+                  SAVE TRAINING SESSION
+                </button>
+
+                <button
+                  class="danger"
+                  onclick="deleteTrainingSession(
+                    '${session.id}'
+                  )"
+                >
+                  DELETE TRAINING SESSION
+                </button>
+
+                <div
+                  id="editTrainingMessage-${session.id}"
+                  class="message"
+                ></div>
+
+              </div>
+
+            </div>
+          `;
+        }
+      ).join("");
+  }
+
+
+  async function createTrainingSession() {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const message =
+      document.getElementById(
+        "adminTrainingCreateMessage"
+      );
+
+    const training =
+      document
+        .getElementById(
+          "adminTrainingType"
+        )
+        .value
+        .trim();
+
+    const title =
+      document
+        .getElementById(
+          "adminTrainingTitle"
+        )
+        .value
+        .trim();
+
+    const date =
+      document
+        .getElementById(
+          "adminTrainingDate"
+        )
+        .value;
+
+    const startTime =
+      document
+        .getElementById(
+          "adminTrainingStart"
+        )
+        .value;
+
+    const endTime =
+      document
+        .getElementById(
+          "adminTrainingEnd"
+        )
+        .value;
+
+    const location =
+      document
+        .getElementById(
+          "adminTrainingLocation"
+        )
+        .value
+        .trim();
+
+    const district =
+      document
+        .getElementById(
+          "adminTrainingDistrict"
+        )
+        .value
+        .trim();
+
+    const description =
+      document
+        .getElementById(
+          "adminTrainingDescription"
+        )
+        .value
+        .trim();
+
+    if (
+      !date ||
+      !startTime ||
+      !endTime ||
+      !title
+    ) {
+
+      message.textContent =
+        "Title, date, start time and end time are required.";
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+    if (endTime <= startTime) {
+
+      message.textContent =
+        "End time must be later than start time.";
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+    message.textContent =
+      "Creating training session...";
+
+    message.className =
+      "message";
+
+    const {
+      error
+    } = await supabaseClient
+      .from("training_sessions")
+      .insert({
+        training:
+          training || null,
+        title:
+          title,
+        training_date:
+          date,
+        start_time:
+          startTime,
+        end_time:
+          endTime,
+        location:
+          location || null,
+        district:
+          district || null,
+        description:
+          description || null,
+        created_by:
+          currentUser.id
+      });
+
+    if (error) {
+
+      console.error(error);
+
+      message.textContent =
+        "Could not create training session: " +
+        error.message;
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+    message.textContent =
+      "Training session created successfully.";
+
+    message.className =
+      "message success-text";
+
+    await loadAdminPanel();
+
+    await loadTrainingSessions();
+
+    if (
+      typeof loadClubCalendar ===
+      "function"
+    ) {
+      await loadClubCalendar();
+    }
+  }
+
+
+  async function saveTrainingSession(
+    sessionId
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const message =
+      document.getElementById(
+        "editTrainingMessage-" +
+        sessionId
+      );
+
+    const training =
+      document
+        .getElementById(
+          "editTrainingType-" +
+          sessionId
+        )
+        .value
+        .trim();
+
+    const title =
+      document
+        .getElementById(
+          "editTrainingTitle-" +
+          sessionId
+        )
+        .value
+        .trim();
+
+    const date =
+      document
+        .getElementById(
+          "editTrainingDate-" +
+          sessionId
+        )
+        .value;
+
+    const startTime =
+      document
+        .getElementById(
+          "editTrainingStart-" +
+          sessionId
+        )
+        .value;
+
+    const endTime =
+      document
+        .getElementById(
+          "editTrainingEnd-" +
+          sessionId
+        )
+        .value;
+
+    const location =
+      document
+        .getElementById(
+          "editTrainingLocation-" +
+          sessionId
+        )
+        .value
+        .trim();
+
+    const district =
+      document
+        .getElementById(
+          "editTrainingDistrict-" +
+          sessionId
+        )
+        .value
+        .trim();
+
+    const description =
+      document
+        .getElementById(
+          "editTrainingDescription-" +
+          sessionId
+        )
+        .value
+        .trim();
+
+    if (
+      !date ||
+      !startTime ||
+      !endTime ||
+      !title
+    ) {
+
+      message.textContent =
+        "Title, date, start time and end time are required.";
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+    if (endTime <= startTime) {
+
+      message.textContent =
+        "End time must be later than start time.";
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+    message.textContent =
+      "Saving...";
+
+    message.className =
+      "message";
+
+    const {
+      error
+    } = await supabaseClient
+      .from("training_sessions")
+      .update({
+        training:
+          training || null,
+        title:
+          title,
+        training_date:
+          date,
+        start_time:
+          startTime,
+        end_time:
+          endTime,
+        location:
+          location || null,
+        district:
+          district || null,
+        description:
+          description || null
+      })
+      .eq(
+        "id",
+        sessionId
+      );
+
+    if (error) {
+
+      console.error(error);
+
+      message.textContent =
+        "Could not save training session: " +
+        error.message;
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+    message.textContent =
+      "Training session saved successfully.";
+
+    message.className =
+      "message success-text";
+
+    await loadAdminPanel();
+
+    await loadTrainingSessions();
+
+    if (
+      typeof loadClubCalendar ===
+      "function"
+    ) {
+      await loadClubCalendar();
+    }
+  }
+
+
+  async function deleteTrainingSession(
+    sessionId
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const confirmed =
+      confirm(
+        "Delete this training session?"
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const {
+      error
+    } = await supabaseClient
+      .from("training_sessions")
+      .delete()
+      .eq(
+        "id",
+        sessionId
+      );
+
+    if (error) {
+
+      console.error(error);
+
+      alert(
+        "Could not delete training session: " +
+        error.message
+      );
+
+      return;
+    }
+
+    await loadAdminPanel();
+
+    await loadTrainingSessions();
+
+    if (
+      typeof loadClubCalendar ===
+      "function"
+    ) {
+      await loadClubCalendar();
+    }
   }
 
 
