@@ -1072,6 +1072,12 @@
           <div class="feature-text">Your attendance progress</div>
         </div>
 
+        <div class="feature" onclick="openSection('documents')">
+          <div class="feature-icon">📄</div>
+          <div class="feature-title">Documents</div>
+          <div class="feature-text">Club files and information</div>
+        </div>
+
         <div class="feature" onclick="openSection('chat')">
           <div class="feature-icon">💬</div>
           <div class="feature-title">Chat</div>
@@ -1308,6 +1314,29 @@
 
       <div id="attendanceProgress">
         <div class="empty">Loading attendance progress...</div>
+      </div>
+
+    </div>
+
+
+    <!-- DOCUMENTS -->
+    <div id="documentsSection" class="hidden">
+
+      <div class="section-title">
+        <button
+          class="secondary back-button"
+          onclick="openSection('home')"
+        >
+          ← BACK
+        </button>
+
+        <h2>Documents</h2>
+      </div>
+
+      <div id="documentsList">
+        <div class="empty">
+          Loading documents...
+        </div>
       </div>
 
     </div>
@@ -2027,6 +2056,8 @@
     loadPayments();
 
     loadNews();
+
+    loadDocuments();
 
     loadProfile();
 
@@ -2929,6 +2960,7 @@
       "profile",
       "calendar",
       "attendance",
+      "documents",
       "chat",
       "events",
       "admin"
@@ -2986,6 +3018,10 @@
 
     if (section === "attendance") {
       loadAttendanceProgress();
+    }
+
+    if (section === "documents") {
+      loadDocuments();
     }
 
     if (section === "chat") {
@@ -5735,6 +5771,228 @@
   }
 
 
+
+  /* =========================
+     DOCUMENTS
+  ========================= */
+
+  async function loadDocuments() {
+
+    const element =
+      document.getElementById(
+        "documentsList"
+      );
+
+    if (!element) {
+      return;
+    }
+
+    element.innerHTML = `
+      <div class="empty">
+        Loading documents...
+      </div>
+    `;
+
+    const {
+      data,
+      error
+    } = await supabaseClient
+      .from("documents")
+      .select("*")
+      .order(
+        "created_at",
+        {
+          ascending: false
+        }
+      );
+
+    if (error) {
+
+      console.error(error);
+
+      element.innerHTML = `
+        <div class="card">
+          <div class="message error">
+            Could not load documents:
+            ${escapeHtml(error.message)}
+          </div>
+        </div>
+      `;
+
+      return;
+    }
+
+    const documents =
+      data || [];
+
+    if (documents.length === 0) {
+
+      element.innerHTML = `
+        <div class="card">
+          <div class="empty">
+            No documents available yet.
+          </div>
+        </div>
+      `;
+
+      return;
+    }
+
+    element.innerHTML =
+      documents.map(
+        function (documentItem) {
+
+          return `
+            <div class="card">
+
+              <div
+                style="
+                  display:flex;
+                  gap:12px;
+                  align-items:flex-start;
+                "
+              >
+
+                <div
+                  style="
+                    width:42px;
+                    height:42px;
+                    flex:0 0 42px;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    border-radius:10px;
+                    background:#222;
+                    font-size:20px;
+                  "
+                >
+                  📄
+                </div>
+
+                <div style="min-width:0; flex:1;">
+
+                  <h3
+                    style="
+                      font-size:17px;
+                      margin-bottom:5px;
+                    "
+                  >
+                    ${escapeHtml(
+                      documentItem.title ||
+                      documentItem.file_name ||
+                      "Document"
+                    )}
+                  </h3>
+
+                  ${
+                    documentItem.description
+                      ? `
+                        <div
+                          class="muted small"
+                          style="
+                            line-height:1.5;
+                            margin-bottom:8px;
+                          "
+                        >
+                          ${escapeHtml(
+                            documentItem.description
+                          )}
+                        </div>
+                      `
+                      : ""
+                  }
+
+                  <div class="muted small">
+                    ${escapeHtml(
+                      documentItem.file_name || ""
+                    )}
+                  </div>
+
+                </div>
+
+              </div>
+
+              <button
+                class="secondary"
+                onclick="openClubDocument(
+                  '${documentItem.id}'
+                )"
+              >
+                OPEN DOCUMENT
+              </button>
+
+            </div>
+          `;
+        }
+      ).join("");
+  }
+
+
+  async function openClubDocument(
+    documentId
+  ) {
+
+    const {
+      data: documentItem,
+      error
+    } = await supabaseClient
+      .from("documents")
+      .select("*")
+      .eq(
+        "id",
+        documentId
+      )
+      .maybeSingle();
+
+    if (
+      error ||
+      !documentItem
+    ) {
+
+      console.error(error);
+
+      alert(
+        "Could not load this document."
+      );
+
+      return;
+    }
+
+    const {
+      data,
+      error: signedError
+    } = await supabaseClient
+      .storage
+      .from("club-documents")
+      .createSignedUrl(
+        documentItem.file_path,
+        3600
+      );
+
+    if (
+      signedError ||
+      !data?.signedUrl
+    ) {
+
+      console.error(
+        signedError
+      );
+
+      alert(
+        "Could not open this document."
+      );
+
+      return;
+    }
+
+    window.open(
+      data.signedUrl,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  }
+
+
   /* =========================
      CLUB CHAT
   ========================= */
@@ -7055,6 +7313,10 @@
       element
     );
 
+    await loadAdminDocuments(
+      element
+    );
+
     await loadAdminGroups(
       element
     );
@@ -7477,6 +7739,460 @@
   }
 
 
+
+
+
+  /* =========================
+     ADMIN DOCUMENTS
+  ========================= */
+
+  async function loadAdminDocuments(
+    element
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const {
+      data: documents,
+      error
+    } = await supabaseClient
+      .from("documents")
+      .select("*")
+      .order(
+        "created_at",
+        {
+          ascending: false
+        }
+      );
+
+    if (error) {
+
+      console.error(error);
+
+      element.innerHTML += `
+        <div class="card">
+          <div class="message error">
+            Could not load documents:
+            ${escapeHtml(error.message)}
+          </div>
+        </div>
+      `;
+
+      return;
+    }
+
+    element.innerHTML += `
+
+      <div class="card">
+
+        <h3>
+          Documents
+        </h3>
+
+        <p class="muted small">
+          Upload club documents for members.
+        </p>
+
+      </div>
+
+
+      <div class="card">
+
+        <h3>
+          Upload document
+        </h3>
+
+        <label>
+          Title
+        </label>
+
+        <input
+          id="adminDocumentTitle"
+          type="text"
+          placeholder="e.g. Training Rules"
+        >
+
+        <label>
+          Description
+        </label>
+
+        <textarea
+          id="adminDocumentDescription"
+          placeholder="Optional description..."
+        ></textarea>
+
+        <label>
+          File
+        </label>
+
+        <input
+          id="adminDocumentFile"
+          type="file"
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,image/*"
+        >
+
+        <button
+          onclick="uploadAdminDocument()"
+        >
+          UPLOAD DOCUMENT
+        </button>
+
+        <div
+          id="adminDocumentMessage"
+          class="message"
+        ></div>
+
+      </div>
+
+
+      <div id="adminDocumentsList"></div>
+
+    `;
+
+    const list =
+      document.getElementById(
+        "adminDocumentsList"
+      );
+
+    if (!list) {
+      return;
+    }
+
+    const items =
+      documents || [];
+
+    if (items.length === 0) {
+
+      list.innerHTML = `
+        <div class="card">
+          <div class="empty">
+            No documents uploaded yet.
+          </div>
+        </div>
+      `;
+
+      return;
+    }
+
+    list.innerHTML =
+      items.map(
+        function (documentItem) {
+
+          return `
+            <div class="competition-admin-card">
+
+              <div
+                style="
+                  font-size:17px;
+                  font-weight:800;
+                  margin-bottom:5px;
+                "
+              >
+                ${escapeHtml(
+                  documentItem.title ||
+                  documentItem.file_name ||
+                  "Document"
+                )}
+              </div>
+
+              ${
+                documentItem.description
+                  ? `
+                    <div
+                      class="muted small"
+                      style="
+                        margin-bottom:8px;
+                        line-height:1.5;
+                      "
+                    >
+                      ${escapeHtml(
+                        documentItem.description
+                      )}
+                    </div>
+                  `
+                  : ""
+              }
+
+              <div class="muted small">
+                ${escapeHtml(
+                  documentItem.file_name || ""
+                )}
+              </div>
+
+              <div class="admin-actions">
+
+                <button
+                  class="secondary"
+                  onclick="openClubDocument(
+                    '${documentItem.id}'
+                  )"
+                >
+                  OPEN
+                </button>
+
+                <button
+                  class="danger"
+                  onclick="deleteAdminDocument(
+                    '${documentItem.id}',
+                    '${escapeHtml(
+                      documentItem.file_path
+                    )}'
+                  )"
+                >
+                  DELETE
+                </button>
+
+              </div>
+
+            </div>
+          `;
+        }
+      ).join("");
+  }
+
+
+  async function uploadAdminDocument() {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const message =
+      document.getElementById(
+        "adminDocumentMessage"
+      );
+
+    const title =
+      document
+        .getElementById(
+          "adminDocumentTitle"
+        )
+        .value
+        .trim();
+
+    const description =
+      document
+        .getElementById(
+          "adminDocumentDescription"
+        )
+        .value
+        .trim();
+
+    const fileInput =
+      document.getElementById(
+        "adminDocumentFile"
+      );
+
+    const file =
+      fileInput?.files?.[0];
+
+    if (!title) {
+
+      message.textContent =
+        "Title is required.";
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+    if (!file) {
+
+      message.textContent =
+        "Please select a file.";
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+    if (
+      file.size >
+      20 * 1024 * 1024
+    ) {
+
+      message.textContent =
+        "File must be smaller than 20 MB.";
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+    message.textContent =
+      "Uploading document...";
+
+    message.className =
+      "message";
+
+    const safeName =
+      file.name
+        .replace(
+          /[^a-zA-Z0-9._-]/g,
+          "_"
+        );
+
+    const filePath =
+      `${Date.now()}-${safeName}`;
+
+    const {
+      error: uploadError
+    } = await supabaseClient
+      .storage
+      .from("club-documents")
+      .upload(
+        filePath,
+        file,
+        {
+          upsert: false,
+          contentType:
+            file.type ||
+            "application/octet-stream"
+        }
+      );
+
+    if (uploadError) {
+
+      console.error(
+        uploadError
+      );
+
+      message.textContent =
+        "Could not upload file: " +
+        uploadError.message;
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+    const {
+      error: insertError
+    } = await supabaseClient
+      .from("documents")
+      .insert({
+        title:
+          title,
+        description:
+          description || null,
+        file_path:
+          filePath,
+        file_name:
+          file.name,
+        file_type:
+          file.type || null,
+        created_by:
+          currentUser.id
+      });
+
+    if (insertError) {
+
+      console.error(
+        insertError
+      );
+
+      await supabaseClient
+        .storage
+        .from("club-documents")
+        .remove([
+          filePath
+        ]);
+
+      message.textContent =
+        "Could not save document information: " +
+        insertError.message;
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+    message.textContent =
+      "Document uploaded successfully.";
+
+    message.className =
+      "message success-text";
+
+    await loadAdminPanel();
+
+    await loadDocuments();
+  }
+
+
+  async function deleteAdminDocument(
+    documentId,
+    filePath
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const confirmed =
+      confirm(
+        "Delete this document?"
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const {
+      error: storageError
+    } = await supabaseClient
+      .storage
+      .from("club-documents")
+      .remove([
+        filePath
+      ]);
+
+    if (storageError) {
+
+      console.error(
+        storageError
+      );
+
+      alert(
+        "Could not delete the file: " +
+        storageError.message
+      );
+
+      return;
+    }
+
+    const {
+      error
+    } = await supabaseClient
+      .from("documents")
+      .delete()
+      .eq(
+        "id",
+        documentId
+      );
+
+    if (error) {
+
+      console.error(error);
+
+      alert(
+        "File was deleted, but the document record could not be removed: " +
+        error.message
+      );
+
+      return;
+    }
+
+    await loadAdminPanel();
+
+    await loadDocuments();
+  }
 
 
   /* =========================
