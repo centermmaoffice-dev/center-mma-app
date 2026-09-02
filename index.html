@@ -9678,6 +9678,120 @@
      APPROVE PAYMENT
   ========================= */
 
+  function addMonthsToDateString(
+    dateString,
+    months
+  ) {
+
+    const parts =
+      String(dateString)
+        .split("-")
+        .map(Number);
+
+    if (
+      parts.length !== 3 ||
+      parts.some(Number.isNaN)
+    ) {
+      return dateString;
+    }
+
+    const year =
+      parts[0];
+
+    const month =
+      parts[1];
+
+    const day =
+      parts[2];
+
+    const date =
+      new Date(
+        year,
+        month - 1,
+        day
+      );
+
+    const originalDay =
+      date.getDate();
+
+    date.setDate(1);
+
+    date.setMonth(
+      date.getMonth() +
+      Number(months || 0)
+    );
+
+    const lastDay =
+      new Date(
+        date.getFullYear(),
+        date.getMonth() + 1,
+        0
+      ).getDate();
+
+    date.setDate(
+      Math.min(
+        originalDay,
+        lastDay
+      )
+    );
+
+    const resultYear =
+      date.getFullYear();
+
+    const resultMonth =
+      String(
+        date.getMonth() + 1
+      ).padStart(2, "0");
+
+    const resultDay =
+      String(
+        date.getDate()
+      ).padStart(2, "0");
+
+    return `${resultYear}-${resultMonth}-${resultDay}`;
+  }
+
+
+  function getMembershipExtensionMonths(
+    membershipType
+  ) {
+
+    const normalized =
+      String(
+        membershipType || ""
+      )
+        .toLowerCase()
+        .trim();
+
+    if (
+      normalized === "monthly" ||
+      normalized === "month"
+    ) {
+      return 1;
+    }
+
+    if (
+      normalized === "half_year" ||
+      normalized === "half-year" ||
+      normalized === "half year" ||
+      normalized === "6_months" ||
+      normalized === "6 months"
+    ) {
+      return 6;
+    }
+
+    if (
+      normalized === "yearly" ||
+      normalized === "annual" ||
+      normalized === "year"
+    ) {
+      return 12;
+    }
+
+    return 0;
+  }
+
+
   async function approvePayment(
     paymentId,
     memberId
@@ -9687,46 +9801,42 @@
       return;
     }
 
-
     const confirmed =
       confirm(
-        "Confirm this payment?"
+        "Confirm this payment and activate/extend the membership?"
       );
-
 
     if (!confirmed) {
       return;
     }
 
-
     const {
-      error: paymentError
+      data: payment,
+      error: paymentLoadError
     } = await supabaseClient
       .from("payments")
-      .update({
-        status:
-          "approved"
-      })
+      .select("*")
       .eq(
         "id",
         paymentId
-      );
+      )
+      .maybeSingle();
 
-
-    if (paymentError) {
-
-      alert(
-        "Payment could not be confirmed: " +
-        paymentError.message
-      );
+    if (
+      paymentLoadError ||
+      !payment
+    ) {
 
       console.error(
-        paymentError
+        paymentLoadError
+      );
+
+      alert(
+        "Could not load this payment."
       );
 
       return;
     }
-
 
     const {
       data: membership,
@@ -9747,7 +9857,6 @@
       .limit(1)
       .maybeSingle();
 
-
     if (membershipError) {
 
       console.error(
@@ -9755,50 +9864,111 @@
       );
 
       alert(
-        "Payment was approved, but membership status could not be updated."
+        "Could not load the member's membership."
       );
-
-      await loadAdminPanel();
 
       return;
     }
 
+    if (!membership) {
 
-    if (membership) {
+      alert(
+        "This member has no membership yet. Create a membership in Members first, then confirm the payment."
+      );
 
-      const {
-        error
-      } = await supabaseClient
-        .from("memberships")
-        .update({
-          status:
-            "active"
-        })
-        .eq(
-          "id",
-          membership.id
-        );
-
-
-      if (error) {
-
-        console.error(error);
-
-        alert(
-          "Payment was approved, but membership could not be activated."
-        );
-
-        await loadAdminPanel();
-
-        return;
-      }
+      return;
     }
 
+    const today =
+      getLocalDateString();
+
+    const extensionMonths =
+      getMembershipExtensionMonths(
+        membership.type
+      );
+
+    let newEndDate =
+      membership.end_date ||
+      today;
+
+    if (extensionMonths > 0) {
+
+      const baseDate =
+        (
+          membership.end_date &&
+          membership.end_date >= today
+        )
+          ? membership.end_date
+          : today;
+
+      newEndDate =
+        addMonthsToDateString(
+          baseDate,
+          extensionMonths
+        );
+    }
+
+    const {
+      error: membershipUpdateError
+    } = await supabaseClient
+      .from("memberships")
+      .update({
+        status:
+          "active",
+        end_date:
+          newEndDate
+      })
+      .eq(
+        "id",
+        membership.id
+      );
+
+    if (membershipUpdateError) {
+
+      console.error(
+        membershipUpdateError
+      );
+
+      alert(
+        "Payment was not confirmed because the membership could not be updated: " +
+        membershipUpdateError.message
+      );
+
+      return;
+    }
+
+    const {
+      error: paymentError
+    } = await supabaseClient
+      .from("payments")
+      .update({
+        status:
+          "approved"
+      })
+      .eq(
+        "id",
+        paymentId
+      );
+
+    if (paymentError) {
+
+      console.error(
+        paymentError
+      );
+
+      alert(
+        "Membership was updated, but the payment status could not be changed: " +
+        paymentError.message
+      );
+
+      return;
+    }
 
     alert(
-      "Payment confirmed successfully."
+      extensionMonths > 0
+        ? `Payment confirmed. Membership extended until ${formatDate(newEndDate)}.`
+        : "Payment confirmed and membership activated."
     );
-
 
     await loadAdminPanel();
   }
