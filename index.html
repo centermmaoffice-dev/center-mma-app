@@ -6067,6 +6067,10 @@
     await loadAdminAttendance(
       element
     );
+
+    await loadAdminMembers(
+      element
+    );
   }
 
 
@@ -6401,6 +6405,326 @@
         message.className = "message error";
       }
     }
+  }
+
+
+
+  /* =========================
+     ADMIN MEMBERS
+  ========================= */
+
+  async function loadAdminMembers(
+    element
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const {
+      data: members,
+      error
+    } = await supabaseClient
+      .from("members")
+      .select(`
+        id,
+        user_id,
+        first_name,
+        last_name,
+        email,
+        phone,
+        membership_number,
+        role,
+        created_at
+      `)
+      .order(
+        "created_at",
+        {
+          ascending: false
+        }
+      );
+
+    if (error) {
+
+      console.error(error);
+
+      element.innerHTML += `
+        <div class="card">
+          <div class="message error">
+            Could not load members:
+            ${escapeHtml(error.message)}
+          </div>
+        </div>
+      `;
+
+      return;
+    }
+
+    element.innerHTML += `
+      <div class="card">
+        <h3>Members</h3>
+        <p class="muted small">
+          Manage member profiles, membership numbers and roles.
+        </p>
+      </div>
+
+      <div id="adminMembersList"></div>
+    `;
+
+    const list =
+      document.getElementById(
+        "adminMembersList"
+      );
+
+    if (
+      !members ||
+      members.length === 0
+    ) {
+
+      list.innerHTML = `
+        <div class="card">
+          <div class="empty">
+            No members found.
+          </div>
+        </div>
+      `;
+
+      return;
+    }
+
+    list.innerHTML =
+      members
+        .map(
+          function (member) {
+
+            const displayName =
+              [
+                member.first_name,
+                member.last_name
+              ]
+                .filter(Boolean)
+                .join(" ")
+                .trim() ||
+              member.email ||
+              "Member";
+
+            return `
+              <div
+                class="competition-admin-card"
+                id="adminMember-${member.id}"
+              >
+
+                <div
+                  style="
+                    font-size:17px;
+                    font-weight:800;
+                    margin-bottom:4px;
+                  "
+                >
+                  ${escapeHtml(displayName)}
+                </div>
+
+                <div class="muted small">
+                  ${escapeHtml(member.email || "")}
+                </div>
+
+                <div style="margin-top:10px;">
+                  <span class="admin-badge">
+                    ${escapeHtml(member.role || "member")}
+                  </span>
+                </div>
+
+                <div class="admin-edit-box">
+
+                  <label>First name</label>
+                  <input
+                    id="adminMemberFirstName-${member.id}"
+                    value="${escapeHtml(member.first_name || "")}"
+                  >
+
+                  <label>Last name</label>
+                  <input
+                    id="adminMemberLastName-${member.id}"
+                    value="${escapeHtml(member.last_name || "")}"
+                  >
+
+                  <label>Phone</label>
+                  <input
+                    id="adminMemberPhone-${member.id}"
+                    value="${escapeHtml(member.phone || "")}"
+                  >
+
+                  <label>Membership number</label>
+                  <input
+                    id="adminMemberNumber-${member.id}"
+                    value="${escapeHtml(member.membership_number || "")}"
+                  >
+
+                  <label>Role</label>
+                  <select
+                    id="adminMemberRole-${member.id}"
+                    style="
+                      width:100%;
+                      background:#0d0d0d;
+                      border:1px solid #333;
+                      border-radius:9px;
+                      color:white;
+                      padding:13px;
+                      font-size:15px;
+                    "
+                  >
+                    <option
+                      value="member"
+                      ${(member.role || "member") === "member" ? "selected" : ""}
+                    >
+                      Member
+                    </option>
+
+                    <option
+                      value="trainer"
+                      ${member.role === "trainer" ? "selected" : ""}
+                    >
+                      Trainer
+                    </option>
+
+                    <option
+                      value="admin"
+                      ${member.role === "admin" ? "selected" : ""}
+                    >
+                      Admin
+                    </option>
+                  </select>
+
+                  <button
+                    onclick="saveAdminMember(
+                      '${member.id}'
+                    )"
+                  >
+                    SAVE MEMBER
+                  </button>
+
+                  <div
+                    id="adminMemberMessage-${member.id}"
+                    class="message"
+                  ></div>
+
+                </div>
+
+              </div>
+            `;
+
+          }
+        )
+        .join("");
+  }
+
+
+  async function saveAdminMember(
+    memberId
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const message =
+      document.getElementById(
+        "adminMemberMessage-" +
+        memberId
+      );
+
+    const firstName =
+      document
+        .getElementById(
+          "adminMemberFirstName-" +
+          memberId
+        )
+        .value
+        .trim();
+
+    const lastName =
+      document
+        .getElementById(
+          "adminMemberLastName-" +
+          memberId
+        )
+        .value
+        .trim();
+
+    const phone =
+      document
+        .getElementById(
+          "adminMemberPhone-" +
+          memberId
+        )
+        .value
+        .trim();
+
+    const membershipNumber =
+      document
+        .getElementById(
+          "adminMemberNumber-" +
+          memberId
+        )
+        .value
+        .trim();
+
+    const role =
+      document
+        .getElementById(
+          "adminMemberRole-" +
+          memberId
+        )
+        .value;
+
+    message.textContent =
+      "Saving...";
+
+    message.className =
+      "message";
+
+    const {
+      error
+    } = await supabaseClient
+      .from("members")
+      .update({
+        first_name:
+          firstName || null,
+        last_name:
+          lastName || null,
+        phone:
+          phone || null,
+        membership_number:
+          membershipNumber || null,
+        role:
+          role
+      })
+      .eq(
+        "id",
+        memberId
+      );
+
+    if (error) {
+
+      console.error(error);
+
+      message.textContent =
+        "Could not save member: " +
+        error.message;
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+    message.textContent =
+      "Member saved successfully.";
+
+    message.className =
+      "message success-text";
+
+    await loadAdminPanel();
   }
 
 
