@@ -1520,6 +1520,7 @@
   let adminAttendanceSessions = [];
   let adminAttendanceMembers = [];
   let adminAttendanceExisting = {};
+  let currentAdminSection = null;
 
   let calendarCursor = new Date();
   calendarCursor = new Date(
@@ -1749,6 +1750,7 @@
     isAdmin = false;
     isTrainer = false;
     isStaff = false;
+    currentAdminSection = null;
 
     stopChatRealtime();
 
@@ -7233,6 +7235,8 @@
       title.textContent =
         "Admin Panel";
 
+      currentAdminSection = null;
+
       loadAdminPanel();
     }
   }
@@ -7277,53 +7281,346 @@
         "adminContent"
       );
 
+    if (!element) {
+      return;
+    }
+
+    if (currentAdminSection) {
+
+      await renderAdminSection(
+        currentAdminSection
+      );
+
+      return;
+    }
+
+    const title =
+      document.getElementById(
+        "staffPanelTitle"
+      );
+
+    if (title) {
+      title.textContent =
+        "Admin Panel";
+    }
 
     element.innerHTML = `
 
-      <div class="empty">
-        Loading admin panel...
+      <div class="card">
+
+        <h3>
+          Administration
+        </h3>
+
+        <p class="muted small">
+          Choose a section to manage.
+        </p>
+
+      </div>
+
+
+      <div class="feature-grid">
+
+        <div
+          class="feature"
+          onclick="openAdminSection('training')"
+        >
+          <div class="feature-icon">🥋</div>
+          <div class="feature-title">
+            Training Sessions
+          </div>
+          <div class="feature-text">
+            Schedule and locations
+          </div>
+        </div>
+
+
+        <div
+          class="feature"
+          onclick="openAdminSection('attendance')"
+        >
+          <div class="feature-icon">📊</div>
+          <div class="feature-title">
+            Attendance
+          </div>
+          <div class="feature-text">
+            Mark athlete attendance
+          </div>
+        </div>
+
+
+        <div
+          class="feature"
+          onclick="openAdminSection('competitions')"
+        >
+          <div class="feature-icon">🏆</div>
+          <div class="feature-title">
+            Competitions
+          </div>
+          <div class="feature-text">
+            Events and participants
+          </div>
+        </div>
+
+
+        <div
+          class="feature"
+          onclick="openAdminSection('news')"
+        >
+          <div class="feature-icon">📰</div>
+          <div class="feature-title">
+            News
+          </div>
+          <div class="feature-text">
+            Publish club news
+          </div>
+        </div>
+
+
+        <div
+          class="feature"
+          onclick="openAdminSection('documents')"
+        >
+          <div class="feature-icon">📄</div>
+          <div class="feature-title">
+            Documents
+          </div>
+          <div class="feature-text">
+            Upload club files
+          </div>
+        </div>
+
+
+        <div
+          class="feature"
+          onclick="openAdminSection('payments')"
+        >
+          <div class="feature-icon">💳</div>
+          <div class="feature-title">
+            Payments
+          </div>
+          <div class="feature-text">
+            Payment confirmations
+          </div>
+        </div>
+
+
+        <div
+          class="feature"
+          onclick="openAdminSection('members')"
+        >
+          <div class="feature-icon">👥</div>
+          <div class="feature-title">
+            Members
+          </div>
+          <div class="feature-text">
+            Profiles and memberships
+          </div>
+        </div>
+
+
+        <div
+          class="feature"
+          onclick="openAdminSection('groups')"
+        >
+          <div class="feature-icon">🥊</div>
+          <div class="feature-title">
+            Groups
+          </div>
+          <div class="feature-text">
+            Athlete groups
+          </div>
+        </div>
+
+
+        <div
+          class="feature"
+          onclick="openAdminSection('birthdays')"
+        >
+          <div class="feature-icon">🎂</div>
+          <div class="feature-title">
+            Birthdays
+          </div>
+          <div class="feature-text">
+            Upcoming birthdays
+          </div>
+        </div>
+
       </div>
 
     `;
+  }
 
 
-    element.innerHTML = "";
+  async function openAdminSection(
+    section
+  ) {
 
-    await loadAdminTrainingSessions(
-      element
+    if (!isAdmin) {
+      return;
+    }
+
+    currentAdminSection =
+      section;
+
+    await renderAdminSection(
+      section
     );
+  }
 
-    await loadAdminAttendance(
-      element
-    );
 
-    await loadAdminCompetitions(
-      element
-    );
+  async function backToAdminMenu() {
 
-    await loadAdminNews(
-      element
-    );
+    currentAdminSection =
+      null;
 
-    await loadAdminPayments(
-      element
-    );
+    await loadAdminPanel();
+  }
 
-    await loadAdminBirthdays(
-      element
-    );
 
-    await loadAdminDocuments(
-      element
-    );
+  async function renderAdminSection(
+    section
+  ) {
 
-    await loadAdminGroups(
-      element
-    );
+    if (!isAdmin) {
+      return;
+    }
 
-    await loadAdminMembers(
-      element
-    );
+    const element =
+      document.getElementById(
+        "adminContent"
+      );
+
+    if (!element) {
+      return;
+    }
+
+    const sectionTitles = {
+      training:
+        "Training Sessions",
+      attendance:
+        "Attendance",
+      competitions:
+        "Competitions",
+      news:
+        "News",
+      documents:
+        "Documents",
+      payments:
+        "Payments",
+      members:
+        "Members",
+      groups:
+        "Groups",
+      birthdays:
+        "Birthdays"
+    };
+
+    const title =
+      document.getElementById(
+        "staffPanelTitle"
+      );
+
+    if (title) {
+
+      title.textContent =
+        sectionTitles[section] ||
+        "Admin Panel";
+    }
+
+    element.innerHTML = `
+
+      <button
+        class="secondary back-button"
+        onclick="backToAdminMenu()"
+        style="margin-bottom:15px;"
+      >
+        ← BACK TO ADMIN
+      </button>
+
+      <div id="adminSectionContent"></div>
+
+    `;
+
+    const content =
+      document.getElementById(
+        "adminSectionContent"
+      );
+
+    if (!content) {
+      return;
+    }
+
+    if (section === "training") {
+
+      await loadAdminTrainingSessions(
+        content
+      );
+
+    } else if (
+      section === "attendance"
+    ) {
+
+      await loadAdminAttendance(
+        content
+      );
+
+    } else if (
+      section === "competitions"
+    ) {
+
+      await loadAdminCompetitions(
+        content
+      );
+
+    } else if (
+      section === "news"
+    ) {
+
+      await loadAdminNews(
+        content
+      );
+
+    } else if (
+      section === "documents"
+    ) {
+
+      await loadAdminDocuments(
+        content
+      );
+
+    } else if (
+      section === "payments"
+    ) {
+
+      await loadAdminPayments(
+        content
+      );
+
+    } else if (
+      section === "members"
+    ) {
+
+      await loadAdminMembers(
+        content
+      );
+
+    } else if (
+      section === "groups"
+    ) {
+
+      await loadAdminGroups(
+        content
+      );
+
+    } else if (
+      section === "birthdays"
+    ) {
+
+      await loadAdminBirthdays(
+        content
+      );
+    }
   }
 
 
