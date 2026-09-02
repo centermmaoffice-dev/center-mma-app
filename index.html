@@ -1807,6 +1807,17 @@
     currentMember =
       member;
 
+    if (
+      member.is_active === false
+    ) {
+
+      showInactive(
+        "Your member account has been deactivated by CENTER MMA."
+      );
+
+      return;
+    }
+
     isAdmin =
       member.role === "admin";
 
@@ -9240,6 +9251,7 @@
         emergency_contact_phone,
         membership_number,
         role,
+        is_active,
         created_at
       `)
       .order(
@@ -9395,6 +9407,20 @@
                       membershipStatus
                     )}
                   </span>
+
+                  <span
+                    class="status ${
+                      member.is_active === false
+                        ? "inactive"
+                        : "active"
+                    }"
+                  >
+                    ${
+                      member.is_active === false
+                        ? "Deactivated"
+                        : "Active"
+                    }
+                  </span>
                 </div>
 
                 <div class="admin-edit-box">
@@ -9481,6 +9507,32 @@
                   >
                     SAVE PROFILE
                   </button>
+
+                  ${
+                    member.is_active === false
+                      ? `
+                        <button
+                          class="success"
+                          onclick="setMemberActive(
+                            '${member.id}',
+                            true
+                          )"
+                        >
+                          REACTIVATE MEMBER
+                        </button>
+                      `
+                      : `
+                        <button
+                          class="danger"
+                          onclick="setMemberActive(
+                            '${member.id}',
+                            false
+                          )"
+                        >
+                          DEACTIVATE MEMBER
+                        </button>
+                      `
+                  }
 
                   <div
                     id="adminMemberMessage-${member.id}"
@@ -9749,6 +9801,57 @@
     await loadAdminPanel();
   }
 
+
+
+  async function setMemberActive(
+    memberId,
+    active
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const confirmed =
+      confirm(
+        active
+          ? "Reactivate this member?"
+          : "Deactivate this member? They will lose access to the app, but all history will be kept."
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const {
+      error
+    } = await supabaseClient
+      .from("members")
+      .update({
+        is_active:
+          active
+      })
+      .eq(
+        "id",
+        memberId
+      );
+
+    if (error) {
+
+      console.error(error);
+
+      alert(
+        "Could not update member status: " +
+        error.message
+      );
+
+      return;
+    }
+
+    await renderAdminSection(
+      "members"
+    );
+  }
 
 
   async function saveAdminMembership(
