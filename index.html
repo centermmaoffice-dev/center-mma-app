@@ -558,6 +558,262 @@
     .record-detail-line strong {
       color: #ddd;
     }
+
+    /* =========================
+       CALENDAR / PROGRESS / CHAT
+    ========================= */
+
+    .calendar-card {
+      background: #151515;
+      border: 1px solid #272727;
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 15px;
+    }
+
+    .calendar-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .calendar-toolbar button {
+      width: auto;
+      margin: 0;
+      padding: 9px 12px;
+      background: #222;
+      color: #fff;
+      border: 1px solid #333;
+    }
+
+    .calendar-month-title {
+      font-size: 17px;
+      font-weight: 900;
+      text-align: center;
+    }
+
+    .calendar-filters {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+      margin-bottom: 14px;
+    }
+
+    .calendar-filter {
+      margin: 0;
+      padding: 9px 6px;
+      background: #111;
+      color: #888;
+      border: 1px solid #292929;
+      font-size: 11px;
+    }
+
+    .calendar-filter.active {
+      background: #fff;
+      color: #000;
+      border-color: #fff;
+    }
+
+    .calendar-weekdays,
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 5px;
+    }
+
+    .calendar-weekday {
+      text-align: center;
+      color: #666;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 5px 0;
+      text-transform: uppercase;
+    }
+
+    .calendar-day {
+      position: relative;
+      min-height: 49px;
+      margin: 0;
+      padding: 7px 3px 12px;
+      border-radius: 9px;
+      background: #101010;
+      color: #ddd;
+      border: 1px solid #222;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .calendar-day.other-month {
+      opacity: 0.25;
+    }
+
+    .calendar-day.today {
+      border-color: #777;
+    }
+
+    .calendar-day.selected {
+      background: #fff;
+      color: #000;
+      border-color: #fff;
+    }
+
+    .calendar-dots {
+      position: absolute;
+      left: 50%;
+      bottom: 4px;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 3px;
+    }
+
+    .calendar-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.7;
+    }
+
+    .day-events-title {
+      font-size: 13px;
+      font-weight: 800;
+      margin: 5px 0 10px;
+      color: #aaa;
+    }
+
+    .calendar-event {
+      background: #111;
+      border: 1px solid #292929;
+      border-radius: 11px;
+      padding: 14px;
+      margin-bottom: 9px;
+    }
+
+    .calendar-event-type {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #777;
+      margin-bottom: 5px;
+    }
+
+    .progress-ring {
+      width: 170px;
+      height: 170px;
+      border-radius: 50%;
+      margin: 10px auto 20px;
+      display: grid;
+      place-items: center;
+      background: conic-gradient(#fff var(--progress), #252525 0);
+      position: relative;
+    }
+
+    .progress-ring::after {
+      content: "";
+      width: 132px;
+      height: 132px;
+      border-radius: 50%;
+      background: #151515;
+      position: absolute;
+    }
+
+    .progress-ring-content {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+    }
+
+    .progress-percent {
+      font-size: 34px;
+      font-weight: 900;
+    }
+
+    .progress-zone {
+      margin-top: 4px;
+      color: #888;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .progress-bars {
+      margin-top: 18px;
+    }
+
+    .progress-row {
+      margin-bottom: 13px;
+    }
+
+    .progress-row-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    .progress-track {
+      height: 8px;
+      background: #252525;
+      border-radius: 20px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: #fff;
+      border-radius: 20px;
+    }
+
+    .chat-list {
+      max-height: 55vh;
+      overflow-y: auto;
+      padding-right: 2px;
+      margin-bottom: 12px;
+    }
+
+    .chat-message {
+      max-width: 85%;
+      background: #151515;
+      border: 1px solid #292929;
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      line-height: 1.45;
+      font-size: 13px;
+    }
+
+    .chat-message.mine {
+      margin-left: auto;
+      background: #222;
+    }
+
+    .chat-meta {
+      color: #666;
+      font-size: 10px;
+      margin-top: 5px;
+    }
+
+    .chat-compose {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    .chat-compose textarea {
+      min-height: 48px;
+      max-height: 130px;
+      resize: vertical;
+    }
+
+    .chat-compose button {
+      width: auto;
+      margin: 0;
+      padding: 13px 16px;
+    }
+
   </style>
 </head>
 
@@ -682,10 +938,22 @@
           <div class="feature-text">Your personal information</div>
         </div>
 
-               <div class="feature" onclick="openSection('training')">
-          <div class="feature-icon">🥋</div>
-          <div class="feature-title">Training Sessions</div>
-          <div class="feature-text">Training schedule and sessions</div>
+        <div class="feature" onclick="openSection('calendar')">
+          <div class="feature-icon">🗓️</div>
+          <div class="feature-title">Calendar</div>
+          <div class="feature-text">Training and competitions</div>
+        </div>
+
+        <div class="feature" onclick="openSection('attendance')">
+          <div class="feature-icon">📊</div>
+          <div class="feature-title">Progress</div>
+          <div class="feature-text">Your attendance progress</div>
+        </div>
+
+        <div class="feature" onclick="openSection('chat')">
+          <div class="feature-icon">💬</div>
+          <div class="feature-title">Chat</div>
+          <div class="feature-text">CENTER MMA club chat</div>
         </div>
         
       </div>
@@ -846,12 +1114,10 @@
       </div>
 
     </div>
-
-    <!-- TRAINING SESSIONS -->
-    <div id="trainingSection" class="hidden">
+    <!-- CALENDAR -->
+    <div id="calendarSection" class="hidden">
 
       <div class="section-title">
-
         <button
           class="secondary back-button"
           onclick="openSection('home')"
@@ -859,20 +1125,76 @@
           ← BACK
         </button>
 
-        <h2>Training Sessions</h2>
-<div id="trainingCalendar"></div>
-        <div id="calendarEvents"></div>
+        <h2>Calendar</h2>
       </div>
 
-      <div id="trainingSessionsList">
+      <div id="clubCalendar">
+        <div class="empty">Loading calendar...</div>
+      </div>
 
-        <div class="empty">
-          Loading training sessions...
-        </div>
+      <div id="calendarDayEvents"></div>
 
+    </div>
+
+
+    <!-- ATTENDANCE / PROGRESS -->
+    <div id="attendanceSection" class="hidden">
+
+      <div class="section-title">
+        <button
+          class="secondary back-button"
+          onclick="openSection('home')"
+        >
+          ← BACK
+        </button>
+
+        <h2>Progress</h2>
+      </div>
+
+      <div id="attendanceProgress">
+        <div class="empty">Loading attendance progress...</div>
       </div>
 
     </div>
+
+
+    <!-- CHAT -->
+    <div id="chatSection" class="hidden">
+
+      <div class="section-title">
+        <button
+          class="secondary back-button"
+          onclick="openSection('home')"
+        >
+          ← BACK
+        </button>
+
+        <h2>Club Chat</h2>
+      </div>
+
+      <div class="card">
+        <div id="chatMessages" class="chat-list">
+          <div class="empty">Loading chat...</div>
+        </div>
+
+        <div class="chat-compose">
+          <textarea
+            id="chatMessageInput"
+            placeholder="Write a message..."
+            maxlength="1000"
+          ></textarea>
+
+          <button onclick="sendChatMessage()">
+            SEND
+          </button>
+        </div>
+
+        <div id="chatMessageStatus" class="message"></div>
+      </div>
+
+    </div>
+
+
     <!-- EVENTS -->
     <div id="eventsSection" class="hidden">
 
@@ -1007,6 +1329,18 @@
   let currentMember = null;
   let currentMembership = null;
   let isAdmin = false;
+
+  let calendarCursor = new Date();
+  calendarCursor = new Date(
+    calendarCursor.getFullYear(),
+    calendarCursor.getMonth(),
+    1
+  );
+
+  let calendarFilter = "all";
+  let calendarSelectedDate = null;
+  let calendarTrainingData = [];
+  let calendarCompetitionData = [];
 
 
   /* =========================
@@ -1558,6 +1892,14 @@
     document
       .getElementById("adminSection")
       .classList.add("hidden");
+
+    ["calendarSection", "attendanceSection", "chatSection"]
+      .forEach(function (id) {
+        const section = document.getElementById(id);
+        if (section) {
+          section.classList.add("hidden");
+        }
+      });
   }
 
 
@@ -1704,30 +2046,24 @@
       "membership",
       "payments",
       "profile",
-      "training",
+      "calendar",
+      "attendance",
+      "chat",
       "events",
       "admin"
     ];
 
+    sections.forEach(function (name) {
 
-    sections.forEach(
-      function (name) {
+      const element =
+        document.getElementById(
+          name + "Section"
+        );
 
-        const element =
-          document.getElementById(
-            name + "Section"
-          );
-
-
-        if (element) {
-
-          element.classList.add(
-            "hidden"
-          );
-        }
-
+      if (element) {
+        element.classList.add("hidden");
       }
-    );
+    });
 
 
     const selected =
@@ -1735,26 +2071,16 @@
         section + "Section"
       );
 
-
     if (selected) {
-
-      selected.classList.remove(
-        "hidden"
-      );
+      selected.classList.remove("hidden");
     }
 
 
     document
       .querySelectorAll(".nav-item")
-      .forEach(
-        function (item) {
-
-          item.classList.remove(
-            "active"
-          );
-
-        }
-      );
+      .forEach(function (item) {
+        item.classList.remove("active");
+      });
 
 
     const nav =
@@ -1764,30 +2090,29 @@
         section.slice(1)
       );
 
-
     if (nav) {
-
-      nav.classList.add(
-        "active"
-      );
+      nav.classList.add("active");
     }
 
-if (section === "training") {
 
-  loadTrainingSessions();
+    if (section === "calendar") {
+      loadClubCalendar();
+    }
 
-}
+    if (section === "attendance") {
+      loadAttendanceProgress();
+    }
+
+    if (section === "chat") {
+      loadChatMessages();
+    }
+
     if (section === "events") {
-
       loadEvents();
-
     }
-
 
     if (section === "profile") {
-
       loadProfile();
-
     }
   }
 
@@ -2265,9 +2590,6 @@ if (section === "training") {
         "competitionRecord"
       );
 
-if (calendar) {
-  calendar.innerHTML = "";
-}
     if (!element) {
       return;
     }
@@ -3086,126 +3408,1340 @@ if (calendar) {
       "message success-text";
   }
 
-async function loadTrainingSessions() {
+  /* =========================
+     CLUB CALENDAR
+  ========================= */
 
-  const element =
-    document.getElementById("trainingSessionsList");
-const calendar =
-  document.getElementById("trainingCalendar");
-  if (!element) {
-    return;
-  }
+  async function loadClubCalendar() {
 
-  element.innerHTML = `
-    <div class="empty">
-      Loading training sessions...
-    </div>
-  `;
+    const calendar =
+      document.getElementById("clubCalendar");
 
-  const {
-    data,
-    error
-  } = await supabaseClient
-    .from("training_sessions")
-    .select("*")
-    .gte("training_date", getLocalDateString())
-    .order("training_date", {
-      ascending: true
-    })
-    .order("start_time", {
-      ascending: true
-    });
+    const dayEvents =
+      document.getElementById("calendarDayEvents");
 
-  if (error) {
+    if (!calendar || !dayEvents) {
+      return;
+    }
 
-    console.error(error);
-
-    element.innerHTML = `
-      <div class="card">
-        <div class="message error">
-          Could not load training sessions:
-          ${escapeHtml(error.message)}
-        </div>
+    calendar.innerHTML = `
+      <div class="empty">
+        Loading calendar...
       </div>
     `;
 
-    return;
-  }
+    dayEvents.innerHTML = "";
 
-  if (!data || data.length === 0) {
 
-    element.innerHTML = `
-      <div class="card">
-        <div class="empty">
-          No upcoming training sessions.
-        </div>
-      </div>
-    `;
+    const year =
+      calendarCursor.getFullYear();
 
-    return;
-  }
+    const month =
+      calendarCursor.getMonth();
 
-  element.innerHTML =
-    data.map(function (session) {
+    const firstDate =
+      toDateKey(
+        new Date(year, month, 1)
+      );
 
-      return `
+    const lastDate =
+      toDateKey(
+        new Date(year, month + 1, 0)
+      );
+
+
+    const [
+      trainingResult,
+      competitionResult
+    ] = await Promise.all([
+
+      supabaseClient
+        .from("training_sessions")
+        .select("*")
+        .gte("training_date", firstDate)
+        .lte("training_date", lastDate)
+        .order("training_date", {
+          ascending: true
+        })
+        .order("start_time", {
+          ascending: true
+        }),
+
+      supabaseClient
+        .from("competitions")
+        .select("*")
+        .gte("date", firstDate)
+        .lte("date", lastDate)
+        .order("date", {
+          ascending: true
+        })
+
+    ]);
+
+
+    if (trainingResult.error) {
+
+      console.error(
+        trainingResult.error
+      );
+
+      calendar.innerHTML = `
         <div class="card">
-
-          <h3>
-            ${escapeHtml(session.title || "Training")}
-          </h3>
-${
-  session.training
-    ? `<div class="muted small" style="margin-top:6px;">
-         🥋 ${escapeHtml(session.training)}
-       </div>`
-    : ""
-}
-          <div class="muted small">
-            📅 ${formatDate(session.training_date)}
+          <div class="message error">
+            Could not load training sessions:
+            ${escapeHtml(
+              trainingResult.error.message
+            )}
           </div>
-
-          <div class="muted small" style="margin-top:6px;">
-            🕒 ${escapeHtml(session.start_time || "")}
-            -
-            ${escapeHtml(session.end_time || "")}
-          </div>
-
-          ${
-            session.location
-              ? `
-                <div class="muted small" style="margin-top:6px;">
-                  📍 ${escapeHtml(session.location)}${session.district ? " — " + escapeHtml(session.district) : ""}
-                </div>
-              `
-              : ""
-          }
-
-          ${
-            session.district
-              ? `
-                <div class="muted small" style="margin-top:4px;">
-                  ${escapeHtml(session.district)}
-                </div>
-              `
-              : ""
-          }
-
-          ${
-            session.description
-              ? `
-                <p class="muted small" style="margin-top:12px; line-height:1.5;">
-                  ${escapeHtml(session.description)}
-                </p>
-              `
-              : ""
-          }
-
         </div>
       `;
 
-    }).join("");
-}
+      return;
+    }
+
+
+    if (competitionResult.error) {
+
+      console.error(
+        competitionResult.error
+      );
+
+      calendar.innerHTML = `
+        <div class="card">
+          <div class="message error">
+            Could not load competitions:
+            ${escapeHtml(
+              competitionResult.error.message
+            )}
+          </div>
+        </div>
+      `;
+
+      return;
+    }
+
+
+    calendarTrainingData =
+      trainingResult.data || [];
+
+    calendarCompetitionData =
+      competitionResult.data || [];
+
+
+    const today =
+      getLocalDateString();
+
+    if (
+      !calendarSelectedDate ||
+      !calendarSelectedDate.startsWith(
+        `${year}-${String(month + 1).padStart(2, "0")}`
+      )
+    ) {
+
+      if (
+        today >= firstDate &&
+        today <= lastDate
+      ) {
+
+        calendarSelectedDate =
+          today;
+
+      } else {
+
+        const firstEventDate =
+          getFirstCalendarEventDate();
+
+        calendarSelectedDate =
+          firstEventDate || firstDate;
+      }
+    }
+
+
+    renderClubCalendar();
+  }
+
+
+  function renderClubCalendar() {
+
+    const calendar =
+      document.getElementById("clubCalendar");
+
+    if (!calendar) {
+      return;
+    }
+
+
+    const year =
+      calendarCursor.getFullYear();
+
+    const month =
+      calendarCursor.getMonth();
+
+    const monthLabel =
+      calendarCursor.toLocaleDateString(
+        "en-GB",
+        {
+          month: "long",
+          year: "numeric"
+        }
+      );
+
+
+    const firstDay =
+      new Date(
+        year,
+        month,
+        1
+      );
+
+    const lastDay =
+      new Date(
+        year,
+        month + 1,
+        0
+      );
+
+    const mondayIndex =
+      (firstDay.getDay() + 6) % 7;
+
+    const totalCells =
+      Math.ceil(
+        (
+          mondayIndex +
+          lastDay.getDate()
+        ) / 7
+      ) * 7;
+
+
+    const weekdayNames = [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ];
+
+
+    let dayButtons = "";
+
+
+    for (
+      let index = 0;
+      index < totalCells;
+      index++
+    ) {
+
+      const date =
+        new Date(
+          year,
+          month,
+          index - mondayIndex + 1
+        );
+
+      const dateKey =
+        toDateKey(date);
+
+      const inMonth =
+        date.getMonth() === month;
+
+      const isToday =
+        dateKey === getLocalDateString();
+
+      const isSelected =
+        dateKey === calendarSelectedDate;
+
+      const counts =
+        getCalendarCounts(dateKey);
+
+
+      const hasTraining =
+        counts.training > 0;
+
+      const hasCompetition =
+        counts.competition > 0;
+
+      const visibleCount =
+        calendarFilter === "training"
+          ? counts.training
+          : calendarFilter === "competitions"
+            ? counts.competition
+            : counts.training +
+              counts.competition;
+
+
+      dayButtons += `
+
+        <button
+          class="
+            calendar-day
+            ${inMonth ? "" : "other-month"}
+            ${isToday ? "today" : ""}
+            ${isSelected ? "selected" : ""}
+          "
+          onclick="selectCalendarDate('${dateKey}')"
+          ${visibleCount === 0 && !inMonth ? "tabindex='-1'" : ""}
+        >
+
+          ${date.getDate()}
+
+          ${
+            visibleCount > 0
+              ? `
+                <span class="calendar-dots">
+                  ${
+                    (
+                      calendarFilter !== "competitions" &&
+                      hasTraining
+                    )
+                      ? `<span class="calendar-dot"></span>`
+                      : ""
+                  }
+                  ${
+                    (
+                      calendarFilter !== "training" &&
+                      hasCompetition
+                    )
+                      ? `<span class="calendar-dot"></span>`
+                      : ""
+                  }
+                </span>
+              `
+              : ""
+          }
+
+        </button>
+
+      `;
+    }
+
+
+    calendar.innerHTML = `
+
+      <div class="calendar-card">
+
+        <div class="calendar-toolbar">
+
+          <button
+            onclick="changeCalendarMonth(-1)"
+            aria-label="Previous month"
+          >
+            ←
+          </button>
+
+          <div class="calendar-month-title">
+            ${escapeHtml(monthLabel)}
+          </div>
+
+          <button
+            onclick="changeCalendarMonth(1)"
+            aria-label="Next month"
+          >
+            →
+          </button>
+
+        </div>
+
+
+        <div class="calendar-filters">
+
+          <button
+            class="calendar-filter ${
+              calendarFilter === "all"
+                ? "active"
+                : ""
+            }"
+            onclick="setCalendarFilter('all')"
+          >
+            ALL
+          </button>
+
+          <button
+            class="calendar-filter ${
+              calendarFilter === "training"
+                ? "active"
+                : ""
+            }"
+            onclick="setCalendarFilter('training')"
+          >
+            TRAINING
+          </button>
+
+          <button
+            class="calendar-filter ${
+              calendarFilter === "competitions"
+                ? "active"
+                : ""
+            }"
+            onclick="setCalendarFilter('competitions')"
+          >
+            COMPETITIONS
+          </button>
+
+        </div>
+
+
+        <div class="calendar-weekdays">
+
+          ${
+            weekdayNames
+              .map(
+                function (day) {
+                  return `
+                    <div class="calendar-weekday">
+                      ${day}
+                    </div>
+                  `;
+                }
+              )
+              .join("")
+          }
+
+        </div>
+
+
+        <div class="calendar-grid">
+          ${dayButtons}
+        </div>
+
+      </div>
+
+    `;
+
+
+    renderCalendarDayEvents();
+  }
+
+
+  function getCalendarCounts(
+    dateKey
+  ) {
+
+    return {
+
+      training:
+        calendarTrainingData
+          .filter(
+            function (item) {
+              return (
+                item.training_date ===
+                dateKey
+              );
+            }
+          )
+          .length,
+
+      competition:
+        calendarCompetitionData
+          .filter(
+            function (item) {
+              return (
+                item.date ===
+                dateKey
+              );
+            }
+          )
+          .length
+
+    };
+  }
+
+
+  function getFirstCalendarEventDate() {
+
+    const dates = [];
+
+    if (
+      calendarFilter !==
+      "competitions"
+    ) {
+
+      calendarTrainingData
+        .forEach(
+          function (item) {
+
+            if (item.training_date) {
+              dates.push(
+                item.training_date
+              );
+            }
+          }
+        );
+    }
+
+
+    if (
+      calendarFilter !==
+      "training"
+    ) {
+
+      calendarCompetitionData
+        .forEach(
+          function (item) {
+
+            if (item.date) {
+              dates.push(item.date);
+            }
+          }
+        );
+    }
+
+
+    dates.sort();
+
+    return dates[0] || null;
+  }
+
+
+  function selectCalendarDate(
+    dateKey
+  ) {
+
+    calendarSelectedDate =
+      dateKey;
+
+    renderClubCalendar();
+  }
+
+
+  function changeCalendarMonth(
+    offset
+  ) {
+
+    calendarCursor =
+      new Date(
+        calendarCursor.getFullYear(),
+        calendarCursor.getMonth() +
+          offset,
+        1
+      );
+
+    calendarSelectedDate =
+      null;
+
+    loadClubCalendar();
+  }
+
+
+  function setCalendarFilter(
+    filter
+  ) {
+
+    calendarFilter =
+      filter;
+
+    renderClubCalendar();
+  }
+
+
+  function renderCalendarDayEvents() {
+
+    const element =
+      document.getElementById(
+        "calendarDayEvents"
+      );
+
+    if (!element) {
+      return;
+    }
+
+
+    if (!calendarSelectedDate) {
+
+      element.innerHTML = "";
+
+      return;
+    }
+
+
+    let items = [];
+
+
+    if (
+      calendarFilter !==
+      "competitions"
+    ) {
+
+      calendarTrainingData
+        .filter(
+          function (session) {
+            return (
+              session.training_date ===
+              calendarSelectedDate
+            );
+          }
+        )
+        .forEach(
+          function (session) {
+
+            items.push({
+              type: "training",
+              time:
+                session.start_time ||
+                "",
+              data: session
+            });
+          }
+        );
+    }
+
+
+    if (
+      calendarFilter !==
+      "training"
+    ) {
+
+      calendarCompetitionData
+        .filter(
+          function (competition) {
+            return (
+              competition.date ===
+              calendarSelectedDate
+            );
+          }
+        )
+        .forEach(
+          function (competition) {
+
+            items.push({
+              type: "competition",
+              time: "",
+              data: competition
+            });
+          }
+        );
+    }
+
+
+    items.sort(
+      function (a, b) {
+        return String(a.time)
+          .localeCompare(
+            String(b.time)
+          );
+      }
+    );
+
+
+    const dateLabel =
+      formatLongDate(
+        calendarSelectedDate
+      );
+
+
+    if (items.length === 0) {
+
+      element.innerHTML = `
+
+        <div class="card">
+
+          <div class="day-events-title">
+            ${escapeHtml(dateLabel)}
+          </div>
+
+          <div class="empty">
+            No events this day.
+          </div>
+
+        </div>
+
+      `;
+
+      return;
+    }
+
+
+    element.innerHTML = `
+
+      <div class="day-events-title">
+        ${escapeHtml(dateLabel)}
+      </div>
+
+      ${
+        items.map(
+          function (item) {
+
+            if (
+              item.type ===
+              "training"
+            ) {
+
+              const session =
+                item.data;
+
+              return `
+
+                <div class="calendar-event">
+
+                  <div class="calendar-event-type">
+                    🥋 Training
+                  </div>
+
+                  <h3>
+                    ${escapeHtml(
+                      session.title ||
+                      session.training ||
+                      "Training"
+                    )}
+                  </h3>
+
+                  ${
+                    session.training &&
+                    session.training !==
+                    session.title
+                      ? `
+                        <div class="muted small">
+                          ${escapeHtml(
+                            session.training
+                          )}
+                        </div>
+                      `
+                      : ""
+                  }
+
+                  <div
+                    class="muted small"
+                    style="margin-top:7px;"
+                  >
+                    🕒
+                    ${formatTime(
+                      session.start_time
+                    )}
+                    ${
+                      session.end_time
+                        ? "–" +
+                          formatTime(
+                            session.end_time
+                          )
+                        : ""
+                    }
+                  </div>
+
+                  ${
+                    session.location
+                      ? `
+                        <div
+                          class="muted small"
+                          style="margin-top:6px;"
+                        >
+                          📍
+                          ${escapeHtml(
+                            session.location
+                          )}
+                          ${
+                            session.district
+                              ? " · " +
+                                escapeHtml(
+                                  session.district
+                                )
+                              : ""
+                          }
+                        </div>
+                      `
+                      : ""
+                  }
+
+                  ${
+                    session.description
+                      ? `
+                        <div
+                          class="muted small"
+                          style="
+                            margin-top:10px;
+                            line-height:1.5;
+                          "
+                        >
+                          ${escapeHtml(
+                            session.description
+                          )}
+                        </div>
+                      `
+                      : ""
+                  }
+
+                </div>
+
+              `;
+
+            }
+
+
+            const competition =
+              item.data;
+
+            return `
+
+              <div class="calendar-event">
+
+                <div class="calendar-event-type">
+                  🏆 Competition
+                </div>
+
+                <h3>
+                  ${escapeHtml(
+                    competition.title ||
+                    "Competition"
+                  )}
+                </h3>
+
+                ${
+                  competition.location
+                    ? `
+                      <div
+                        class="muted small"
+                        style="margin-top:6px;"
+                      >
+                        📍
+                        ${escapeHtml(
+                          competition.location
+                        )}
+                      </div>
+                    `
+                    : ""
+                }
+
+                ${
+                  competition.description
+                    ? `
+                      <div
+                        class="muted small"
+                        style="
+                          margin-top:10px;
+                          line-height:1.5;
+                        "
+                      >
+                        ${escapeHtml(
+                          competition.description
+                        )}
+                      </div>
+                    `
+                    : ""
+                }
+
+                <button
+                  class="secondary"
+                  onclick="openSection('events')"
+                >
+                  OPEN COMPETITIONS
+                </button>
+
+              </div>
+
+            `;
+
+          }
+        ).join("")
+      }
+
+    `;
+  }
+
+
+  /* =========================
+     ATTENDANCE PROGRESS
+  ========================= */
+
+  async function loadAttendanceProgress() {
+
+    const element =
+      document.getElementById(
+        "attendanceProgress"
+      );
+
+    if (
+      !element ||
+      !currentMember
+    ) {
+      return;
+    }
+
+
+    element.innerHTML = `
+
+      <div class="empty">
+        Loading attendance progress...
+      </div>
+
+    `;
+
+
+    const [
+      totalResult,
+      monthlyResult
+    ] = await Promise.all([
+
+      supabaseClient
+        .from(
+          "member_attendance_progress"
+        )
+        .select("*")
+        .eq(
+          "member_id",
+          currentMember.id
+        )
+        .maybeSingle(),
+
+      supabaseClient
+        .from(
+          "member_monthly_attendance"
+        )
+        .select("*")
+        .eq(
+          "member_id",
+          currentMember.id
+        )
+        .order(
+          "month",
+          {
+            ascending: true
+          }
+        )
+
+    ]);
+
+
+    if (totalResult.error) {
+
+      console.error(
+        totalResult.error
+      );
+
+      element.innerHTML = `
+
+        <div class="card">
+          <div class="message error">
+            Could not load attendance:
+            ${escapeHtml(
+              totalResult.error.message
+            )}
+          </div>
+        </div>
+
+      `;
+
+      return;
+    }
+
+
+    if (monthlyResult.error) {
+
+      console.error(
+        monthlyResult.error
+      );
+
+      element.innerHTML = `
+
+        <div class="card">
+          <div class="message error">
+            Could not load monthly progress:
+            ${escapeHtml(
+              monthlyResult.error.message
+            )}
+          </div>
+        </div>
+
+      `;
+
+      return;
+    }
+
+
+    const summary =
+      totalResult.data || {
+
+        total_trainings: 0,
+        attended_trainings: 0,
+        missed_trainings: 0,
+        attendance_percentage: 0
+
+      };
+
+
+    const percentage =
+      Math.max(
+        0,
+        Math.min(
+          100,
+          Number(
+            summary.attendance_percentage ||
+            0
+          )
+        )
+      );
+
+
+    let zone =
+      "Start";
+
+    if (percentage >= 85) {
+      zone = "Excellent";
+    } else if (percentage >= 70) {
+      zone = "Good";
+    } else if (percentage >= 50) {
+      zone = "Improving";
+    } else if (percentage > 0) {
+      zone = "Keep going";
+    }
+
+
+    const monthly =
+      monthlyResult.data || [];
+
+
+    element.innerHTML = `
+
+      <div class="card">
+
+        <div
+          class="progress-ring"
+          style="--progress:${percentage}%"
+        >
+
+          <div class="progress-ring-content">
+
+            <div class="progress-percent">
+              ${Math.round(percentage)}%
+            </div>
+
+            <div class="progress-zone">
+              ${escapeHtml(zone)}
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <div class="info-row">
+
+          <div class="info-label">
+            Total trainings
+          </div>
+
+          <div class="info-value">
+            ${Number(
+              summary.total_trainings ||
+              0
+            )}
+          </div>
+
+        </div>
+
+
+        <div class="info-row">
+
+          <div class="info-label">
+            Attended
+          </div>
+
+          <div class="info-value">
+            ${Number(
+              summary.attended_trainings ||
+              0
+            )}
+          </div>
+
+        </div>
+
+
+        <div class="info-row">
+
+          <div class="info-label">
+            Missed
+          </div>
+
+          <div class="info-value">
+            ${Number(
+              summary.missed_trainings ||
+              0
+            )}
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div class="card">
+
+        <h3>
+          Monthly progress
+        </h3>
+
+        ${
+          monthly.length === 0
+            ? `
+              <div class="empty">
+                No attendance data yet.
+              </div>
+            `
+            : `
+              <div class="progress-bars">
+
+                ${
+                  monthly
+                    .map(
+                      function (item) {
+
+                        const value =
+                          Math.max(
+                            0,
+                            Math.min(
+                              100,
+                              Number(
+                                item.attendance_percentage ||
+                                0
+                              )
+                            )
+                          );
+
+                        return `
+
+                          <div class="progress-row">
+
+                            <div class="progress-row-top">
+
+                              <span>
+                                ${escapeHtml(
+                                  formatMonth(
+                                    item.month
+                                  )
+                                )}
+                              </span>
+
+                              <strong>
+                                ${Math.round(value)}%
+                              </strong>
+
+                            </div>
+
+                            <div class="progress-track">
+
+                              <div
+                                class="progress-fill"
+                                style="width:${value}%"
+                              ></div>
+
+                            </div>
+
+                          </div>
+
+                        `;
+
+                      }
+                    )
+                    .join("")
+                }
+
+              </div>
+            `
+        }
+
+      </div>
+
+    `;
+  }
+
+
+  /* =========================
+     CLUB CHAT
+  ========================= */
+
+  async function loadChatMessages() {
+
+    const element =
+      document.getElementById(
+        "chatMessages"
+      );
+
+    if (!element) {
+      return;
+    }
+
+
+    element.innerHTML = `
+
+      <div class="empty">
+        Loading chat...
+      </div>
+
+    `;
+
+
+    const {
+      data,
+      error
+    } = await supabaseClient
+      .from("chat_messages")
+      .select("*")
+      .order(
+        "created_at",
+        {
+          ascending: true
+        }
+      )
+      .limit(100);
+
+
+    if (error) {
+
+      console.error(error);
+
+      element.innerHTML = `
+
+        <div class="message error">
+          Could not load chat:
+          ${escapeHtml(error.message)}
+        </div>
+
+      `;
+
+      return;
+    }
+
+
+    const messages =
+      data || [];
+
+
+    if (messages.length === 0) {
+
+      element.innerHTML = `
+
+        <div class="empty">
+          No messages yet.
+        </div>
+
+      `;
+
+      return;
+    }
+
+
+    element.innerHTML =
+      messages
+        .map(
+          function (item) {
+
+            const mine =
+              currentUser &&
+              item.user_id ===
+              currentUser.id;
+
+            return `
+
+              <div
+                class="chat-message ${
+                  mine ? "mine" : ""
+                }"
+              >
+
+                <div>
+                  ${escapeHtml(
+                    item.message || ""
+                  )}
+                </div>
+
+                <div class="chat-meta">
+                  ${
+                    mine
+                      ? "You"
+                      : "Member"
+                  }
+                  ·
+                  ${formatDateTime(
+                    item.created_at
+                  )}
+                </div>
+
+              </div>
+
+            `;
+
+          }
+        )
+        .join("");
+
+
+    element.scrollTop =
+      element.scrollHeight;
+  }
+
+
+  async function sendChatMessage() {
+
+    if (!currentUser) {
+      return;
+    }
+
+
+    const input =
+      document.getElementById(
+        "chatMessageInput"
+      );
+
+    const status =
+      document.getElementById(
+        "chatMessageStatus"
+      );
+
+    if (!input || !status) {
+      return;
+    }
+
+
+    const message =
+      input.value.trim();
+
+
+    if (!message) {
+      return;
+    }
+
+
+    status.textContent =
+      "Sending...";
+
+    status.className =
+      "message";
+
+
+    const {
+      error
+    } = await supabaseClient
+      .from("chat_messages")
+      .insert({
+        user_id:
+          currentUser.id,
+        message:
+          message
+      });
+
+
+    if (error) {
+
+      console.error(error);
+
+      status.textContent =
+        "Could not send message: " +
+        error.message;
+
+      status.className =
+        "message error";
+
+      return;
+    }
+
+
+    input.value = "";
+
+    status.textContent = "";
+
+    await loadChatMessages();
+  }
+
+
   /* =========================
      EVENTS
   ========================= */
@@ -5978,6 +7514,153 @@ ${
      HELPERS
   ========================= */
 
+  function toDateKey(date) {
+
+    const year =
+      date.getFullYear();
+
+    const month =
+      String(
+        date.getMonth() + 1
+      ).padStart(2, "0");
+
+    const day =
+      String(
+        date.getDate()
+      ).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  }
+
+
+  function parseDateOnly(
+    dateString
+  ) {
+
+    if (!dateString) {
+      return null;
+    }
+
+    const match =
+      String(dateString)
+        .match(
+          /^(\d{4})-(\d{2})-(\d{2})/
+        );
+
+    if (!match) {
+      return new Date(dateString);
+    }
+
+    return new Date(
+      Number(match[1]),
+      Number(match[2]) - 1,
+      Number(match[3])
+    );
+  }
+
+
+  function formatLongDate(
+    dateString
+  ) {
+
+    const date =
+      parseDateOnly(
+        dateString
+      );
+
+    if (
+      !date ||
+      isNaN(
+        date.getTime()
+      )
+    ) {
+      return dateString || "-";
+    }
+
+    return date.toLocaleDateString(
+      "en-GB",
+      {
+        weekday: "long",
+        day: "2-digit",
+        month: "long",
+        year: "numeric"
+      }
+    );
+  }
+
+
+  function formatMonth(
+    dateString
+  ) {
+
+    const date =
+      parseDateOnly(
+        dateString
+      );
+
+    if (
+      !date ||
+      isNaN(
+        date.getTime()
+      )
+    ) {
+      return dateString || "-";
+    }
+
+    return date.toLocaleDateString(
+      "en-GB",
+      {
+        month: "short",
+        year: "numeric"
+      }
+    );
+  }
+
+
+  function formatTime(
+    value
+  ) {
+
+    if (!value) {
+      return "";
+    }
+
+    return String(value)
+      .slice(0, 5);
+  }
+
+
+  function formatDateTime(
+    value
+  ) {
+
+    if (!value) {
+      return "";
+    }
+
+    const date =
+      new Date(value);
+
+    if (
+      isNaN(
+        date.getTime()
+      )
+    ) {
+      return value;
+    }
+
+    return date.toLocaleString(
+      "en-GB",
+      {
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      }
+    );
+  }
+
+
   function formatDate(
     dateString
   ) {
@@ -5988,10 +7671,13 @@ ${
 
 
     const date =
-      new Date(dateString);
+      parseDateOnly(
+        dateString
+      );
 
 
     if (
+      !date ||
       isNaN(
         date.getTime()
       )
