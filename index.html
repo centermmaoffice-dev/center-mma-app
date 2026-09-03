@@ -14049,6 +14049,45 @@
           placeholder="Optional training information..."
         ></textarea>
 
+        <label
+          style="
+            display:flex;
+            align-items:center;
+            gap:10px;
+            margin-top:16px;
+            cursor:pointer;
+          "
+        >
+          <input
+            id="adminTrainingRepeatWeekly"
+            type="checkbox"
+            onchange="toggleTrainingRepeatUntil()"
+            style="
+              width:auto;
+              margin:0;
+            "
+          >
+          Repeat weekly
+        </label>
+
+        <div
+          id="adminTrainingRepeatUntilWrap"
+          style="display:none;"
+        >
+          <label>
+            Repeat until
+          </label>
+
+          <input
+            id="adminTrainingRepeatUntil"
+            type="date"
+          >
+
+          <div class="muted small" style="margin-top:6px;">
+            A separate training session will be created for every week, so attendance stays separate for each date.
+          </div>
+        </div>
+
         <button
           onclick="createTrainingSession()"
         >
@@ -14243,6 +14282,15 @@
                 </button>
 
                 <button
+                  class="secondary"
+                  onclick="duplicateTrainingSession(
+                    '${session.id}'
+                  )"
+                >
+                  DUPLICATE TRAINING
+                </button>
+
+                <button
                   class="danger"
                   onclick="deleteTrainingSession(
                     '${session.id}'
@@ -14262,6 +14310,212 @@
           `;
         }
       ).join("");
+  }
+
+
+  function toggleTrainingRepeatUntil() {
+
+    const checkbox =
+      document.getElementById(
+        "adminTrainingRepeatWeekly"
+      );
+
+    const wrap =
+      document.getElementById(
+        "adminTrainingRepeatUntilWrap"
+      );
+
+    const endDate =
+      document.getElementById(
+        "adminTrainingRepeatUntil"
+      );
+
+    if (!checkbox || !wrap) {
+      return;
+    }
+
+    wrap.style.display =
+      checkbox.checked
+        ? "block"
+        : "none";
+
+    if (
+      checkbox.checked &&
+      endDate &&
+      !endDate.value
+    ) {
+
+      const startDateInput =
+        document.getElementById(
+          "adminTrainingDate"
+        );
+
+      if (
+        startDateInput &&
+        startDateInput.value
+      ) {
+
+        const suggested =
+          addDaysToDateString(
+            startDateInput.value,
+            7 * 12
+          );
+
+        endDate.value = suggested;
+      }
+    }
+  }
+
+
+  function addDaysToDateString(
+    dateString,
+    days
+  ) {
+
+    const parts =
+      String(dateString || "")
+        .split("-")
+        .map(Number);
+
+    if (parts.length !== 3) {
+      return dateString;
+    }
+
+    const date =
+      new Date(
+        Date.UTC(
+          parts[0],
+          parts[1] - 1,
+          parts[2]
+        )
+      );
+
+    date.setUTCDate(
+      date.getUTCDate() + days
+    );
+
+    return date
+      .toISOString()
+      .slice(0, 10);
+  }
+
+
+  async function duplicateTrainingSession(
+    sessionId
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const {
+      data: session,
+      error: loadError
+    } = await supabaseClient
+      .from("training_sessions")
+      .select("*")
+      .eq("id", sessionId)
+      .single();
+
+    if (loadError || !session) {
+
+      console.error(loadError);
+
+      alert(
+        "Could not load training session for duplication: " +
+        (loadError
+          ? loadError.message
+          : "Training session not found.")
+      );
+
+      return;
+    }
+
+    const suggestedDate =
+      addDaysToDateString(
+        session.training_date,
+        7
+      );
+
+    const newDate =
+      prompt(
+        "Date for duplicated training (YYYY-MM-DD):",
+        suggestedDate
+      );
+
+    if (newDate === null) {
+      return;
+    }
+
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(
+        newDate
+      )
+    ) {
+
+      alert(
+        "Please enter the date in YYYY-MM-DD format."
+      );
+
+      return;
+    }
+
+    const { error } =
+      await supabaseClient
+        .from("training_sessions")
+        .insert({
+          training:
+            session.training || null,
+          title:
+            session.title ||
+            session.training ||
+            "Training",
+          training_date:
+            newDate,
+          start_time:
+            session.start_time,
+          end_time:
+            session.end_time,
+          location:
+            session.location || null,
+          district:
+            session.district || null,
+          group_id:
+            session.group_id || null,
+          description:
+            session.description || null,
+          created_by:
+            currentUser.id
+        });
+
+    if (error) {
+
+      console.error(error);
+
+      alert(
+        "Could not duplicate training session: " +
+        error.message
+      );
+
+      return;
+    }
+
+    await createNotification(
+      "New training session",
+      `${session.title || session.training || "Training"} • ${formatDate(newDate)} • ${String(session.start_time || "").slice(0, 5)}`,
+      "training",
+      "calendar"
+    );
+
+    await loadAdminPanel();
+    await loadTrainingSessions();
+
+    if (
+      typeof loadClubCalendar ===
+      "function"
+    ) {
+      await loadClubCalendar();
+    }
   }
 
 
@@ -14345,6 +14599,20 @@
         .value
         .trim();
 
+    const repeatWeekly =
+      document
+        .getElementById(
+          "adminTrainingRepeatWeekly"
+        )
+        .checked;
+
+    const repeatUntil =
+      document
+        .getElementById(
+          "adminTrainingRepeatUntil"
+        )
+        .value;
+
     if (
       !date ||
       !startTime ||
@@ -14372,38 +14640,97 @@
       return;
     }
 
+    if (
+      repeatWeekly &&
+      !repeatUntil
+    ) {
+
+      message.textContent =
+        "Please choose the repeat-until date.";
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
+    if (
+      repeatWeekly &&
+      repeatUntil < date
+    ) {
+
+      message.textContent =
+        "Repeat-until date cannot be before the first training date.";
+
+      message.className =
+        "message error";
+
+      return;
+    }
+
     message.textContent =
-      "Creating training session...";
+      repeatWeekly
+        ? "Creating recurring training sessions..."
+        : "Creating training session...";
 
     message.className =
       "message";
+
+    const trainingDates = [];
+
+    if (repeatWeekly) {
+
+      let nextDate = date;
+      let safetyCounter = 0;
+
+      while (
+        nextDate <= repeatUntil &&
+        safetyCounter < 260
+      ) {
+        trainingDates.push(nextDate);
+        nextDate =
+          addDaysToDateString(
+            nextDate,
+            7
+          );
+        safetyCounter += 1;
+      }
+
+    } else {
+      trainingDates.push(date);
+    }
+
+    const rows =
+      trainingDates.map(
+        trainingDate => ({
+          training:
+            training || null,
+          title:
+            title,
+          training_date:
+            trainingDate,
+          start_time:
+            startTime,
+          end_time:
+            endTime,
+          location:
+            location || null,
+          district:
+            district || null,
+          group_id:
+            groupId,
+          description:
+            description || null,
+          created_by:
+            currentUser.id
+        })
+      );
 
     const {
       error
     } = await supabaseClient
       .from("training_sessions")
-      .insert({
-        training:
-          training || null,
-        title:
-          title,
-        training_date:
-          date,
-        start_time:
-          startTime,
-        end_time:
-          endTime,
-        location:
-          location || null,
-        district:
-          district || null,
-        group_id:
-          groupId,
-        description:
-          description || null,
-        created_by:
-          currentUser.id
-      });
+      .insert(rows);
 
     if (error) {
 
@@ -14420,14 +14747,20 @@
     }
 
     message.textContent =
-      "Training session created successfully.";
+      repeatWeekly
+        ? `${trainingDates.length} training sessions created successfully.`
+        : "Training session created successfully.";
 
     message.className =
       "message success-text";
 
     await createNotification(
-      "New training session",
-      `${title} • ${formatDate(date)} • ${startTime}`,
+      repeatWeekly
+        ? "New recurring training"
+        : "New training session",
+      repeatWeekly
+        ? `${title} • weekly from ${formatDate(date)} to ${formatDate(repeatUntil)} • ${startTime}`
+        : `${title} • ${formatDate(date)} • ${startTime}`,
       "training",
       "calendar"
     );
