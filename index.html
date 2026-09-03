@@ -8256,34 +8256,53 @@
       return;
     }
 
-    const confirmed =
-      confirm(
-        "Delete this message?"
-      );
+    // Client-side permission check. Supabase RLS is the final authority.
+    const { data: messageRow, error: readError } =
+      await supabaseClient
+        .from("chat_messages")
+        .select("id,user_id")
+        .eq("id", messageId)
+        .maybeSingle();
+
+    if (readError) {
+      console.error(readError);
+      alert("Could not verify message permissions: " + readError.message);
+      return;
+    }
+
+    if (!messageRow) {
+      await loadChatMessages(true);
+      return;
+    }
+
+    const mine = messageRow.user_id === currentUser.id;
+
+    if (!isAdmin && !mine) {
+      alert("You can delete only your own messages.");
+      return;
+    }
+
+    const confirmed = confirm(
+      isAdmin && !mine
+        ? "Delete this user's message?"
+        : "Delete this message?"
+    );
 
     if (!confirmed) {
       return;
     }
 
-    const {
-      error
-    } = await supabaseClient
+    const { error } = await supabaseClient
       .from("chat_messages")
       .delete()
-      .eq(
-        "id",
-        messageId
-      );
+      .eq("id", messageId);
 
     if (error) {
-
       console.error(error);
-
       alert(
         "Could not delete message: " +
         error.message
       );
-
       return;
     }
 
@@ -11369,6 +11388,14 @@
           DELETE OLD NOTIFICATIONS NOW
         </button>
 
+        <button
+          class="danger"
+          onclick="deleteAllAdminNotifications()"
+          style="margin-top:10px;"
+        >
+          DELETE ALL NOTIFICATIONS
+        </button>
+
         <div
           id="adminNotificationCleanupMessage"
           class="message"
@@ -11520,6 +11547,38 @@
     await renderAdminSection(
       "notifications"
     );
+  }
+
+
+  async function deleteAllAdminNotifications() {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const confirmed = confirm(
+      "Delete ALL notifications? This cannot be undone."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const { error } = await supabaseClient
+      .from("notifications")
+      .delete()
+      .not("id", "is", null);
+
+    if (error) {
+      console.error(error);
+      alert(
+        "Could not delete all notifications: " +
+        error.message
+      );
+      return;
+    }
+
+    await renderAdminSection("notifications");
   }
 
 
