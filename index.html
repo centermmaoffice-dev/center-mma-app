@@ -1661,7 +1661,7 @@
       <div id="membershipSummary" class="card home-membership-card"></div>
       <div class="next-training-card">
         <div class="next-training-card-title">
-          Next Training
+          Nächster Termin
         </div>
 
         <div
@@ -2156,7 +2156,7 @@
 
         <div class="section-title">
           <h2 style="margin-bottom:0;">
-            Competition Record
+            Competition Statistics
           </h2>
         </div>
 
@@ -3949,12 +3949,14 @@
         .from("competitions")
         .select("*")
         .gte("date", today)
+        .lte(
+          "date",
+          addDaysToDateString(today, 370)
+        )
         .order(
           "date",
           { ascending: true }
-        )
-        .limit(1)
-        .maybeSingle(),
+        ),
 
       supabaseClient
         .from("news")
@@ -4033,54 +4035,177 @@
       }
     );
 
-    const training =
-      trainings[0] || null;
+    const competitions =
+      competitionResult?.data || [];
+
+    const nextTrainingDate =
+      trainings.length
+        ? trainings[0].training_date
+        : "";
+
+    const nextCompetitionDate =
+      competitions.length
+        ? competitions[0].date
+        : "";
+
+    let nextDate = "";
+
+    if (nextTrainingDate && nextCompetitionDate) {
+      nextDate =
+        nextTrainingDate < nextCompetitionDate
+          ? nextTrainingDate
+          : nextCompetitionDate;
+    } else {
+      nextDate =
+        nextTrainingDate ||
+        nextCompetitionDate ||
+        "";
+    }
+
+    const nextTrainings =
+      nextDate
+        ? trainings.filter(
+            item =>
+              item.training_date === nextDate
+          )
+        : [];
+
+    const nextCompetitions =
+      nextDate
+        ? competitions.filter(
+            item =>
+              item.date === nextDate
+          )
+        : [];
 
     if (
       trainingTitleElement &&
       trainingTextElement
     ) {
 
-      if (training) {
+      if (nextDate) {
+
+        const eventLines = [];
+
+        nextTrainings.forEach(
+          function (training) {
+
+            const rawType =
+              String(
+                training.training ||
+                training.title ||
+                "Training"
+              ).trim();
+
+            const isSparring =
+              rawType.toLowerCase()
+                .includes("sparring") ||
+              String(training.title || "")
+                .toLowerCase()
+                .includes("sparring");
+
+            const typeLabel =
+              isSparring
+                ? "Sparring"
+                : "Training";
+
+            const time =
+              training.start_time
+                ? String(
+                    training.start_time
+                  ).slice(0, 5)
+                : "";
+
+            const details = [
+              time,
+              training.location || "",
+              training.district || ""
+            ]
+              .filter(Boolean)
+              .join(" • ");
+
+            eventLines.push(
+              `<div style="margin-top:6px;">` +
+              `<strong>${escapeHtml(typeLabel)}</strong>` +
+              (details
+                ? ` • ${escapeHtml(details)}`
+                : "") +
+              `</div>`
+            );
+          }
+        );
+
+        nextCompetitions.forEach(
+          function (competition) {
+
+            const details = [
+              competition.title || "",
+              competition.location || ""
+            ]
+              .filter(Boolean)
+              .join(" • ");
+
+            eventLines.push(
+              `<div style="margin-top:6px;">` +
+              `<strong>Meisterschaft</strong>` +
+              (details
+                ? ` • ${escapeHtml(details)}`
+                : "") +
+              `</div>`
+            );
+          }
+        );
+
+        const typeNames = [];
+
+        if (nextTrainings.some(
+          item =>
+            String(item.training || item.title || "")
+              .toLowerCase()
+              .includes("sparring") ||
+            String(item.title || "")
+              .toLowerCase()
+              .includes("sparring")
+        )) {
+          typeNames.push("Sparring");
+        }
+
+        if (nextTrainings.some(
+          item =>
+            !(
+              String(item.training || item.title || "")
+                .toLowerCase()
+                .includes("sparring") ||
+              String(item.title || "")
+                .toLowerCase()
+                .includes("sparring")
+            )
+        )) {
+          typeNames.push("Training");
+        }
+
+        if (nextCompetitions.length) {
+          typeNames.push("Meisterschaft");
+        }
 
         trainingTitleElement.textContent =
-          training.title ||
-          training.training ||
-          "Training";
+          `${formatDate(nextDate)} • ${typeNames.join(" + ")}`;
 
-        const time =
-          training.start_time
-            ? String(
-                training.start_time
-              ).slice(0, 5)
-            : "";
-
-        const details = [
-          formatDate(
-            training.training_date
-          ),
-          time,
-          training.location || "",
-          training.district || ""
-        ]
-          .filter(Boolean)
-          .join(" • ");
-
-        trainingTextElement.textContent =
-          details;
+        trainingTextElement.innerHTML =
+          eventLines.join("");
 
       } else {
 
         trainingTitleElement.textContent =
-          "No upcoming training";
+          "Keine kommenden Termine";
 
         trainingTextElement.textContent =
-          "No future training session is currently scheduled.";
+          "Zurzeit sind keine zukünftigen Termine geplant.";
       }
     }
 
     const competition =
-      competitionResult?.data ||
+      competitions[0] ||
       null;
 
     if (eventElement) {
@@ -5625,13 +5750,15 @@
         result_place,
         fights_count,
         wins_count,
+        medal,
         notes,
         created_at,
         competitions (
           id,
           title,
           date,
-          location
+          location,
+          discipline
         )
       `)
       .eq(
@@ -5722,19 +5849,24 @@
       );
 
 
-    const podiumCount =
-      data.filter(
-        function (item) {
+    const medalName = function (item) {
+      const saved = String(item.medal || "").toLowerCase();
+      if (["gold", "silver", "bronze"].includes(saved)) {
+        return saved;
+      }
+      const place = item.result_place !== null && item.result_place !== undefined
+        ? Number(item.result_place)
+        : null;
+      if (place === 1) return "gold";
+      if (place === 2) return "silver";
+      if (place === 3) return "bronze";
+      return "";
+    };
 
-          return (
-            item.result_place !== null &&
-            item.result_place !== undefined &&
-            Number(item.result_place) >= 1 &&
-            Number(item.result_place) <= 3
-          );
-
-        }
-      ).length;
+    const goldCount = data.filter(item => medalName(item) === "gold").length;
+    const silverCount = data.filter(item => medalName(item) === "silver").length;
+    const bronzeCount = data.filter(item => medalName(item) === "bronze").length;
+    const medalsCount = goldCount + silverCount + bronzeCount;
 
 
     element.innerHTML = `
@@ -5742,54 +5874,38 @@
       <div class="record-summary">
 
         <div class="record-summary-box">
-
-          <div class="record-summary-number">
-            ${competitionsCount}
-          </div>
-
-          <div class="record-summary-label">
-            Competitions
-          </div>
-
+          <div class="record-summary-number">${competitionsCount}</div>
+          <div class="record-summary-label">Competitions</div>
         </div>
 
-
         <div class="record-summary-box">
-
-          <div class="record-summary-number">
-            ${fightsCount}
-          </div>
-
-          <div class="record-summary-label">
-            Fights
-          </div>
-
+          <div class="record-summary-number">${fightsCount}</div>
+          <div class="record-summary-label">Fights</div>
         </div>
 
-
         <div class="record-summary-box">
-
-          <div class="record-summary-number">
-            ${winsCount}
-          </div>
-
-          <div class="record-summary-label">
-            Wins
-          </div>
-
+          <div class="record-summary-number">${winsCount}</div>
+          <div class="record-summary-label">Wins</div>
         </div>
 
+        <div class="record-summary-box">
+          <div class="record-summary-number">${medalsCount}</div>
+          <div class="record-summary-label">Medals</div>
+        </div>
 
         <div class="record-summary-box">
+          <div class="record-summary-number">🥇 ${goldCount}</div>
+          <div class="record-summary-label">Gold</div>
+        </div>
 
-          <div class="record-summary-number">
-            ${podiumCount}
-          </div>
+        <div class="record-summary-box">
+          <div class="record-summary-number">🥈 ${silverCount}</div>
+          <div class="record-summary-label">Silver</div>
+        </div>
 
-          <div class="record-summary-label">
-            Podiums
-          </div>
-
+        <div class="record-summary-box">
+          <div class="record-summary-number">🥉 ${bronzeCount}</div>
+          <div class="record-summary-label">Bronze</div>
         </div>
 
       </div>
@@ -5812,34 +5928,18 @@
               : null;
 
 
-          let resultText =
-            "Result not entered";
+          const medal = medalName(registration);
 
+          let resultText = "No medal";
 
-          if (place === 1) {
-
-            resultText =
-              "🥇 1st Place";
-
-          } else if (place === 2) {
-
-            resultText =
-              "🥈 2nd Place";
-
-          } else if (place === 3) {
-
-            resultText =
-              "🥉 3rd Place";
-
-          } else if (
-            place !== null &&
-            place > 3
-          ) {
-
-            resultText =
-              "🏅 " +
-              getOrdinalPlace(place);
-
+          if (medal === "gold") {
+            resultText = "🥇 Gold";
+          } else if (medal === "silver") {
+            resultText = "🥈 Silver";
+          } else if (medal === "bronze") {
+            resultText = "🥉 Bronze";
+          } else if (place !== null) {
+            resultText = "Place: " + getOrdinalPlace(place);
           }
 
 
@@ -5903,6 +6003,17 @@
                   </strong>
                 </div>
 
+
+                ${
+                  competition.discipline
+                    ? `
+                      <div class="record-stat">
+                        Discipline:
+                        <strong>${escapeHtml(competition.discipline)}</strong>
+                      </div>
+                    `
+                    : ""
+                }
 
                 ${
                   registration.weight !== null &&
@@ -7298,6 +7409,17 @@
                     `
                     : ""
                 }
+
+                ${
+                  competition.discipline
+                    ? `
+                      <div class="muted small" style="margin-top:6px;">
+                        🥋 ${escapeHtml(competition.discipline)}
+                      </div>
+                    `
+                    : ""
+                }
+
 
                 ${
                   competition.description
@@ -9211,6 +9333,22 @@
     }
 
 
+    let publicParticipants = [];
+
+    try {
+      const { data: participantRows, error: participantError } =
+        await supabaseClient.rpc("get_competition_public_participants");
+
+      if (participantError) {
+        console.error(participantError);
+      } else {
+        publicParticipants = participantRows || [];
+      }
+    } catch (participantError) {
+      console.error(participantError);
+    }
+
+
     element.innerHTML =
       competitions
         .map(
@@ -9225,6 +9363,14 @@
                     competition.id
                   );
 
+                }
+              );
+
+
+            const approvedParticipants =
+              publicParticipants.filter(
+                function (participant) {
+                  return participant.competition_id === competition.id;
                 }
               );
 
@@ -9358,6 +9504,28 @@
                           competition.description
                         )}
                       </p>
+                    `
+                    : ""
+                }
+
+
+                ${
+                  approvedParticipants.length
+                    ? `
+                      <div style="margin-top:16px;padding-top:14px;border-top:1px solid #292929;">
+                        <div style="font-weight:800;margin-bottom:8px;">Participants</div>
+                        ${approvedParticipants.map(function (participant) {
+                          const fullName = [participant.first_name, participant.last_name]
+                            .filter(Boolean)
+                            .join(" ");
+                          return `
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #202020;">
+                              <div>✅ <strong>${escapeHtml(fullName || "Participant")}</strong></div>
+                              <div class="muted small">${participant.weight ? escapeHtml(participant.weight) + " kg" : "Weight —"}</div>
+                            </div>
+                          `;
+                        }).join("")}
+                      </div>
                     `
                     : ""
                 }
@@ -16081,6 +16249,19 @@
 
 
         <label>
+          Discipline
+        </label>
+
+        <select id="adminCompetitionDiscipline">
+          <option value="Grappling">Grappling</option>
+          <option value="MMA">MMA</option>
+          <option value="Boxing">Boxing</option>
+          <option value="Kickboxing">Kickboxing</option>
+          <option value="Other">Other</option>
+        </select>
+
+
+        <label>
           Date
         </label>
 
@@ -16213,6 +16394,17 @@
 
 
         ${
+          competition.discipline
+            ? `
+              <div class="muted small" style="margin-bottom:4px;">
+                🥋 ${escapeHtml(competition.discipline)}
+              </div>
+            `
+            : ""
+        }
+
+
+        ${
           competition.location
             ? `
               <div class="muted small">
@@ -16262,6 +16454,17 @@
                 competition.title || ""
               )}"
             >
+
+
+            <label>
+              Discipline
+            </label>
+
+            <select id="editCompetitionDiscipline-${competition.id}">
+              ${["Grappling", "MMA", "Boxing", "Kickboxing", "Other"].map(function (option) {
+                return `<option value="${option}" ${String(competition.discipline || "Grappling") === option ? "selected" : ""}>${option}</option>`;
+              }).join("")}
+            </select>
 
 
             <label>
@@ -16682,13 +16885,7 @@
             </div>
 
             <div class="detail-value">
-              ${
-                registration.result_place
-                  ? escapeHtml(
-                      registration.result_place
-                    )
-                  : "-"
-              }
+              ${registration.medal === "gold" ? "🥇 Gold" : registration.medal === "silver" ? "🥈 Silver" : registration.medal === "bronze" ? "🥉 Bronze" : (registration.result_place ? escapeHtml(registration.result_place) : "-")}
             </div>
 
           </div>
@@ -16766,7 +16963,19 @@
 
 
           <label>
-            Result place
+            Medal
+          </label>
+
+          <select id="adminMedal-${registration.id}">
+            <option value="" ${!registration.medal ? "selected" : ""}>No medal</option>
+            <option value="gold" ${registration.medal === "gold" ? "selected" : ""}>🥇 Gold</option>
+            <option value="silver" ${registration.medal === "silver" ? "selected" : ""}>🥈 Silver</option>
+            <option value="bronze" ${registration.medal === "bronze" ? "selected" : ""}>🥉 Bronze</option>
+          </select>
+
+
+          <label>
+            Result place (optional)
           </label>
 
           <input
@@ -16867,6 +17076,14 @@
         .trim();
 
 
+    const discipline =
+      document
+        .getElementById(
+          "adminCompetitionDiscipline"
+        )
+        .value;
+
+
     const date =
       document
         .getElementById(
@@ -16921,6 +17138,9 @@
         title:
           title,
 
+        discipline:
+          discipline || "Grappling",
+
         date:
           date,
 
@@ -16970,6 +17190,13 @@
         "adminCompetitionTitle"
       )
       .value = "";
+
+
+    document
+      .getElementById(
+        "adminCompetitionDiscipline"
+      )
+      .value = "Grappling";
 
 
     document
@@ -17025,6 +17252,15 @@
         )
         .value
         .trim();
+
+
+    const discipline =
+      document
+        .getElementById(
+          "editCompetitionDiscipline-" +
+          competitionId
+        )
+        .value;
 
 
     const date =
@@ -17083,6 +17319,9 @@
 
         title:
           title,
+
+        discipline:
+          discipline || "Grappling",
 
         date:
           date,
@@ -17417,6 +17656,15 @@
         .trim();
 
 
+    const medal =
+      document
+        .getElementById(
+          "adminMedal-" +
+          registrationId
+        )
+        .value;
+
+
     const resultValue =
       document
         .getElementById(
@@ -17553,6 +17801,19 @@
     }
 
 
+    if (
+      fightsCount !== null &&
+      winsCount !== null &&
+      winsCount > fightsCount
+    ) {
+      message.textContent =
+        "Wins count cannot be higher than fights count.";
+      message.className =
+        "message error";
+      return;
+    }
+
+
     message.textContent =
       "Saving...";
 
@@ -17583,6 +17844,9 @@
 
         result_place:
           resultPlace,
+
+        medal:
+          medal || null,
 
         fights_count:
           fightsCount,
