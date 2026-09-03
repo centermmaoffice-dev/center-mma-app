@@ -1,0 +1,28 @@
+CENTER MMA — DE / EN / UA
+
+Deutsch is the default language.
+
+Language switch:
+- Login / Registration screen
+- Profile -> Language
+
+The choice is saved locally on the device.
+
+Translated:
+- core navigation
+- Login / Registration
+- Home
+- Membership
+- Profile
+- Notifications
+- common Admin / Trainer interface labels
+- common system messages
+- dates use DE-AT / EN-GB / UK-UA locale
+
+Not automatically translated:
+- user chat messages
+- news content written by admin
+- manually entered training/competition descriptions
+- document contents
+
+No Supabase SQL is required.

@@ -3677,11 +3677,44 @@
 
     ]);
 
+    const allFutureTrainings =
+      trainingResult?.data || [];
+
     const trainings =
-      filterTrainingSessionsForMember(
-        trainingResult?.data || [],
-        memberGroupIds || []
-      );
+      isStaff
+        ? allFutureTrainings
+        : filterTrainingSessionsForMember(
+            allFutureTrainings,
+            memberGroupIds || []
+          );
+
+    trainings.sort(
+      function (a, b) {
+
+        const aDateTime =
+          String(
+            a.training_date || ""
+          ) +
+          "T" +
+          String(
+            a.start_time || "00:00"
+          );
+
+        const bDateTime =
+          String(
+            b.training_date || ""
+          ) +
+          "T" +
+          String(
+            b.start_time || "00:00"
+          );
+
+        return aDateTime
+          .localeCompare(
+            bDateTime
+          );
+      }
+    );
 
     const training =
       trainings[0] || null;
