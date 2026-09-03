@@ -1383,6 +1383,68 @@
       }
     }
 
+
+    .next-training-card {
+      background:
+        linear-gradient(
+          135deg,
+          rgba(24,24,24,.96),
+          rgba(12,12,12,.94)
+        );
+      border: 1px solid #3a3a3a;
+      border-radius: 16px;
+      padding: 20px;
+      margin: 12px 0 16px;
+      box-shadow: 0 12px 30px rgba(0,0,0,.22);
+    }
+
+    .next-training-card-title {
+      font-size: 14px;
+      color: #999;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .next-training-card-main {
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1.45;
+    }
+
+    .next-training-card-meta {
+      margin-top: 5px;
+      color: #aaa;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .dashboard-highlight-grid,
+    .dashboard-main-grid {
+      grid-template-columns:
+        repeat(4, minmax(0, 1fr)) !important;
+      gap: 12px !important;
+    }
+
+    .home-tile {
+      min-height: 154px !important;
+      height: 100%;
+    }
+
+    @media(max-width:760px) {
+      .dashboard-highlight-grid,
+      .dashboard-main-grid {
+        grid-template-columns:
+          repeat(2, minmax(0, 1fr)) !important;
+      }
+    }
+
+    @media(max-width:420px) {
+      .home-tile {
+        min-height: 138px !important;
+      }
+    }
+
     @media(max-width:760px){
       .dashboard-highlight-grid,.dashboard-main-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
       .home-tile{min-height:145px}
@@ -1513,44 +1575,141 @@
       </div>
 
       <div id="membershipSummary" class="card home-membership-card"></div>
-      <div class="next-training-banner" onclick="openSection('calendar')">
-        <div class="next-training-banner-icon">📅</div>
-        <div class="next-training-banner-copy">
-          <div class="next-training-banner-title">Next Training</div>
-          <div id="homeNextTrainingText" class="next-training-banner-text">Loading...</div>
+      <div class="next-training-card">
+        <div class="next-training-card-title">
+          Next Training
         </div>
+
+        <div
+          id="homeNextTrainingTitle"
+          class="next-training-card-main"
+        >
+          Loading...
+        </div>
+
+        <div
+          id="homeNextTrainingText"
+          class="next-training-card-meta"
+        ></div>
       </div>
 
-
-      <div class="dashboard-highlight-grid">
-        <div class="home-tile" onclick="openSection('calendar')">
-          <div class="home-tile-icon">📆</div><div class="home-tile-title">Calendar</div>
-          <div class="home-tile-text">Training, competitions & events</div>
-        </div>
-        <div class="home-tile" onclick="openSection('events')">
-          <div class="home-tile-icon">🏆</div><div class="home-tile-title">Competitions & Events</div>
-          <div id="homeNextEventText" class="home-tile-text">Upcoming events & results</div>
-        </div>
-        <div class="home-tile" onclick="openSection('news')">
-          <div class="home-tile-icon">📰</div><div class="home-tile-title">News</div>
-          <div id="homeLatestNewsText" class="home-tile-text">Latest club news</div>
-        </div>
-      </div>
 
       <div class="dashboard-main-grid">
-        <div class="home-tile" onclick="openSection('profile')"><div class="home-tile-icon">👤</div><div class="home-tile-title">Profile</div><div class="home-tile-text">View & edit your profile</div></div>
-        <div class="home-tile" onclick="openSection('membership')"><div class="home-tile-icon">🪪</div><div class="home-tile-title">Membership</div><div class="home-tile-text">Membership details</div></div>
-        <div class="home-tile" onclick="openSection('membership')"><div class="home-tile-icon">€</div><div class="home-tile-title">Payments</div><div class="home-tile-text">Payment history</div></div>
-        <div class="home-tile" onclick="openSection('attendance')"><div class="home-tile-icon">📊</div><div class="home-tile-title">Attendance & Progress</div><div id="homeAttendanceText" class="home-tile-text">Your training overview</div></div>
-        <div class="home-tile" onclick="openSection('profile')"><div class="home-tile-icon">👥</div><div class="home-tile-title">Groups</div><div class="home-tile-text">Your groups</div></div>
-        <div class="home-tile" onclick="openSection('chat')"><div class="home-tile-icon">💬</div><div class="home-tile-title">Chat</div><div class="home-tile-text">Club chat</div></div>
-        <div class="home-tile" onclick="openSection('documents')"><div class="home-tile-icon">📄</div><div class="home-tile-title">Documents</div><div class="home-tile-text">Club documents & files</div></div>
-        <div id="adminHomeButton" class="home-tile admin-tile hidden" onclick="openStaffPanel()">
-          <div class="home-tile-icon">🛡️</div><div id="staffHomeTitle" class="home-tile-title">Admin</div>
-          <div id="staffHomeText" class="home-tile-text">Admin panel</div>
-          <button id="staffHomeButton" class="hidden" onclick="openStaffPanel()">OPEN ADMIN PANEL</button>
+
+        <div class="home-tile" onclick="openSection('calendar')">
+          <div class="home-tile-icon">📆</div>
+          <div class="home-tile-title">Calendar</div>
+          <div class="home-tile-text">
+            Training, competitions & events
+          </div>
         </div>
+
+        <div class="home-tile" onclick="openSection('events')">
+          <div class="home-tile-icon">🏆</div>
+          <div class="home-tile-title">
+            Competitions & Events
+          </div>
+          <div
+            id="homeNextEventText"
+            class="home-tile-text"
+          >
+            Upcoming events & results
+          </div>
+        </div>
+
+        <div class="home-tile" onclick="openSection('news')">
+          <div class="home-tile-icon">📰</div>
+          <div class="home-tile-title">News</div>
+          <div
+            id="homeLatestNewsText"
+            class="home-tile-text"
+          >
+            Latest club news
+          </div>
+        </div>
+
+        <div class="home-tile" onclick="openSection('profile')">
+          <div class="home-tile-icon">👤</div>
+          <div class="home-tile-title">Profile</div>
+          <div class="home-tile-text">
+            View & edit your profile
+          </div>
+        </div>
+
+        <div class="home-tile" onclick="openSection('membership')">
+          <div class="home-tile-icon">🪪</div>
+          <div class="home-tile-title">Membership</div>
+          <div class="home-tile-text">
+            Membership details
+          </div>
+        </div>
+
+        <div class="home-tile" onclick="openSection('membership')">
+          <div class="home-tile-icon">€</div>
+          <div class="home-tile-title">Payments</div>
+          <div class="home-tile-text">
+            Payment history
+          </div>
+        </div>
+
+        <div class="home-tile" onclick="openSection('attendance')">
+          <div class="home-tile-icon">📊</div>
+          <div class="home-tile-title">
+            Attendance & Progress
+          </div>
+          <div
+            id="homeAttendanceText"
+            class="home-tile-text"
+          >
+            Your training overview
+          </div>
+        </div>
+
+        <div class="home-tile" onclick="openSection('chat')">
+          <div class="home-tile-icon">💬</div>
+          <div class="home-tile-title">Chat</div>
+          <div class="home-tile-text">
+            Club chat
+          </div>
+        </div>
+
+        <div class="home-tile" onclick="openSection('documents')">
+          <div class="home-tile-icon">📄</div>
+          <div class="home-tile-title">Documents</div>
+          <div class="home-tile-text">
+            Club documents & files
+          </div>
+        </div>
+
+        <div
+          id="adminHomeButton"
+          class="home-tile admin-tile hidden"
+          onclick="openStaffPanel()"
+        >
+          <div class="home-tile-icon">🛡️</div>
+          <div
+            id="staffHomeTitle"
+            class="home-tile-title"
+          >
+            Admin
+          </div>
+          <div
+            id="staffHomeText"
+            class="home-tile-text"
+          >
+            Admin panel
+          </div>
+          <button
+            id="staffHomeButton"
+            class="hidden"
+            onclick="openStaffPanel()"
+          >
+            OPEN ADMIN PANEL
+          </button>
+        </div>
+
       </div>
+
       <div id="homeDashboard"></div>
     </div>
 
@@ -1561,7 +1720,7 @@
       <div class="section-title">
         <button
           class="secondary back-button"
-          onclick="openSection('home')"
+          onclick="goBackInApp()"
         >
           ← BACK
         </button>
@@ -1588,7 +1747,7 @@
       <div class="section-title">
         <button
           class="secondary back-button"
-          onclick="openSection('home')"
+          onclick="goBackInApp()"
         >
           ← BACK
         </button>
@@ -1611,7 +1770,7 @@
       <div class="section-title">
         <button
           class="secondary back-button"
-          onclick="openSection('home')"
+          onclick="goBackInApp()"
         >
           ← BACK
         </button>
@@ -1915,7 +2074,7 @@
       <div class="section-title">
         <button
           class="secondary back-button"
-          onclick="openSection('home')"
+          onclick="goBackInApp()"
         >
           ← BACK
         </button>
@@ -1938,7 +2097,7 @@
       <div class="section-title">
         <button
           class="secondary back-button"
-          onclick="openSection('home')"
+          onclick="goBackInApp()"
         >
           ← BACK
         </button>
@@ -1959,7 +2118,7 @@
       <div class="section-title">
         <button
           class="secondary back-button"
-          onclick="openSection('home')"
+          onclick="goBackInApp()"
         >
           ← BACK
         </button>
@@ -1982,7 +2141,7 @@
       <div class="section-title">
         <button
           class="secondary back-button"
-          onclick="openSection('home')"
+          onclick="goBackInApp()"
         >
           ← BACK
         </button>
@@ -2020,7 +2179,7 @@
 
         <button
           class="secondary back-button"
-          onclick="openSection('home')"
+          onclick="goBackInApp()"
         >
           ← BACK
         </button>
@@ -2260,7 +2419,7 @@
 
         <button
           class="secondary back-button"
-          onclick="openSection('home')"
+          onclick="goBackInApp()"
         >
           ← BACK
         </button>
@@ -2287,7 +2446,7 @@
 
         <button
           class="secondary back-button"
-          onclick="openSection('home')"
+          onclick="goBackInApp()"
         >
           ← BACK
         </button>
@@ -2351,6 +2510,12 @@
   let notificationRealtimeChannel = null;
   let deferredInstallPrompt = null;
   let pendingNotificationIdFromUrl = null;
+
+  let navigationPopState =
+    false;
+
+  let currentSectionName =
+    "home";
   let adminAttendanceSessions = [];
   let adminAttendanceMembers = [];
   let adminAttendanceExisting = {};
@@ -2931,7 +3096,25 @@
 
     startNotificationRealtime();
 
-    openSection("home");
+    currentSectionName =
+      "home";
+
+    window.history.replaceState(
+      {
+        centerMmaSection:
+          "home"
+      },
+      "",
+      "#home"
+    );
+
+    openSection(
+      "home",
+      {
+        pushHistory:
+          false
+      }
+    );
 
     if (pendingNotificationIdFromUrl) {
 
@@ -3287,45 +3470,241 @@
   ========================= */
 
   async function loadHomeDashboard() {
-    const tEl=document.getElementById("homeNextTrainingText");
-    const eEl=document.getElementById("homeNextEventText");
-    const nEl=document.getElementById("homeLatestNewsText");
-    const aEl=document.getElementById("homeAttendanceText");
-    const today=getLocalDateString();
 
-    const [tr,cr,nr,pr,gids]=await Promise.all([
-      supabaseClient.from("training_sessions").select("*").gte("training_date",today).order("training_date",{ascending:true}).order("start_time",{ascending:true}).limit(50),
-      supabaseClient.from("competitions").select("*").gte("date",today).order("date",{ascending:true}).limit(1).maybeSingle(),
-      supabaseClient.from("news").select("*").eq("published",true).order("created_at",{ascending:false}).limit(1).maybeSingle(),
-      currentMember?supabaseClient.from("member_attendance_progress").select("*").eq("member_id",currentMember.id).maybeSingle():Promise.resolve({data:null,error:null}),
+    const trainingTitleElement =
+      document.getElementById(
+        "homeNextTrainingTitle"
+      );
+
+    const trainingTextElement =
+      document.getElementById(
+        "homeNextTrainingText"
+      );
+
+    const eventElement =
+      document.getElementById(
+        "homeNextEventText"
+      );
+
+    const newsElement =
+      document.getElementById(
+        "homeLatestNewsText"
+      );
+
+    const attendanceElement =
+      document.getElementById(
+        "homeAttendanceText"
+      );
+
+    const today =
+      getLocalDateString();
+
+    const [
+      trainingResult,
+      competitionResult,
+      newsResult,
+      progressResult,
+      memberGroupIds
+    ] = await Promise.all([
+
+      supabaseClient
+        .from("training_sessions")
+        .select("*")
+        .gte("training_date", today)
+        .order(
+          "training_date",
+          { ascending: true }
+        )
+        .order(
+          "start_time",
+          { ascending: true }
+        )
+        .limit(50),
+
+      supabaseClient
+        .from("competitions")
+        .select("*")
+        .gte("date", today)
+        .order(
+          "date",
+          { ascending: true }
+        )
+        .limit(1)
+        .maybeSingle(),
+
+      supabaseClient
+        .from("news")
+        .select("*")
+        .eq(
+          "published",
+          true
+        )
+        .order(
+          "created_at",
+          { ascending: false }
+        )
+        .limit(1)
+        .maybeSingle(),
+
+      currentMember
+        ? supabaseClient
+            .from(
+              "member_attendance_progress"
+            )
+            .select("*")
+            .eq(
+              "member_id",
+              currentMember.id
+            )
+            .maybeSingle()
+        : Promise.resolve({
+            data: null,
+            error: null
+          }),
+
       getCurrentMemberGroupIds()
+
     ]);
 
-    const trainings=filterTrainingSessionsForMember(tr?.data||[],gids||[]);
-    const training=trainings[0]||null;
-    if(tEl){
-      if(training){
-        const tm=training.start_time?String(training.start_time).slice(0,5):"";
-        tEl.innerHTML=`${formatDate(training.training_date)}${tm?`<br>${escapeHtml(tm)}`:""}${training.location?`<br>${escapeHtml(training.location)}`:""}`;
-      }else tEl.textContent="No upcoming training";
+    const trainings =
+      filterTrainingSessionsForMember(
+        trainingResult?.data || [],
+        memberGroupIds || []
+      );
+
+    const training =
+      trainings[0] || null;
+
+    if (
+      trainingTitleElement &&
+      trainingTextElement
+    ) {
+
+      if (training) {
+
+        trainingTitleElement.textContent =
+          training.title ||
+          training.training ||
+          "Training";
+
+        const time =
+          training.start_time
+            ? String(
+                training.start_time
+              ).slice(0, 5)
+            : "";
+
+        const details = [
+          formatDate(
+            training.training_date
+          ),
+          time,
+          training.location || "",
+          training.district || ""
+        ]
+          .filter(Boolean)
+          .join(" • ");
+
+        trainingTextElement.textContent =
+          details;
+
+      } else {
+
+        trainingTitleElement.textContent =
+          "No upcoming training";
+
+        trainingTextElement.textContent =
+          "No future training session is currently scheduled.";
+      }
     }
 
-    const comp=cr?.data||null;
-    if(eEl)eEl.textContent=comp?`${comp.title||"Competition"} • ${formatDate(comp.date)}`:"No upcoming events";
+    const competition =
+      competitionResult?.data ||
+      null;
 
-    const news=nr?.data||null;
-    if(nEl)nEl.textContent=news?(news.title||"Latest club news"):"No news yet";
+    if (eventElement) {
 
-    let pct=Number(pr?.data?.attendance_percentage||0);
-    if(currentMember&&(!pr?.data||pr?.error)){
-      const {data:rowsData}=await supabaseClient.from("attendance").select("attended").eq("member_id",currentMember.id);
-      const rows=rowsData||[]; const attended=rows.filter(x=>x.attended===true).length;
-      pct=rows.length?Math.round(attended/rows.length*100):0;
+      eventElement.textContent =
+        competition
+          ? `${competition.title || "Competition"} • ${formatDate(competition.date)}`
+          : "No upcoming events";
     }
-    if(aEl)aEl.textContent=`${Math.round(pct)}% attendance`;
 
-    const old=document.getElementById("homeDashboard");
-    if(old)old.innerHTML="";
+    const news =
+      newsResult?.data ||
+      null;
+
+    if (newsElement) {
+
+      newsElement.textContent =
+        news
+          ? (
+              news.title ||
+              "Latest club news"
+            )
+          : "No news yet";
+    }
+
+    let attendancePercentage =
+      Number(
+        progressResult?.data
+          ?.attendance_percentage ||
+        0
+      );
+
+    if (
+      currentMember &&
+      (
+        !progressResult?.data ||
+        progressResult?.error
+      )
+    ) {
+
+      const {
+        data: rowsData
+      } = await supabaseClient
+        .from("attendance")
+        .select("attended")
+        .eq(
+          "member_id",
+          currentMember.id
+        );
+
+      const rows =
+        rowsData || [];
+
+      const attended =
+        rows.filter(
+          row =>
+            row.attended === true
+        ).length;
+
+      attendancePercentage =
+        rows.length
+          ? Math.round(
+              attended /
+              rows.length *
+              100
+            )
+          : 0;
+    }
+
+    if (attendanceElement) {
+
+      attendanceElement.textContent =
+        `${Math.round(
+          attendancePercentage
+        )}% attendance`;
+    }
+
+    const oldDashboard =
+      document.getElementById(
+        "homeDashboard"
+      );
+
+    if (oldDashboard) {
+      oldDashboard.innerHTML = "";
+    }
   }
 
 
@@ -3551,7 +3930,29 @@
      NAVIGATION
   ========================= */
 
-  function openSection(section) {
+  function openSection(section, options = {}) {
+
+    const shouldPush =
+      options.pushHistory !== false &&
+      !navigationPopState;
+
+    if (
+      shouldPush &&
+      section !== currentSectionName
+    ) {
+
+      window.history.pushState(
+        {
+          centerMmaSection:
+            section
+        },
+        "",
+        "#" + section
+      );
+    }
+
+    currentSectionName =
+      section;
 
     const sections = [
       "home",
@@ -16131,6 +16532,62 @@
           !haystack.includes(query)
         );
       });
+  }
+
+
+
+  /* =========================
+     PHONE / BROWSER BACK
+  ========================= */
+
+  window.addEventListener(
+    "popstate",
+    function (event) {
+
+      if (!currentUser) {
+        return;
+      }
+
+      const section =
+        event.state
+          ?.centerMmaSection ||
+        "home";
+
+      navigationPopState =
+        true;
+
+      openSection(
+        section,
+        {
+          pushHistory:
+            false
+        }
+      );
+
+      navigationPopState =
+        false;
+    }
+  );
+
+
+  function goBackInApp() {
+
+    if (
+      window.history.length > 1
+    ) {
+
+      window.history.back();
+
+    } else {
+
+      openSection(
+        "home",
+        {
+          pushHistory:
+            false
+        }
+      );
+    }
   }
 
 
