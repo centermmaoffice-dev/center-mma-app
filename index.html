@@ -5751,6 +5751,7 @@
         fights_count,
         wins_count,
         medal,
+        participation_role,
         notes,
         created_at,
         competitions (
@@ -5929,16 +5930,18 @@
 
 
           const medal = medalName(registration);
+          const participationRole = String(registration.participation_role || "athlete").toLowerCase();
+          const isTrainerParticipation = participationRole === "trainer";
 
-          let resultText = "No medal";
+          let resultText = isTrainerParticipation ? "Trainer" : "No medal";
 
-          if (medal === "gold") {
+          if (!isTrainerParticipation && medal === "gold") {
             resultText = "🥇 Gold";
-          } else if (medal === "silver") {
+          } else if (!isTrainerParticipation && medal === "silver") {
             resultText = "🥈 Silver";
-          } else if (medal === "bronze") {
+          } else if (!isTrainerParticipation && medal === "bronze") {
             resultText = "🥉 Bronze";
-          } else if (place !== null) {
+          } else if (!isTrainerParticipation && place !== null) {
             resultText = "Place: " + getOrdinalPlace(place);
           }
 
@@ -5983,6 +5986,11 @@
 
 
               <div class="record-stats">
+
+                <div class="record-stat">
+                  Role:
+                  <strong>${isTrainerParticipation ? "Trainer" : "Athlete"}</strong>
+                </div>
 
                 <div class="record-stat">
                   Fights:
@@ -9521,7 +9529,7 @@
                           return `
                             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #202020;">
                               <div>✅ <strong>${escapeHtml(fullName || "Participant")}</strong></div>
-                              <div class="muted small">${participant.weight ? escapeHtml(participant.weight) + " kg" : "Weight —"}</div>
+                              <div class="muted small">${String(participant.participation_role || "athlete").toLowerCase() === "trainer" ? "Trainer" : (participant.weight ? escapeHtml(participant.weight) + " kg" : "Weight —")}</div>
                             </div>
                           `;
                         }).join("")}
@@ -9548,6 +9556,12 @@
     registration
   ) {
 
+    const participationRole =
+      String(registration.participation_role || "athlete").toLowerCase();
+
+    const isTrainerParticipation =
+      participationRole === "trainer";
+
     return `
 
       <div
@@ -9568,80 +9582,68 @@
         </div>
 
         <div class="muted small">
-          Please enter your competition details.
+          Choose whether you participate as an athlete or trainer.
         </div>
 
-
         <label>
-          Weight
+          Role
         </label>
 
-        <input
-          id="competitionWeight-${competition.id}"
-          type="number"
-          step="0.1"
-          placeholder="e.g. 77.5"
-          value="${escapeHtml(
-            registration.weight ?? ""
-          )}"
+        <select
+          id="competitionRole-${competition.id}"
+          onchange="toggleCompetitionRoleFields('${competition.id}')"
+        >
+          <option value="athlete" ${!isTrainerParticipation ? "selected" : ""}>Athlete</option>
+          <option value="trainer" ${isTrainerParticipation ? "selected" : ""}>Trainer</option>
+        </select>
+
+        <div
+          id="competitionAthleteFields-${competition.id}"
+          style="${isTrainerParticipation ? "display:none;" : ""}"
         >
 
+          <label>Weight</label>
+          <input
+            id="competitionWeight-${competition.id}"
+            type="number"
+            step="0.1"
+            placeholder="e.g. 77.5"
+            value="${escapeHtml(registration.weight ?? "")}"
+          >
 
-        <label>
-          Division
-        </label>
+          <label>Division</label>
+          <input
+            id="competitionDivision-${competition.id}"
+            type="text"
+            placeholder="e.g. Adult / NoGi"
+            value="${escapeHtml(registration.division || "")}"
+          >
 
-        <input
-          id="competitionDivision-${competition.id}"
-          type="text"
-          placeholder="e.g. Adult / NoGi"
-          value="${escapeHtml(
-            registration.division || ""
-          )}"
-        >
+          <label>Age category</label>
+          <input
+            id="competitionAge-${competition.id}"
+            type="text"
+            placeholder="e.g. Adult"
+            value="${escapeHtml(registration.age_category || "")}"
+          >
 
+          <label>Belt</label>
+          <input
+            id="competitionBelt-${competition.id}"
+            type="text"
+            placeholder="e.g. Blue"
+            value="${escapeHtml(registration.belt || "")}"
+          >
 
-        <label>
-          Age category
-        </label>
+          <label>Experience</label>
+          <input
+            id="competitionExperience-${competition.id}"
+            type="text"
+            placeholder="e.g. 2 years"
+            value="${escapeHtml(registration.experience || "")}"
+          >
 
-        <input
-          id="competitionAge-${competition.id}"
-          type="text"
-          placeholder="e.g. Adult"
-          value="${escapeHtml(
-            registration.age_category || ""
-          )}"
-        >
-
-
-        <label>
-          Belt
-        </label>
-
-        <input
-          id="competitionBelt-${competition.id}"
-          type="text"
-          placeholder="e.g. Blue"
-          value="${escapeHtml(
-            registration.belt || ""
-          )}"
-        >
-
-
-        <label>
-          Experience
-        </label>
-
-        <input
-          id="competitionExperience-${competition.id}"
-          type="text"
-          placeholder="e.g. 2 years"
-          value="${escapeHtml(
-            registration.experience || ""
-          )}"
-        >
-
+        </div>
 
         <button
           onclick="saveCompetitionDetails(
@@ -9649,9 +9651,8 @@
             '${competition.id}'
           )"
         >
-          SAVE COMPETITION DETAILS
+          SAVE PARTICIPATION DETAILS
         </button>
-
 
         <div
           id="competitionDetailsMessage-${competition.id}"
@@ -9661,6 +9662,14 @@
       </div>
 
     `;
+  }
+
+
+  function toggleCompetitionRoleFields(competitionId) {
+    const roleElement = document.getElementById("competitionRole-" + competitionId);
+    const fieldsElement = document.getElementById("competitionAthleteFields-" + competitionId);
+    if (!roleElement || !fieldsElement) return;
+    fieldsElement.style.display = roleElement.value === "trainer" ? "none" : "";
   }
 
 
@@ -9805,13 +9814,9 @@
     competitionId
   ) {
 
-    if (
-      !currentUser ||
-      !currentMember
-    ) {
+    if (!currentUser || !currentMember) {
       return;
     }
-
 
     const message =
       document.getElementById(
@@ -9819,155 +9824,104 @@
         competitionId
       );
 
-
     if (message) {
-
-      message.textContent =
-        "Saving...";
-
-      message.className =
-        "message";
+      message.textContent = "Saving...";
+      message.className = "message";
     }
 
-
-    const weightValue =
-      document
-        .getElementById(
-          "competitionWeight-" +
-          competitionId
-        )
-        .value
-        .trim();
-
-
-    const division =
-      document
-        .getElementById(
-          "competitionDivision-" +
-          competitionId
-        )
-        .value
-        .trim();
-
-
-    const ageCategory =
-      document
-        .getElementById(
-          "competitionAge-" +
-          competitionId
-        )
-        .value
-        .trim();
-
-
-    const belt =
-      document
-        .getElementById(
-          "competitionBelt-" +
-          competitionId
-        )
-        .value
-        .trim();
-
-
-    const experience =
-      document
-        .getElementById(
-          "competitionExperience-" +
-          competitionId
-        )
-        .value
-        .trim();
-
-
-    const weight =
-      weightValue === ""
-        ? null
-        : Number(weightValue);
-
-
-    if (
-      weight !== null &&
-      (
-        Number.isNaN(weight) ||
-        weight < 0
-      )
-    ) {
-
-      if (message) {
-
-        message.textContent =
-          "Please enter a valid weight.";
-
-        message.className =
-          "message error";
-      }
-
-      return;
-    }
-
-
-    const {
-      error
-    } = await supabaseClient
-      .from("competition_registrations")
-      .update({
-
-        weight:
-          weight,
-
-        division:
-          division || null,
-
-        age_category:
-          ageCategory || null,
-
-        belt:
-          belt || null,
-
-        experience:
-          experience || null
-
-      })
-      .eq(
-        "id",
-        registrationId
-      )
-      .eq(
-        "member_id",
-        currentMember.id
+    const roleElement =
+      document.getElementById(
+        "competitionRole-" +
+        competitionId
       );
 
+    const participationRole =
+      roleElement && roleElement.value === "trainer"
+        ? "trainer"
+        : "athlete";
 
-    if (error) {
+    let updateData = {
+      participation_role: participationRole
+    };
 
-      console.error(error);
+    if (participationRole === "trainer") {
+      updateData = {
+        ...updateData,
+        weight: null,
+        division: null,
+        age_category: null,
+        belt: null,
+        experience: null,
+        result_place: null,
+        medal: null,
+        fights_count: 0,
+        wins_count: 0
+      };
+    } else {
+      const weightValue =
+        document.getElementById("competitionWeight-" + competitionId).value.trim();
+      const division =
+        document.getElementById("competitionDivision-" + competitionId).value.trim();
+      const ageCategory =
+        document.getElementById("competitionAge-" + competitionId).value.trim();
+      const belt =
+        document.getElementById("competitionBelt-" + competitionId).value.trim();
+      const experience =
+        document.getElementById("competitionExperience-" + competitionId).value.trim();
 
-      if (message) {
+      const weight =
+        weightValue === "" ? null : Number(weightValue);
 
-        message.textContent =
-          "Could not save competition details: " +
-          error.message;
-
-        message.className =
-          "message error";
+      if (
+        weight !== null &&
+        (Number.isNaN(weight) || weight < 0)
+      ) {
+        if (message) {
+          message.textContent = "Please enter a valid weight.";
+          message.className = "message error";
+        }
+        return;
       }
 
+      updateData = {
+        ...updateData,
+        weight: weight,
+        division: division || null,
+        age_category: ageCategory || null,
+        belt: belt || null,
+        experience: experience || null
+      };
+    }
+
+    const { error } = await supabaseClient
+      .from("competition_registrations")
+      .update(updateData)
+      .eq("id", registrationId)
+      .eq("member_id", currentMember.id);
+
+    if (error) {
+      console.error(error);
+      if (message) {
+        message.textContent =
+          "Could not save participation details: " +
+          error.message;
+        message.className = "message error";
+      }
       return;
     }
 
-
     if (message) {
-
       message.textContent =
-        "Competition details saved successfully.";
-
-      message.className =
-        "message success-text";
+        participationRole === "trainer"
+          ? "Saved as Trainer."
+          : "Competition details saved successfully.";
+      message.className = "message success-text";
     }
 
-
     await loadEvents();
+    if (typeof loadCompetitionRecord === "function") {
+      await loadCompetitionRecord();
+    }
   }
 
 
@@ -16799,6 +16753,11 @@
         <div class="detail-grid">
 
           <div class="detail-box">
+            <div class="detail-label">Role</div>
+            <div class="detail-value">${String(registration.participation_role || "athlete").toLowerCase() === "trainer" ? "Trainer" : "Athlete"}</div>
+          </div>
+
+          <div class="detail-box">
 
             <div class="detail-label">
               Weight
@@ -16899,6 +16858,11 @@
             Admin details
           </h3>
 
+          <label>Role</label>
+          <select id="adminRole-${registration.id}">
+            <option value="athlete" ${String(registration.participation_role || "athlete").toLowerCase() !== "trainer" ? "selected" : ""}>Athlete</option>
+            <option value="trainer" ${String(registration.participation_role || "athlete").toLowerCase() === "trainer" ? "selected" : ""}>Trainer</option>
+          </select>
 
           <label>
             Weight
@@ -17606,6 +17570,17 @@
       );
 
 
+    const roleElement =
+      document.getElementById(
+        "adminRole-" +
+        registrationId
+      );
+
+    const participationRole =
+      roleElement && roleElement.value === "trainer"
+        ? "trainer"
+        : "athlete";
+
     const weightValue =
       document
         .getElementById(
@@ -17705,25 +17680,25 @@
         .trim();
 
 
-    const weight =
+    let weight =
       weightValue === ""
         ? null
         : Number(weightValue);
 
 
-    const resultPlace =
+    let resultPlace =
       resultValue === ""
         ? null
         : Number(resultValue);
 
 
-    const fightsCount =
+    let fightsCount =
       fightsValue === ""
         ? null
         : Number(fightsValue);
 
 
-    const winsCount =
+    let winsCount =
       winsValue === ""
         ? null
         : Number(winsValue);
@@ -17814,6 +17789,14 @@
     }
 
 
+    if (participationRole === "trainer") {
+      weight = null;
+      resultPlace = null;
+      fightsCount = 0;
+      winsCount = 0;
+    }
+
+
     message.textContent =
       "Saving...";
 
@@ -17827,32 +17810,35 @@
       .from("competition_registrations")
       .update({
 
+        participation_role:
+          participationRole,
+
         weight:
-          weight,
+          participationRole === "trainer" ? null : weight,
 
         division:
-          division || null,
+          participationRole === "trainer" ? null : (division || null),
 
         age_category:
-          ageCategory || null,
+          participationRole === "trainer" ? null : (ageCategory || null),
 
         belt:
-          belt || null,
+          participationRole === "trainer" ? null : (belt || null),
 
         experience:
-          experience || null,
+          participationRole === "trainer" ? null : (experience || null),
 
         result_place:
-          resultPlace,
+          participationRole === "trainer" ? null : resultPlace,
 
         medal:
-          medal || null,
+          participationRole === "trainer" ? null : (medal || null),
 
         fights_count:
-          fightsCount,
+          participationRole === "trainer" ? 0 : fightsCount,
 
         wins_count:
-          winsCount,
+          participationRole === "trainer" ? 0 : winsCount,
 
         notes:
           notes || null
