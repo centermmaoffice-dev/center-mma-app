@@ -1445,6 +1445,46 @@
       }
     }
 
+
+    .home-wide-action {
+      width:100%;
+      min-height:62px;
+      border-radius:16px;
+      border:1px solid #454545;
+      background:linear-gradient(135deg,rgba(24,24,24,.96),rgba(11,11,11,.94));
+      color:#fff;
+      display:flex;
+      align-items:center;
+      gap:14px;
+      padding:15px 18px;
+      margin:12px 0 16px;
+      cursor:pointer;
+      box-shadow:0 10px 24px rgba(0,0,0,.18);
+      text-align:left;
+    }
+    .home-wide-action-icon {
+      width:42px;height:42px;flex:0 0 42px;border-radius:11px;
+      display:flex;align-items:center;justify-content:center;
+      background:rgba(255,255,255,.06);font-size:22px;filter:grayscale(1);
+    }
+    .home-wide-action-copy {min-width:0;flex:1}
+    .home-wide-action-title {font-size:15px;font-weight:900}
+    .home-wide-action-text {color:#999;font-size:11px;margin-top:3px}
+    .home-wide-action.staff-action {margin-top:16px;border-color:#633}
+    .home-wide-action.staff-action .home-wide-action-icon,
+    .home-wide-action.staff-action .home-wide-action-title {color:#ff4545;filter:none}
+
+    .admin-payment-editor {
+      margin-top:14px;padding:14px;border:1px solid #2d2d2d;
+      border-radius:12px;background:#0d0d0d;
+    }
+    .admin-payment-editor-grid {
+      display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;
+    }
+    @media(max-width:560px){
+      .admin-payment-editor-grid{grid-template-columns:1fr}
+    }
+
     @media(max-width:760px){
       .dashboard-highlight-grid,.dashboard-main-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
       .home-tile{min-height:145px}
@@ -1594,6 +1634,21 @@
       </div>
 
 
+      <div
+        class="home-wide-action"
+        onclick="openSection('profile')"
+      >
+        <div class="home-wide-action-icon">👤</div>
+        <div class="home-wide-action-copy">
+          <div class="home-wide-action-title">MY PROFILE</div>
+          <div class="home-wide-action-text">
+            View and edit your personal information
+          </div>
+        </div>
+        <div style="color:#777;font-size:22px;">›</div>
+      </div>
+
+
       <div class="dashboard-main-grid">
 
         <div class="home-tile" onclick="openSection('calendar')">
@@ -1625,14 +1680,6 @@
             class="home-tile-text"
           >
             Latest club news
-          </div>
-        </div>
-
-        <div class="home-tile" onclick="openSection('profile')">
-          <div class="home-tile-icon">👤</div>
-          <div class="home-tile-title">Profile</div>
-          <div class="home-tile-text">
-            View & edit your profile
           </div>
         </div>
 
@@ -1681,34 +1728,26 @@
           </div>
         </div>
 
-        <div
-          id="adminHomeButton"
-          class="home-tile admin-tile hidden"
-          onclick="openStaffPanel()"
-        >
-          <div class="home-tile-icon">🛡️</div>
-          <div
-            id="staffHomeTitle"
-            class="home-tile-title"
-          >
-            Admin
-          </div>
-          <div
-            id="staffHomeText"
-            class="home-tile-text"
-          >
-            Admin panel
-          </div>
-          <button
-            id="staffHomeButton"
-            class="hidden"
-            onclick="openStaffPanel()"
-          >
-            OPEN ADMIN PANEL
-          </button>
-        </div>
-
       </div>
+
+      <div
+        id="adminHomeButton"
+        class="home-wide-action staff-action hidden"
+        onclick="openStaffPanel()"
+      >
+        <div class="home-wide-action-icon">🛡️</div>
+        <div class="home-wide-action-copy">
+          <div id="staffHomeTitle" class="home-wide-action-title">
+            ADMIN PANEL
+          </div>
+          <div id="staffHomeText" class="home-wide-action-text">
+            Members, payments and club administration
+          </div>
+        </div>
+        <div style="color:#777;font-size:22px;">›</div>
+        <button id="staffHomeButton" class="hidden" onclick="openStaffPanel()">OPEN PANEL</button>
+      </div>
+
 
       <div id="homeDashboard"></div>
     </div>
@@ -2779,143 +2818,134 @@
      CHECK MEMBER / MEMBERSHIP
   ========================= */
 
+  function sleep(milliseconds) {
+    return new Promise(resolve => setTimeout(resolve, milliseconds));
+  }
+
+
+  async function loadMemberWithRetry() {
+    let lastError = null;
+
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const { data, error } = await supabaseClient
+        .from("members")
+        .select("*")
+        .eq("user_id", currentUser.id)
+        .maybeSingle();
+
+      if (!error && data) {
+        return { data, error: null };
+      }
+
+      lastError = error;
+
+      if (attempt < 3) {
+        await sleep(300 + attempt * 250);
+      }
+    }
+
+    return { data: null, error: lastError };
+  }
+
+
+  async function loadMembershipWithRetry(memberId) {
+    let lastError = null;
+
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const { data, error } = await supabaseClient
+        .from("memberships")
+        .select("*")
+        .eq("member_id", memberId)
+        .order("end_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!error && data) {
+        return { data, error: null };
+      }
+
+      if (error) {
+        lastError = error;
+      }
+
+      if (attempt < 3) {
+        await sleep(300 + attempt * 250);
+      }
+    }
+
+    return { data: null, error: lastError };
+  }
+
+
   async function checkMembership() {
-
     if (!currentUser) {
-
       showAuth();
-
       return;
     }
 
+    const authScreen = document.getElementById("authScreen");
+    if (authScreen) {
+      authScreen.classList.add("hidden");
+    }
 
     const {
       data: member,
-      error
-    } = await supabaseClient
-      .from("members")
-      .select("*")
-      .eq("user_id", currentUser.id)
-      .maybeSingle();
+      error: memberError
+    } = await loadMemberWithRetry();
 
-
-    if (error) {
-
-      console.error(error);
-
-      showInactive(
-        "Your member profile could not be loaded."
-      );
-
+    if (memberError) {
+      console.error(memberError);
+      showInactive("Your member profile could not be loaded.");
       return;
     }
-
 
     if (!member) {
-
-      showInactive(
-        "Your CENTER MMA member profile has not been activated yet."
-      );
-
+      showInactive("Your CENTER MMA member profile has not been activated yet.");
       return;
     }
 
+    currentMember = member;
 
-    currentMember =
-      member;
-
-    if (
-      member.is_active === false
-    ) {
-
-      showInactive(
-        "Your member account has been deactivated by CENTER MMA."
-      );
-
+    if (member.is_active === false) {
+      showInactive("Your member account has been deactivated by CENTER MMA.");
       return;
     }
 
-    isAdmin =
-      member.role === "admin";
-
-    isTrainer =
-      member.role === "trainer";
-
-    isStaff =
-      isAdmin || isTrainer;
-
+    isAdmin = member.role === "admin";
+    isTrainer = member.role === "trainer";
+    isStaff = isAdmin || isTrainer;
 
     const {
       data: membership,
       error: membershipError
-    } = await supabaseClient
-      .from("memberships")
-      .select("*")
-      .eq("member_id", member.id)
-      .order("end_date", {
-        ascending: false
-      })
-      .limit(1)
-      .maybeSingle();
-
+    } = await loadMembershipWithRetry(member.id);
 
     if (membershipError) {
-
-      console.error(
-        membershipError
-      );
-
-      currentMembership =
-        null;
-
-    } else {
-
-      currentMembership =
-        membership;
-
+      console.error(membershipError);
     }
 
-
-    /*
-      Admin and trainer always have staff access.
-    */
+    currentMembership = membership || null;
 
     if (isStaff) {
-
       showApp();
-
       return;
     }
-
 
     if (!currentMembership) {
-
-      showInactive(
-        "Your membership is not active."
-      );
-
+      showInactive("Your membership is not active.");
       return;
     }
 
-
-    const today =
-      getLocalDateString();
-
+    const today = getLocalDateString();
 
     const membershipActive =
       currentMembership.status === "active" &&
       currentMembership.end_date >= today;
 
-
     if (!membershipActive) {
-
-      showInactive(
-        "Your membership is not active."
-      );
-
+      showInactive("Your membership is not active.");
       return;
     }
-
 
     showApp();
   }
@@ -3063,10 +3093,10 @@
       if (isTrainer) {
 
         title.textContent =
-          "Trainer";
+          "TRAINER PANEL";
 
         text.textContent =
-          "Trainer panel";
+          "Attendance and trainer tools";
 
         button.textContent =
           "OPEN TRAINER PANEL";
@@ -3074,10 +3104,10 @@
       } else {
 
         title.textContent =
-          "Admin";
+          "ADMIN PANEL";
 
         text.textContent =
-          "Admin panel";
+          "Members, payments and club administration";
 
         button.textContent =
           "OPEN ADMIN PANEL";
@@ -12884,14 +12914,9 @@
      ADMIN PAYMENTS
   ========================= */
 
-  async function loadAdminPayments(
-    element
-  ) {
+  async function loadAdminPayments(element) {
 
-    const {
-      data: payments,
-      error
-    } = await supabaseClient
+    const { data: payments, error } = await supabaseClient
       .from("payments")
       .select(`
         *,
@@ -12903,199 +12928,166 @@
           membership_number
         )
       `)
-      .eq(
-        "status",
-        "pending"
-      )
-      .order(
-        "created_at",
-        {
-          ascending: false
-        }
-      );
-
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
 
     if (error) {
-
       console.error(error);
-
       element.innerHTML += `
-
         <div class="card">
-
           <div class="message error">
-
             Could not load payment requests:
-            ${escapeHtml(
-              error.message
-            )}
-
+            ${escapeHtml(error.message)}
           </div>
-
         </div>
-
       `;
-
       return;
     }
 
+    element.innerHTML += `
+      <div class="card">
+        <h3>Pending payment requests</h3>
+        <p class="muted small">
+          The member only requests confirmation. You enter the amount and
+          membership period after the payment is visible on the club account.
+        </p>
+      </div>
+    `;
 
-    if (
-      payments &&
-      payments.length > 0
-    ) {
-
+    if (!payments || payments.length === 0) {
       element.innerHTML += `
-
         <div class="card">
-
-          <h3>
-            Pending payment requests
-          </h3>
-
-          <p class="muted small">
-            Confirm payments received from members.
-          </p>
-
+          <div class="empty">No pending payment requests.</div>
         </div>
-
-
-        ${
-          payments
-            .map(
-              function (payment) {
-
-                const member =
-                  payment.members ||
-                  {};
-
-
-                return `
-
-                  <div
-                    class="payment-item admin-payment"
-                  >
-
-                    <div class="payment-top">
-
-                      <div>
-
-                        <div
-                          style="
-                            font-weight:800;
-                            font-size:16px;
-                          "
-                        >
-                          ${escapeHtml(
-                            (member.first_name || "") +
-                            " " +
-                            (member.last_name || "")
-                          )}
-                        </div>
-
-                        <div class="muted small">
-                          ${escapeHtml(
-                            member.email || ""
-                          )}
-                        </div>
-
-                      </div>
-
-
-                      <div class="payment-amount">
-                        €${Number(
-                          payment.amount || 0
-                        ).toFixed(2)}
-                      </div>
-
-                    </div>
-
-
-                    <div
-                      class="payment-description"
-                    >
-
-                      Membership:
-                      ${escapeHtml(
-                        payment.payment_type || "-"
-                      )}
-
-                      <br>
-
-                      Requested:
-                      ${formatDate(
-                        payment.requested_at ||
-                        payment.created_at
-                      )}
-
-                      <br>
-
-                      Member number:
-                      ${escapeHtml(
-                        member.membership_number ||
-                        "-"
-                      )}
-
-                    </div>
-
-
-                    <div
-                      class="admin-actions"
-                    >
-
-                      <button
-                        class="success"
-                        onclick="approvePayment(
-                          '${payment.id}',
-                          '${payment.member_id}'
-                        )"
-                      >
-                        CONFIRM
-                      </button>
-
-
-                      <button
-                        class="danger"
-                        onclick="rejectPayment(
-                          '${payment.id}'
-                        )"
-                      >
-                        REJECT
-                      </button>
-
-                    </div>
-
-                  </div>
-
-                `;
-
-              }
-            )
-            .join("")
-        }
-
       `;
+      return;
+    }
 
-    } else {
+    const today = getLocalDateString();
 
-      element.innerHTML += `
+    element.innerHTML += payments.map(function(payment) {
+      const member = payment.members || {};
+      const amountKnown = Number(payment.amount || 0) > 0;
+      const name = (
+        (member.first_name || "") + " " + (member.last_name || "")
+      ).trim() || member.email || "Member";
 
-        <div class="card">
+      return `
+        <div class="payment-item admin-payment">
 
-          <h3>
-            Payments
-          </h3>
+          <div class="payment-top">
+            <div>
+              <div style="font-weight:800;font-size:16px;">
+                ${escapeHtml(name)}
+              </div>
+              <div class="muted small">
+                ${escapeHtml(member.email || "")}
+              </div>
+            </div>
 
-          <div class="empty">
-            No pending payment requests.
+            <div class="payment-amount">
+              ${
+                amountKnown
+                  ? "€" + Number(payment.amount).toFixed(2)
+                  : "Amount not confirmed"
+              }
+            </div>
           </div>
 
+          <div class="payment-description">
+            Requested:
+            ${formatDate(payment.requested_at || payment.created_at)}
+            <br>
+            Member number:
+            ${escapeHtml(member.membership_number || "-")}
+          </div>
+
+          <div class="admin-payment-editor">
+            <div style="font-weight:800;margin-bottom:8px;">
+              Confirm payment & activate membership
+            </div>
+
+            <div class="admin-payment-editor-grid">
+              <div>
+                <label>Amount (€)</label>
+                <input
+                  id="paymentAmount-${payment.id}"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value="${amountKnown ? Number(payment.amount).toFixed(2) : "60.00"}"
+                >
+              </div>
+
+              <div>
+                <label>Membership</label>
+                <select
+                  id="paymentType-${payment.id}"
+                  onchange="updatePaymentConfirmationDefaults('${payment.id}')"
+                  style="
+                    width:100%;background:#0d0d0d;border:1px solid #333;
+                    border-radius:9px;color:white;padding:13px;font-size:15px;
+                  "
+                >
+                  <option value="monthly">Monthly</option>
+                  <option value="halfyear">Half Year</option>
+                  <option value="year">Year</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </div>
+
+              <div>
+                <label>Valid from</label>
+                <input
+                  id="paymentStart-${payment.id}"
+                  type="date"
+                  value="${today}"
+                  onchange="updatePaymentConfirmationDefaults('${payment.id}', true)"
+                >
+              </div>
+
+              <div>
+                <label>Valid until</label>
+                <input
+                  id="paymentEnd-${payment.id}"
+                  type="date"
+                  value="${addMonthsToDateString(today, 1)}"
+                >
+              </div>
+            </div>
+
+            <label>Admin note</label>
+            <input
+              id="paymentNote-${payment.id}"
+              type="text"
+              placeholder="Optional note"
+            >
+
+            <div class="admin-actions">
+              <button
+                class="success"
+                onclick="confirmPaymentAndActivate('${payment.id}','${payment.member_id}')"
+              >
+                CONFIRM & ACTIVATE
+              </button>
+
+              <button
+                class="danger"
+                onclick="rejectPayment('${payment.id}')"
+              >
+                REJECT
+              </button>
+            </div>
+
+            <div
+              id="paymentConfirmMessage-${payment.id}"
+              class="message"
+            ></div>
+          </div>
         </div>
-
       `;
-    }
+    }).join("");
   }
-
 
 
   /* =========================
@@ -16338,185 +16330,139 @@
   }
 
 
-  async function approvePayment(
+  function updatePaymentConfirmationDefaults(
     paymentId,
-    memberId
+    preserveAmount = false
   ) {
+    const typeElement = document.getElementById("paymentType-" + paymentId);
+    const amountElement = document.getElementById("paymentAmount-" + paymentId);
+    const startElement = document.getElementById("paymentStart-" + paymentId);
+    const endElement = document.getElementById("paymentEnd-" + paymentId);
 
+    if (!typeElement || !amountElement || !startElement || !endElement) {
+      return;
+    }
+
+    const defaults = {
+      monthly: { amount: 60, months: 1 },
+      halfyear: { amount: 300, months: 6 },
+      year: { amount: 500, months: 12 }
+    };
+
+    const selected = defaults[typeElement.value];
+
+    if (selected) {
+      if (!preserveAmount) {
+        amountElement.value = Number(selected.amount).toFixed(2);
+      }
+
+      if (startElement.value) {
+        endElement.value = addMonthsToDateString(
+          startElement.value,
+          selected.months
+        );
+      }
+    }
+  }
+
+
+  async function confirmPaymentAndActivate(paymentId, memberId) {
     if (!isAdmin) {
       return;
     }
 
-    const confirmed =
-      confirm(
-        "Confirm this payment and activate/extend the membership?"
-      );
+    const message = document.getElementById(
+      "paymentConfirmMessage-" + paymentId
+    );
+
+    const amount = Number(
+      document.getElementById("paymentAmount-" + paymentId)?.value || 0
+    );
+
+    const membershipType =
+      document.getElementById("paymentType-" + paymentId)?.value || "monthly";
+
+    const startDate =
+      document.getElementById("paymentStart-" + paymentId)?.value;
+
+    const endDate =
+      document.getElementById("paymentEnd-" + paymentId)?.value;
+
+    const note =
+      document.getElementById("paymentNote-" + paymentId)?.value?.trim() || null;
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      if (message) {
+        message.textContent = "Enter the amount actually received.";
+        message.className = "message error";
+      }
+      return;
+    }
+
+    if (!startDate || !endDate) {
+      if (message) {
+        message.textContent = "Valid from and Valid until are required.";
+        message.className = "message error";
+      }
+      return;
+    }
+
+    if (endDate < startDate) {
+      if (message) {
+        message.textContent = "Valid until cannot be before Valid from.";
+        message.className = "message error";
+      }
+      return;
+    }
+
+    const confirmed = confirm(
+      `Confirm €${amount.toFixed(2)} and activate membership until ${formatDate(endDate)}?`
+    );
 
     if (!confirmed) {
       return;
     }
 
-    const {
-      data: payment,
-      error: paymentLoadError
-    } = await supabaseClient
-      .from("payments")
-      .select("*")
-      .eq(
-        "id",
-        paymentId
-      )
-      .maybeSingle();
-
-    if (
-      paymentLoadError ||
-      !payment
-    ) {
-
-      console.error(
-        paymentLoadError
-      );
-
-      alert(
-        "Could not load this payment."
-      );
-
-      return;
+    if (message) {
+      message.textContent = "Confirming payment...";
+      message.className = "message";
     }
 
-    const {
-      data: membership,
-      error: membershipError
-    } = await supabaseClient
-      .from("memberships")
-      .select("*")
-      .eq(
-        "member_id",
-        memberId
-      )
-      .order(
-        "end_date",
-        {
-          ascending: false
-        }
-      )
-      .limit(1)
-      .maybeSingle();
-
-    if (membershipError) {
-
-      console.error(
-        membershipError
-      );
-
-      alert(
-        "Could not load the member's membership."
-      );
-
-      return;
-    }
-
-    if (!membership) {
-
-      alert(
-        "This member has no membership yet. Create a membership in Members first, then confirm the payment."
-      );
-
-      return;
-    }
-
-    const today =
-      getLocalDateString();
-
-    const extensionMonths =
-      getMembershipExtensionMonths(
-        membership.type
-      );
-
-    let newEndDate =
-      membership.end_date ||
-      today;
-
-    if (extensionMonths > 0) {
-
-      const baseDate =
-        (
-          membership.end_date &&
-          membership.end_date >= today
-        )
-          ? membership.end_date
-          : today;
-
-      newEndDate =
-        addMonthsToDateString(
-          baseDate,
-          extensionMonths
-        );
-    }
-
-    const {
-      error: membershipUpdateError
-    } = await supabaseClient
-      .from("memberships")
-      .update({
-        status:
-          "active",
-        end_date:
-          newEndDate
-      })
-      .eq(
-        "id",
-        membership.id
-      );
-
-    if (membershipUpdateError) {
-
-      console.error(
-        membershipUpdateError
-      );
-
-      alert(
-        "Payment was not confirmed because the membership could not be updated: " +
-        membershipUpdateError.message
-      );
-
-      return;
-    }
-
-    const {
-      error: paymentError
-    } = await supabaseClient
-      .from("payments")
-      .update({
-        status:
-          "approved"
-      })
-      .eq(
-        "id",
-        paymentId
-      );
-
-    if (paymentError) {
-
-      console.error(
-        paymentError
-      );
-
-      alert(
-        "Membership was updated, but the payment status could not be changed: " +
-        paymentError.message
-      );
-
-      return;
-    }
-
-    alert(
-      extensionMonths > 0
-        ? `Payment confirmed. Membership extended until ${formatDate(newEndDate)}.`
-        : "Payment confirmed and membership activated."
+    const { error } = await supabaseClient.rpc(
+      "admin_confirm_payment_and_membership",
+      {
+        target_payment_id: paymentId,
+        paid_amount: amount,
+        membership_type_value: membershipType,
+        valid_from: startDate,
+        valid_until: endDate,
+        admin_note: note
+      }
     );
 
-    await loadAdminPanel();
+    if (error) {
+      console.error(error);
+      if (message) {
+        message.textContent = "Could not confirm payment: " + error.message;
+        message.className = "message error";
+      }
+      return;
+    }
+
+    await notifyMemberByMemberId(
+      memberId,
+      "Payment approved",
+      `Your CENTER MMA membership is active until ${formatDate(endDate)}.`,
+      "payment",
+      "membership"
+    );
+
+    if (message) {
+      message.textContent = "Payment confirmed and membership activated.";
+      message.className = "message success-text";
+    }
+
+    await renderAdminSection("payments");
   }
 
 
