@@ -1232,6 +1232,44 @@
       text-transform: uppercase;
     }
 
+    .language-switcher {
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      gap:7px;
+      margin:12px auto 18px;
+    }
+
+    .language-button {
+      width:auto;
+      min-width:52px;
+      margin:0;
+      padding:8px 12px;
+      border-radius:10px;
+      border:1px solid #333;
+      background:rgba(15,15,15,.82);
+      color:#999;
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .language-button.active {
+      border-color:#777;
+      background:#fff;
+      color:#000;
+    }
+
+    .profile-language-select {
+      width:100%;
+      background:#0d0d0d;
+      color:#fff;
+      border:1px solid #333;
+      border-radius:10px;
+      padding:13px;
+      font-size:15px;
+      margin-top:8px;
+    }
+
     #authScreen .card {
       background: rgba(16,16,16,.88);
       backdrop-filter: blur(10px);
@@ -1519,6 +1557,12 @@
       <div class="auth-tagline">
         VIENNA • MMA • GRAPPLING
       </div>
+    </div>
+
+    <div class="language-switcher">
+      <button id="langAuthDe" class="language-button" onclick="setAppLanguage('de')">DE</button>
+      <button id="langAuthEn" class="language-button" onclick="setAppLanguage('en')">EN</button>
+      <button id="langAuthUa" class="language-button" onclick="setAppLanguage('uk')">UA</button>
     </div>
 
     <!-- LOGIN -->
@@ -1816,6 +1860,26 @@
 
         <h2>Profile</h2>
       </div>
+
+      <div class="card">
+
+        <h3>Language</h3>
+        <p class="muted small">
+          Choose the language of the CENTER MMA interface.
+        </p>
+
+        <select
+          id="profileLanguageSelect"
+          class="profile-language-select"
+          onchange="setAppLanguage(this.value)"
+        >
+          <option value="de">Deutsch</option>
+          <option value="en">English</option>
+          <option value="uk">Українська</option>
+        </select>
+
+      </div>
+
 
       <div class="card">
 
@@ -2515,6 +2579,7 @@
 </div>
 
 
+<script src="/i18n.js"></script>
 <script>
 
   /* =========================
@@ -16977,7 +17042,7 @@
     }
 
     return date.toLocaleDateString(
-      "en-GB",
+      getLocale(),
       {
         weekday: "long",
         day: "2-digit",
@@ -17049,7 +17114,7 @@
     }
 
     return date.toLocaleString(
-      "en-GB",
+      getLocale(),
       {
         day: "2-digit",
         month: "2-digit",
