@@ -14624,35 +14624,47 @@
                   id="editTrainingDescription-${session.id}"
                 >${escapeHtml(session.description || "")}</textarea>
 
-                <label
+                <div
                   style="
-                    display:flex;
-                    align-items:center;
-                    gap:10px;
-                    margin-top:16px;
-                    cursor:pointer;
+                    margin-top:18px;
+                    padding:14px;
+                    border:1px solid #333;
+                    border-radius:10px;
+                    background:#0d0d0d;
                   "
                 >
-                  <input
-                    id="editTrainingRepeatWeekly-${session.id}"
-                    type="checkbox"
-                    ${session.repeat_weekly ? "checked" : ""}
-                    onchange="toggleEditTrainingRepeatUntil('${session.id}')"
-                    style="width:auto;margin:0;"
-                  >
-                  Repeat weekly
-                </label>
+                  <div style="font-size:14px;font-weight:800;margin-bottom:8px;">
+                    Weekly repetition
+                  </div>
 
-                <div
-                  id="editTrainingRepeatUntilWrap-${session.id}"
-                  style="display:${session.repeat_weekly ? "block" : "none"};"
-                >
+                  <div class="muted small" style="margin-bottom:10px;line-height:1.5;">
+                    ${session.repeat_weekly
+                      ? "This training currently repeats every week."
+                      : "This training is currently a single training."}
+                  </div>
+
                   <label>Repeat until (optional)</label>
                   <input
                     id="editTrainingRepeatUntil-${session.id}"
                     type="date"
                     value="${escapeHtml(session.repeat_until || "")}"
                   >
+
+                  <input
+                    id="editTrainingRepeatWeekly-${session.id}"
+                    type="checkbox"
+                    ${session.repeat_weekly ? "checked" : ""}
+                    style="display:none;"
+                  >
+
+                  <button
+                    type="button"
+                    class="${session.repeat_weekly ? "danger" : "secondary"}"
+                    onclick="setTrainingWeekly('${session.id}', ${session.repeat_weekly ? "false" : "true"})"
+                    style="margin-top:10px;"
+                  >
+                    ${session.repeat_weekly ? "STOP WEEKLY" : "MAKE WEEKLY"}
+                  </button>
                 </div>
 
                 ${
@@ -15346,6 +15358,90 @@
 
     message.className =
       "message success-text";
+
+    await loadAdminPanel();
+    await loadHomeDashboard();
+
+    if (
+      typeof loadClubCalendar ===
+      "function"
+    ) {
+      await loadClubCalendar();
+    }
+  }
+
+
+  async function setTrainingWeekly(
+    sessionId,
+    enabled
+  ) {
+    if (!isAdmin) {
+      return;
+    }
+
+    const untilInput =
+      document.getElementById(
+        "editTrainingRepeatUntil-" +
+        sessionId
+      );
+
+    const repeatUntil =
+      untilInput?.value || null;
+
+    const {
+      data: session,
+      error: loadError
+    } = await supabaseClient
+      .from("training_sessions")
+      .select("id, training_date")
+      .eq("id", sessionId)
+      .single();
+
+    if (loadError || !session) {
+      console.error(loadError);
+      alert(
+        "Could not load training: " +
+        (loadError?.message || "Training not found.")
+      );
+      return;
+    }
+
+    if (
+      enabled &&
+      repeatUntil &&
+      repeatUntil < session.training_date
+    ) {
+      alert(
+        "Repeat-until date cannot be before the first training date."
+      );
+      return;
+    }
+
+    const updateData = enabled
+      ? {
+          repeat_weekly: true,
+          repeat_until: repeatUntil
+        }
+      : {
+          repeat_weekly: false,
+          repeat_until: null,
+          cancelled_dates: []
+        };
+
+    const { error } =
+      await supabaseClient
+        .from("training_sessions")
+        .update(updateData)
+        .eq("id", sessionId);
+
+    if (error) {
+      console.error(error);
+      alert(
+        "Could not update weekly repetition: " +
+        error.message
+      );
+      return;
+    }
 
     await loadAdminPanel();
     await loadHomeDashboard();
