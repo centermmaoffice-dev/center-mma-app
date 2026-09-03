@@ -2516,6 +2516,9 @@
 
   let currentSectionName =
     "home";
+
+  let membershipAccessAllowed =
+    false;
   let adminAttendanceSessions = [];
   let adminAttendanceMembers = [];
   let adminAttendanceExisting = {};
@@ -2752,6 +2755,9 @@
 
   async function logout() {
 
+    membershipAccessAllowed =
+      false;
+
     await supabaseClient.auth.signOut();
 
     currentUser = null;
@@ -2943,6 +2949,9 @@
 
   function showAuth() {
 
+    membershipAccessAllowed =
+      false;
+
     document
       .getElementById("authScreen")
       .classList.remove("hidden");
@@ -2989,6 +2998,9 @@
 
   function showApp() {
 
+    membershipAccessAllowed =
+      true;
+
     document
       .getElementById("authScreen")
       .classList.add("hidden");
@@ -3000,6 +3012,10 @@
     document
       .getElementById("bottomNav")
       .classList.remove("hidden");
+
+    document
+      .querySelector("#appScreen .top-bar")
+      ?.classList.remove("hidden");
 
 
     const name =
@@ -3714,6 +3730,12 @@
 
   function showInactive(reason) {
 
+    membershipAccessAllowed =
+      false;
+
+    currentSectionName =
+      "home";
+
     document
       .getElementById("authScreen")
       .classList.add("hidden");
@@ -3723,9 +3745,40 @@
       .classList.add("hidden");
 
     document
+      .querySelector("#appScreen .top-bar")
+      ?.classList.add("hidden");
+
+    document
       .getElementById("appScreen")
       .classList.remove("hidden");
 
+
+    [
+      "membership",
+      "news",
+      "profile",
+      "calendar",
+      "attendance",
+      "documents",
+      "chat",
+      "notifications",
+      "events",
+      "admin"
+    ].forEach(function (name) {
+
+      const section =
+        document.getElementById(
+          name + "Section"
+        );
+
+      if (section) {
+        section.classList.add("hidden");
+      }
+    });
+
+    document
+      .getElementById("homeSection")
+      .classList.remove("hidden");
 
     document
       .getElementById("homeSection")
@@ -3931,6 +3984,33 @@
   ========================= */
 
   function openSection(section, options = {}) {
+
+    if (
+      !membershipAccessAllowed &&
+      !isStaff
+    ) {
+
+      document
+        .getElementById("bottomNav")
+        ?.classList.add("hidden");
+
+      document
+        .querySelector("#appScreen .top-bar")
+        ?.classList.add("hidden");
+
+      const home =
+        document.getElementById(
+          "homeSection"
+        );
+
+      if (home) {
+        home.classList.remove(
+          "hidden"
+        );
+      }
+
+      return;
+    }
 
     const shouldPush =
       options.pushHistory !== false &&
@@ -16545,6 +16625,23 @@
     function (event) {
 
       if (!currentUser) {
+        return;
+      }
+
+      if (
+        !membershipAccessAllowed &&
+        !isStaff
+      ) {
+
+        window.history.replaceState(
+          {
+            centerMmaSection:
+              "home"
+          },
+          "",
+          "#home"
+        );
+
         return;
       }
 
