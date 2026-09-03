@@ -1263,6 +1263,126 @@
       }
     }
 
+
+    /* UI REFINEMENT */
+    #appScreen .top-bar {
+      position: relative !important;
+      top: auto !important;
+      right: auto !important;
+      left: auto !important;
+      width: 100% !important;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
+      padding: 8px 0 14px !important;
+      margin: 0 0 4px !important;
+      background: transparent !important;
+      backdrop-filter: none !important;
+      z-index: 20 !important;
+    }
+
+    #appScreen .top-bar > div:first-child {
+      display: none !important;
+    }
+
+    .top-actions {
+      margin: 0 !important;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
+      gap: 10px !important;
+    }
+
+    .notification-bell,
+    .logout {
+      position: relative !important;
+      height: 42px !important;
+      border-radius: 12px !important;
+      border: 1px solid rgba(255,255,255,.18) !important;
+      background: rgba(14,14,14,.70) !important;
+      backdrop-filter: blur(10px) !important;
+      box-shadow: 0 8px 20px rgba(0,0,0,.26) !important;
+    }
+
+    .notification-bell {
+      min-width: 44px !important;
+      padding: 0 12px !important;
+      font-size: 18px !important;
+    }
+
+    .logout {
+      width: auto !important;
+      padding: 0 15px !important;
+      color: #ddd !important;
+      font-size: 11px !important;
+      font-weight: 800 !important;
+    }
+
+    .home-hero {
+      padding-top: 4px !important;
+    }
+
+    .next-training-banner {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: linear-gradient(135deg,rgba(22,22,22,.94),rgba(10,10,10,.94));
+      border: 1px solid #3e3e3e;
+      border-radius: 16px;
+      padding: 16px 18px;
+      margin: 12px 0 16px;
+      box-shadow: 0 10px 24px rgba(0,0,0,.18);
+      cursor: pointer;
+    }
+
+    .next-training-banner-icon {
+      width: 48px;
+      height: 48px;
+      flex: 0 0 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      background: rgba(255,255,255,.06);
+      font-size: 24px;
+      filter: grayscale(1);
+    }
+
+    .next-training-banner-copy {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .next-training-banner-title {
+      font-size: 12px;
+      color: #888;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+
+    .next-training-banner-text {
+      font-size: 15px;
+      font-weight: 800;
+      line-height: 1.45;
+    }
+
+    .dashboard-highlight-grid {
+      grid-template-columns: repeat(3,minmax(0,1fr)) !important;
+    }
+
+    @media(max-width:760px){
+      .dashboard-highlight-grid {
+        grid-template-columns: repeat(3,minmax(0,1fr)) !important;
+      }
+    }
+
+    @media(max-width:560px){
+      .dashboard-highlight-grid {
+        grid-template-columns: 1fr !important;
+      }
+    }
+
     @media(max-width:760px){
       .dashboard-highlight-grid,.dashboard-main-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
       .home-tile{min-height:145px}
@@ -1393,12 +1513,16 @@
       </div>
 
       <div id="membershipSummary" class="card home-membership-card"></div>
+      <div class="next-training-banner" onclick="openSection('calendar')">
+        <div class="next-training-banner-icon">📅</div>
+        <div class="next-training-banner-copy">
+          <div class="next-training-banner-title">Next Training</div>
+          <div id="homeNextTrainingText" class="next-training-banner-text">Loading...</div>
+        </div>
+      </div>
+
 
       <div class="dashboard-highlight-grid">
-        <div class="home-tile" onclick="openSection('calendar')">
-          <div class="home-tile-icon">📅</div><div class="home-tile-title">Next Training</div>
-          <div id="homeNextTrainingText" class="home-tile-text">Loading...</div>
-        </div>
         <div class="home-tile" onclick="openSection('calendar')">
           <div class="home-tile-icon">📆</div><div class="home-tile-title">Calendar</div>
           <div class="home-tile-text">Training, competitions & events</div>
@@ -2187,7 +2311,7 @@
     <button class="nav-item active" id="navHome" onclick="openSection('home')"><span class="nav-icon">⌂</span>Home</button>
     <button class="nav-item" id="navCalendar" onclick="openSection('calendar')"><span class="nav-icon">🗓️</span>Calendar</button>
     <button class="nav-item" id="navChat" onclick="openSection('chat')"><span class="nav-icon">💬</span>Chat</button>
-    <button class="nav-item" id="navNotifications" onclick="openSection('notifications')"><span class="nav-icon">🔔</span>Notifications</button>
+    <button class="nav-item" id="navNews" onclick="openSection('news')"><span class="nav-icon">📰</span>News</button>
     <button class="nav-item" id="navProfile" onclick="openSection('profile')"><span class="nav-icon">👤</span>Profile</button>
   </div>
 </div>
