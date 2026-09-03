@@ -3577,6 +3577,317 @@
 
 
   /* =========================
+     TRAINING RECURRENCE HELPERS
+  ========================= */
+
+  function getTrainingCancelledDates(session) {
+    return Array.isArray(session?.cancelled_dates)
+      ? session.cancelled_dates.filter(Boolean)
+      : [];
+  }
+
+
+  function dateStringToUtcMs(dateString) {
+    const parts = String(dateString || "")
+      .split("-")
+      .map(Number);
+
+    if (
+      parts.length !== 3 ||
+      !parts[0] ||
+      !parts[1] ||
+      !parts[2]
+    ) {
+      return NaN;
+    }
+
+    return Date.UTC(
+      parts[0],
+      parts[1] - 1,
+      parts[2]
+    );
+  }
+
+
+  function daysBetweenDateStrings(fromDate, toDate) {
+    const fromMs = dateStringToUtcMs(fromDate);
+    const toMs = dateStringToUtcMs(toDate);
+
+    if (
+      !Number.isFinite(fromMs) ||
+      !Number.isFinite(toMs)
+    ) {
+      return NaN;
+    }
+
+    return Math.round(
+      (toMs - fromMs) / 86400000
+    );
+  }
+
+
+  function trainingOccursOnDate(session, dateKey) {
+    if (
+      !session ||
+      !session.training_date ||
+      !dateKey
+    ) {
+      return false;
+    }
+
+    const cancelledDates =
+      getTrainingCancelledDates(session);
+
+    if (cancelledDates.includes(dateKey)) {
+      return false;
+    }
+
+    if (!session.repeat_weekly) {
+      return session.training_date === dateKey;
+    }
+
+    if (dateKey < session.training_date) {
+      return false;
+    }
+
+    if (
+      session.repeat_until &&
+      dateKey > session.repeat_until
+    ) {
+      return false;
+    }
+
+    const diffDays =
+      daysBetweenDateStrings(
+        session.training_date,
+        dateKey
+      );
+
+    return (
+      Number.isFinite(diffDays) &&
+      diffDays >= 0 &&
+      diffDays % 7 === 0
+    );
+  }
+
+
+  function makeTrainingOccurrence(
+    session,
+    occurrenceDate
+  ) {
+    return {
+      ...session,
+      source_session_id: session.id,
+      occurrence_date: occurrenceDate,
+      training_date: occurrenceDate,
+      id:
+        String(session.id) +
+        "__" +
+        occurrenceDate,
+      is_virtual_occurrence:
+        occurrenceDate !==
+        session.training_date
+    };
+  }
+
+
+  function expandTrainingSessionsForRange(
+    sessions,
+    startDate,
+    endDate
+  ) {
+    const result = [];
+
+    (sessions || []).forEach(
+      function (session) {
+        if (!session?.training_date) {
+          return;
+        }
+
+        if (!session.repeat_weekly) {
+          if (
+            session.training_date >= startDate &&
+            session.training_date <= endDate &&
+            trainingOccursOnDate(
+              session,
+              session.training_date
+            )
+          ) {
+            result.push(
+              makeTrainingOccurrence(
+                session,
+                session.training_date
+              )
+            );
+          }
+          return;
+        }
+
+        let currentDate =
+          session.training_date;
+
+        if (currentDate < startDate) {
+          const diff =
+            daysBetweenDateStrings(
+              currentDate,
+              startDate
+            );
+
+          if (Number.isFinite(diff)) {
+            const weeksToSkip =
+              Math.floor(diff / 7);
+
+            currentDate =
+              addDaysToDateString(
+                currentDate,
+                weeksToSkip * 7
+              );
+
+            while (currentDate < startDate) {
+              currentDate =
+                addDaysToDateString(
+                  currentDate,
+                  7
+                );
+            }
+          }
+        }
+
+        let safetyCounter = 0;
+
+        while (
+          currentDate <= endDate &&
+          safetyCounter < 530
+        ) {
+          if (
+            (!session.repeat_until ||
+              currentDate <= session.repeat_until) &&
+            trainingOccursOnDate(
+              session,
+              currentDate
+            )
+          ) {
+            result.push(
+              makeTrainingOccurrence(
+                session,
+                currentDate
+              )
+            );
+          }
+
+          if (
+            session.repeat_until &&
+            currentDate >= session.repeat_until
+          ) {
+            break;
+          }
+
+          currentDate =
+            addDaysToDateString(
+              currentDate,
+              7
+            );
+
+          safetyCounter += 1;
+        }
+      }
+    );
+
+    result.sort(
+      function (a, b) {
+        const aKey =
+          String(a.training_date || "") +
+          "T" +
+          String(a.start_time || "00:00");
+
+        const bKey =
+          String(b.training_date || "") +
+          "T" +
+          String(b.start_time || "00:00");
+
+        return aKey.localeCompare(bKey);
+      }
+    );
+
+    return result;
+  }
+
+
+  function getNextTrainingOccurrenceDate(
+    session,
+    fromDate = getLocalDateString()
+  ) {
+    if (!session?.training_date) {
+      return "";
+    }
+
+    if (!session.repeat_weekly) {
+      return session.training_date >= fromDate
+        ? session.training_date
+        : "";
+    }
+
+    let candidate =
+      session.training_date;
+
+    if (candidate < fromDate) {
+      const diff =
+        daysBetweenDateStrings(
+          candidate,
+          fromDate
+        );
+
+      const weeksToSkip =
+        Number.isFinite(diff)
+          ? Math.floor(diff / 7)
+          : 0;
+
+      candidate =
+        addDaysToDateString(
+          candidate,
+          weeksToSkip * 7
+        );
+
+      while (candidate < fromDate) {
+        candidate =
+          addDaysToDateString(
+            candidate,
+            7
+          );
+      }
+    }
+
+    let safetyCounter = 0;
+
+    while (safetyCounter < 530) {
+      if (
+        session.repeat_until &&
+        candidate > session.repeat_until
+      ) {
+        return "";
+      }
+
+      if (
+        !getTrainingCancelledDates(session)
+          .includes(candidate)
+      ) {
+        return candidate;
+      }
+
+      candidate =
+        addDaysToDateString(
+          candidate,
+          7
+        );
+
+      safetyCounter += 1;
+    }
+
+    return "";
+  }
+
+
+  /* =========================
      HOME DASHBOARD
   ========================= */
 
@@ -3621,7 +3932,10 @@
       supabaseClient
         .from("training_sessions")
         .select("*")
-        .gte("training_date", today)
+        .lte(
+          "training_date",
+          addDaysToDateString(today, 370)
+        )
         .order(
           "training_date",
           { ascending: true }
@@ -3629,8 +3943,7 @@
         .order(
           "start_time",
           { ascending: true }
-        )
-        .limit(50),
+        ),
 
       supabaseClient
         .from("competitions")
@@ -3678,7 +3991,11 @@
     ]);
 
     const allFutureTrainings =
-      trainingResult?.data || [];
+      expandTrainingSessionsForRange(
+        trainingResult?.data || [],
+        today,
+        addDaysToDateString(today, 370)
+      );
 
     const trainings =
       isStaff
@@ -6231,7 +6548,6 @@
       supabaseClient
         .from("training_sessions")
         .select("*")
-        .gte("training_date", firstDate)
         .lte("training_date", lastDate)
         .order("training_date", {
           ascending: true
@@ -6298,7 +6614,11 @@
 
     calendarTrainingData =
       filterTrainingSessionsForMember(
-        trainingResult.data || [],
+        expandTrainingSessionsForRange(
+          trainingResult.data || [],
+          firstDate,
+          lastDate
+        ),
         memberGroupIds
       );
 
@@ -9924,14 +10244,17 @@
       String(startDate.getMonth() + 1).padStart(2, "0") + "-" +
       String(startDate.getDate()).padStart(2, "0");
 
+    const today =
+      getLocalDateString();
+
     const {
-      data: sessions,
+      data: baseSessions,
       error
     } = await supabaseClient
       .from("training_sessions")
       .select("*")
-      .gte("training_date", startDateString)
-      .order("training_date", { ascending: false })
+      .lte("training_date", today)
+      .order("training_date", { ascending: true })
       .order("start_time", { ascending: true });
 
     if (error) {
@@ -9950,7 +10273,27 @@
       return;
     }
 
-    adminAttendanceSessions = sessions || [];
+    adminAttendanceSessions =
+      expandTrainingSessionsForRange(
+        baseSessions || [],
+        startDateString,
+        today
+      )
+        .sort(
+          function (a, b) {
+            const aKey =
+              String(a.training_date || "") +
+              "T" +
+              String(a.start_time || "00:00");
+
+            const bKey =
+              String(b.training_date || "") +
+              "T" +
+              String(b.start_time || "00:00");
+
+            return bKey.localeCompare(aKey);
+          }
+        );
 
     element.innerHTML += `
       <div class="card">
@@ -13877,15 +14220,11 @@
         .select("*")
         .order(
           "training_date",
-          {
-            ascending: true
-          }
+          { ascending: true }
         )
         .order(
           "start_time",
-          {
-            ascending: true
-          }
+          { ascending: true }
         ),
 
       supabaseClient
@@ -13930,7 +14269,7 @@
         </h3>
 
         <p class="muted small">
-          Create and manage the training schedule.
+          One recurring training stays as one item here. Weekly occurrences are generated automatically in the calendar.
         </p>
 
       </div>
@@ -13942,77 +14281,53 @@
           Create training session
         </h3>
 
-        <label>
-          Training
-        </label>
-
+        <label>Training</label>
         <input
           id="adminTrainingType"
           type="text"
           placeholder="e.g. MMA"
         >
 
-        <label>
-          Title
-        </label>
-
+        <label>Title</label>
         <input
           id="adminTrainingTitle"
           type="text"
           placeholder="e.g. MMA Training"
         >
 
-        <label>
-          Date
-        </label>
-
+        <label>First date</label>
         <input
           id="adminTrainingDate"
           type="date"
         >
 
-        <label>
-          Start time
-        </label>
-
+        <label>Start time</label>
         <input
           id="adminTrainingStart"
           type="time"
         >
 
-        <label>
-          End time
-        </label>
-
+        <label>End time</label>
         <input
           id="adminTrainingEnd"
           type="time"
         >
 
-        <label>
-          Location
-        </label>
-
+        <label>Location</label>
         <input
           id="adminTrainingLocation"
           type="text"
           placeholder="e.g. Fitness Union"
         >
 
-        <label>
-          District
-        </label>
-
+        <label>District</label>
         <input
           id="adminTrainingDistrict"
           type="text"
           placeholder="e.g. 1150 Wien"
         >
 
-        <label>
-          Group
-        </label>
-
+        <label>Group</label>
         <select
           id="adminTrainingGroup"
           style="
@@ -14028,7 +14343,6 @@
           <option value="">
             All / No specific group
           </option>
-
           ${
             groups.map(
               group => `
@@ -14040,10 +14354,7 @@
           }
         </select>
 
-        <label>
-          Description
-        </label>
-
+        <label>Description</label>
         <textarea
           id="adminTrainingDescription"
           placeholder="Optional training information..."
@@ -14062,10 +14373,7 @@
             id="adminTrainingRepeatWeekly"
             type="checkbox"
             onchange="toggleTrainingRepeatUntil()"
-            style="
-              width:auto;
-              margin:0;
-            "
+            style="width:auto;margin:0;"
           >
           Repeat weekly
         </label>
@@ -14075,7 +14383,7 @@
           style="display:none;"
         >
           <label>
-            Repeat until
+            Repeat until (optional)
           </label>
 
           <input
@@ -14083,8 +14391,8 @@
             type="date"
           >
 
-          <div class="muted small" style="margin-top:6px;">
-            A separate training session will be created for every week, so attendance stays separate for each date.
+          <div class="muted small" style="margin-top:6px;line-height:1.5;">
+            Leave empty to repeat without an end date. Only one training item is stored in Admin.
           </div>
         </div>
 
@@ -14109,11 +14417,7 @@
         "adminTrainingSessionsList"
       );
 
-    if (
-      !sessions ||
-      sessions.length === 0
-    ) {
-
+    if (sessions.length === 0) {
       list.innerHTML = `
         <div class="card">
           <div class="empty">
@@ -14121,13 +14425,31 @@
           </div>
         </div>
       `;
-
       return;
     }
 
     list.innerHTML =
       sessions.map(
         function (session) {
+
+          const repeatUntilText =
+            session.repeat_weekly
+              ? (
+                  session.repeat_until
+                    ? `until ${formatDate(session.repeat_until)}`
+                    : "no end date"
+                )
+              : "";
+
+          const cancelledDates =
+            getTrainingCancelledDates(session)
+              .slice()
+              .sort();
+
+          const nextOccurrence =
+            getNextTrainingOccurrenceDate(
+              session
+            );
 
           return `
             <div class="competition-admin-card">
@@ -14143,31 +14465,61 @@
               >
                 ${formatDate(session.training_date)}
                 •
-                ${escapeHtml(session.start_time || "")}
-                ${session.end_time ? "– " + escapeHtml(session.end_time) : ""}
+                ${escapeHtml(String(session.start_time || "").slice(0, 5))}
+                ${session.end_time ? "– " + escapeHtml(String(session.end_time).slice(0, 5)) : ""}
               </div>
 
               <div
                 style="
-                  font-size:18px;
-                  font-weight:800;
+                  display:flex;
+                  align-items:center;
+                  justify-content:space-between;
+                  gap:10px;
                   margin-bottom:5px;
                 "
               >
-                ${escapeHtml(
-                  session.title ||
-                  session.training ||
-                  "Training"
-                )}
+                <div style="font-size:18px;font-weight:800;">
+                  ${escapeHtml(
+                    session.title ||
+                    session.training ||
+                    "Training"
+                  )}
+                </div>
+
+                ${
+                  session.repeat_weekly
+                    ? `
+                      <span
+                        style="
+                          font-size:11px;
+                          font-weight:800;
+                          border:1px solid #444;
+                          border-radius:999px;
+                          padding:5px 8px;
+                          white-space:nowrap;
+                        "
+                      >
+                        🔁 WEEKLY
+                      </span>
+                    `
+                    : ""
+                }
               </div>
 
               ${
-                session.training
+                session.repeat_weekly
                   ? `
-                    <div class="muted small">
-                      🥋 ${escapeHtml(session.training)}
+                    <div class="muted small" style="margin-bottom:6px;">
+                      Repeats weekly • ${escapeHtml(repeatUntilText)}
+                      ${nextOccurrence ? ` • Next: ${escapeHtml(formatDate(nextOccurrence))}` : ""}
                     </div>
                   `
+                  : ""
+              }
+
+              ${
+                session.training
+                  ? `<div class="muted small">🥋 ${escapeHtml(session.training)}</div>`
                   : ""
               }
 
@@ -14196,7 +14548,7 @@
                   value="${escapeHtml(session.title || "")}"
                 >
 
-                <label>Date</label>
+                <label>First date</label>
                 <input
                   id="editTrainingDate-${session.id}"
                   type="date"
@@ -14253,7 +14605,6 @@
                   <option value="">
                     All / No specific group
                   </option>
-
                   ${
                     groups.map(
                       group => `
@@ -14273,28 +14624,105 @@
                   id="editTrainingDescription-${session.id}"
                 >${escapeHtml(session.description || "")}</textarea>
 
+                <label
+                  style="
+                    display:flex;
+                    align-items:center;
+                    gap:10px;
+                    margin-top:16px;
+                    cursor:pointer;
+                  "
+                >
+                  <input
+                    id="editTrainingRepeatWeekly-${session.id}"
+                    type="checkbox"
+                    ${session.repeat_weekly ? "checked" : ""}
+                    onchange="toggleEditTrainingRepeatUntil('${session.id}')"
+                    style="width:auto;margin:0;"
+                  >
+                  Repeat weekly
+                </label>
+
+                <div
+                  id="editTrainingRepeatUntilWrap-${session.id}"
+                  style="display:${session.repeat_weekly ? "block" : "none"};"
+                >
+                  <label>Repeat until (optional)</label>
+                  <input
+                    id="editTrainingRepeatUntil-${session.id}"
+                    type="date"
+                    value="${escapeHtml(session.repeat_until || "")}"
+                  >
+                </div>
+
+                ${
+                  session.repeat_weekly
+                    ? `
+                      <div
+                        style="
+                          margin-top:18px;
+                          padding-top:15px;
+                          border-top:1px solid #222;
+                        "
+                      >
+                        <div style="font-size:13px;font-weight:800;margin-bottom:8px;">
+                          Cancel / restore one occurrence
+                        </div>
+
+                        <input
+                          id="cancelTrainingDate-${session.id}"
+                          type="date"
+                          value="${escapeHtml(nextOccurrence || "")}"
+                        >
+
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                          <button
+                            class="secondary"
+                            style="flex:1;"
+                            onclick="setTrainingOccurrenceCancelled('${session.id}', true)"
+                          >
+                            CANCEL DATE
+                          </button>
+
+                          <button
+                            class="secondary"
+                            style="flex:1;"
+                            onclick="setTrainingOccurrenceCancelled('${session.id}', false)"
+                          >
+                            RESTORE DATE
+                          </button>
+                        </div>
+
+                        ${
+                          cancelledDates.length
+                            ? `
+                              <div class="muted small" style="margin-top:8px;line-height:1.5;">
+                                Cancelled: ${cancelledDates.map(formatDate).join(", ")}
+                              </div>
+                            `
+                            : ""
+                        }
+                      </div>
+                    `
+                    : ""
+                }
+
                 <button
-                  onclick="saveTrainingSession(
-                    '${session.id}'
-                  )"
+                  onclick="saveTrainingSession('${session.id}')"
                 >
                   SAVE TRAINING SESSION
                 </button>
 
                 <button
                   class="secondary"
-                  onclick="duplicateTrainingSession(
-                    '${session.id}'
-                  )"
+                  onclick="duplicateTrainingSession('${session.id}')"
                 >
                   DUPLICATE TRAINING
                 </button>
 
                 <button
                   class="danger"
-                  onclick="deleteTrainingSession(
-                    '${session.id}'
-                  )"
+                  onclick="deleteTrainingSession('${session.id}')"
                 >
                   DELETE TRAINING SESSION
                 </button>
@@ -14314,7 +14742,6 @@
 
 
   function toggleTrainingRepeatUntil() {
-
     const checkbox =
       document.getElementById(
         "adminTrainingRepeatWeekly"
@@ -14325,9 +14752,30 @@
         "adminTrainingRepeatUntilWrap"
       );
 
-    const endDate =
+    if (!checkbox || !wrap) {
+      return;
+    }
+
+    wrap.style.display =
+      checkbox.checked
+        ? "block"
+        : "none";
+  }
+
+
+  function toggleEditTrainingRepeatUntil(
+    sessionId
+  ) {
+    const checkbox =
       document.getElementById(
-        "adminTrainingRepeatUntil"
+        "editTrainingRepeatWeekly-" +
+        sessionId
+      );
+
+    const wrap =
+      document.getElementById(
+        "editTrainingRepeatUntilWrap-" +
+        sessionId
       );
 
     if (!checkbox || !wrap) {
@@ -14338,32 +14786,6 @@
       checkbox.checked
         ? "block"
         : "none";
-
-    if (
-      checkbox.checked &&
-      endDate &&
-      !endDate.value
-    ) {
-
-      const startDateInput =
-        document.getElementById(
-          "adminTrainingDate"
-        );
-
-      if (
-        startDateInput &&
-        startDateInput.value
-      ) {
-
-        const suggested =
-          addDaysToDateString(
-            startDateInput.value,
-            7 * 12
-          );
-
-        endDate.value = suggested;
-      }
-    }
   }
 
 
@@ -14371,7 +14793,6 @@
     dateString,
     days
   ) {
-
     const parts =
       String(dateString || "")
         .split("-")
@@ -14403,7 +14824,6 @@
   async function duplicateTrainingSession(
     sessionId
   ) {
-
     if (!isAdmin) {
       return;
     }
@@ -14418,16 +14838,13 @@
       .single();
 
     if (loadError || !session) {
-
       console.error(loadError);
-
       alert(
         "Could not load training session for duplication: " +
         (loadError
           ? loadError.message
           : "Training session not found.")
       );
-
       return;
     }
 
@@ -14439,7 +14856,7 @@
 
     const newDate =
       prompt(
-        "Date for duplicated training (YYYY-MM-DD):",
+        "First date for duplicated training (YYYY-MM-DD):",
         suggestedDate
       );
 
@@ -14447,16 +14864,10 @@
       return;
     }
 
-    if (
-      !/^\d{4}-\d{2}-\d{2}$/.test(
-        newDate
-      )
-    ) {
-
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
       alert(
         "Please enter the date in YYYY-MM-DD format."
       );
-
       return;
     }
 
@@ -14484,19 +14895,22 @@
             session.group_id || null,
           description:
             session.description || null,
+          repeat_weekly:
+            false,
+          repeat_until:
+            null,
+          cancelled_dates:
+            [],
           created_by:
             currentUser.id
         });
 
     if (error) {
-
       console.error(error);
-
       alert(
         "Could not duplicate training session: " +
         error.message
       );
-
       return;
     }
 
@@ -14508,7 +14922,7 @@
     );
 
     await loadAdminPanel();
-    await loadTrainingSessions();
+    await loadHomeDashboard();
 
     if (
       typeof loadClubCalendar ===
@@ -14520,7 +14934,6 @@
 
 
   async function createTrainingSession() {
-
     if (!isAdmin) {
       return;
     }
@@ -14611,7 +15024,8 @@
         .getElementById(
           "adminTrainingRepeatUntil"
         )
-        .value;
+        .value ||
+      null;
 
     if (
       !date ||
@@ -14619,96 +15033,51 @@
       !endTime ||
       !title
     ) {
-
       message.textContent =
-        "Title, date, start time and end time are required.";
-
+        "Title, first date, start time and end time are required.";
       message.className =
         "message error";
-
       return;
     }
 
     if (endTime <= startTime) {
-
       message.textContent =
         "End time must be later than start time.";
-
       message.className =
         "message error";
-
       return;
     }
 
     if (
       repeatWeekly &&
-      !repeatUntil
-    ) {
-
-      message.textContent =
-        "Please choose the repeat-until date.";
-
-      message.className =
-        "message error";
-
-      return;
-    }
-
-    if (
-      repeatWeekly &&
+      repeatUntil &&
       repeatUntil < date
     ) {
-
       message.textContent =
         "Repeat-until date cannot be before the first training date.";
-
       message.className =
         "message error";
-
       return;
     }
 
     message.textContent =
       repeatWeekly
-        ? "Creating recurring training sessions..."
+        ? "Creating weekly training rule..."
         : "Creating training session...";
 
     message.className =
       "message";
 
-    const trainingDates = [];
-
-    if (repeatWeekly) {
-
-      let nextDate = date;
-      let safetyCounter = 0;
-
-      while (
-        nextDate <= repeatUntil &&
-        safetyCounter < 260
-      ) {
-        trainingDates.push(nextDate);
-        nextDate =
-          addDaysToDateString(
-            nextDate,
-            7
-          );
-        safetyCounter += 1;
-      }
-
-    } else {
-      trainingDates.push(date);
-    }
-
-    const rows =
-      trainingDates.map(
-        trainingDate => ({
+    const { error } =
+      await supabaseClient
+        .from("training_sessions")
+        .insert({
           training:
             training || null,
           title:
             title,
           training_date:
-            trainingDate,
+            date,
           start_time:
             startTime,
           end_time:
@@ -14721,34 +15090,31 @@
             groupId,
           description:
             description || null,
+          repeat_weekly:
+            repeatWeekly,
+          repeat_until:
+            repeatWeekly
+              ? repeatUntil
+              : null,
+          cancelled_dates:
+            [],
           created_by:
             currentUser.id
-        })
-      );
-
-    const {
-      error
-    } = await supabaseClient
-      .from("training_sessions")
-      .insert(rows);
+        });
 
     if (error) {
-
       console.error(error);
-
       message.textContent =
         "Could not create training session: " +
         error.message;
-
       message.className =
         "message error";
-
       return;
     }
 
     message.textContent =
       repeatWeekly
-        ? `${trainingDates.length} training sessions created successfully.`
+        ? "Weekly training created successfully. Only one Admin item was created."
         : "Training session created successfully.";
 
     message.className =
@@ -14759,15 +15125,14 @@
         ? "New recurring training"
         : "New training session",
       repeatWeekly
-        ? `${title} • weekly from ${formatDate(date)} to ${formatDate(repeatUntil)} • ${startTime}`
+        ? `${title} • weekly from ${formatDate(date)}${repeatUntil ? " to " + formatDate(repeatUntil) : ""} • ${startTime}`
         : `${title} • ${formatDate(date)} • ${startTime}`,
       "training",
       "calendar"
     );
 
     await loadAdminPanel();
-
-    await loadTrainingSessions();
+    await loadHomeDashboard();
 
     if (
       typeof loadClubCalendar ===
@@ -14781,7 +15146,6 @@
   async function saveTrainingSession(
     sessionId
   ) {
-
     if (!isAdmin) {
       return;
     }
@@ -14870,91 +15234,241 @@
         .value
         .trim();
 
+    const repeatWeekly =
+      document
+        .getElementById(
+          "editTrainingRepeatWeekly-" +
+          sessionId
+        )
+        .checked;
+
+    const repeatUntil =
+      document
+        .getElementById(
+          "editTrainingRepeatUntil-" +
+          sessionId
+        )
+        .value ||
+      null;
+
     if (
       !date ||
       !startTime ||
       !endTime ||
       !title
     ) {
-
       message.textContent =
-        "Title, date, start time and end time are required.";
-
+        "Title, first date, start time and end time are required.";
       message.className =
         "message error";
-
       return;
     }
 
     if (endTime <= startTime) {
-
       message.textContent =
         "End time must be later than start time.";
-
       message.className =
         "message error";
+      return;
+    }
 
+    if (
+      repeatWeekly &&
+      repeatUntil &&
+      repeatUntil < date
+    ) {
+      message.textContent =
+        "Repeat-until date cannot be before the first training date.";
+      message.className =
+        "message error";
       return;
     }
 
     message.textContent =
       "Saving...";
-
     message.className =
       "message";
 
-    const {
-      error
-    } = await supabaseClient
-      .from("training_sessions")
-      .update({
-        training:
-          training || null,
-        title:
-          title,
-        training_date:
-          date,
-        start_time:
-          startTime,
-        end_time:
-          endTime,
-        location:
-          location || null,
-        district:
-          district || null,
-        group_id:
-          groupId,
-        description:
-          description || null
-      })
-      .eq(
-        "id",
-        sessionId
-      );
+    const updateData = {
+      training:
+        training || null,
+      title:
+        title,
+      training_date:
+        date,
+      start_time:
+        startTime,
+      end_time:
+        endTime,
+      location:
+        location || null,
+      district:
+        district || null,
+      group_id:
+        groupId,
+      description:
+        description || null,
+      repeat_weekly:
+        repeatWeekly,
+      repeat_until:
+        repeatWeekly
+          ? repeatUntil
+          : null
+    };
+
+    if (!repeatWeekly) {
+      updateData.cancelled_dates = [];
+    }
+
+    const { error } =
+      await supabaseClient
+        .from("training_sessions")
+        .update(updateData)
+        .eq(
+          "id",
+          sessionId
+        );
 
     if (error) {
-
       console.error(error);
-
       message.textContent =
         "Could not save training session: " +
         error.message;
-
       message.className =
         "message error";
-
       return;
     }
 
     message.textContent =
-      "Training session saved successfully.";
+      repeatWeekly
+        ? "Weekly training rule saved successfully."
+        : "Training session saved successfully. Weekly repetition is off.";
 
     message.className =
       "message success-text";
 
     await loadAdminPanel();
+    await loadHomeDashboard();
 
-    await loadTrainingSessions();
+    if (
+      typeof loadClubCalendar ===
+      "function"
+    ) {
+      await loadClubCalendar();
+    }
+  }
+
+
+  async function setTrainingOccurrenceCancelled(
+    sessionId,
+    shouldCancel
+  ) {
+    if (!isAdmin) {
+      return;
+    }
+
+    const dateInput =
+      document.getElementById(
+        "cancelTrainingDate-" +
+        sessionId
+      );
+
+    const date =
+      dateInput?.value || "";
+
+    if (!date) {
+      alert("Choose a date first.");
+      return;
+    }
+
+    const {
+      data: session,
+      error: loadError
+    } = await supabaseClient
+      .from("training_sessions")
+      .select("*")
+      .eq("id", sessionId)
+      .single();
+
+    if (loadError || !session) {
+      console.error(loadError);
+      alert(
+        "Could not load training: " +
+        (loadError?.message || "Training not found.")
+      );
+      return;
+    }
+
+    if (!session.repeat_weekly) {
+      alert(
+        "This training is not set to Repeat Weekly."
+      );
+      return;
+    }
+
+    const diffDays =
+      daysBetweenDateStrings(
+        session.training_date,
+        date
+      );
+
+    const belongsToSeries =
+      Number.isFinite(diffDays) &&
+      diffDays >= 0 &&
+      diffDays % 7 === 0 &&
+      (!session.repeat_until ||
+        date <= session.repeat_until);
+
+    if (!belongsToSeries) {
+      alert(
+        "The selected date is not an occurrence of this weekly training."
+      );
+      return;
+    }
+
+    const cancelled =
+      new Set(
+        getTrainingCancelledDates(session)
+      );
+
+    if (shouldCancel) {
+      cancelled.add(date);
+    } else {
+      cancelled.delete(date);
+    }
+
+    const cancelledDates =
+      Array.from(cancelled).sort();
+
+    const { error } =
+      await supabaseClient
+        .from("training_sessions")
+        .update({
+          cancelled_dates:
+            cancelledDates
+        })
+        .eq("id", sessionId);
+
+    if (error) {
+      console.error(error);
+      alert(
+        "Could not update this occurrence: " +
+        error.message
+      );
+      return;
+    }
+
+    await createNotification(
+      shouldCancel
+        ? "Training cancelled"
+        : "Training restored",
+      `${session.title || session.training || "Training"} • ${formatDate(date)}`,
+      "training",
+      "calendar"
+    );
+
+    await loadAdminPanel();
+    await loadHomeDashboard();
 
     if (
       typeof loadClubCalendar ===
@@ -14968,45 +15482,39 @@
   async function deleteTrainingSession(
     sessionId
   ) {
-
     if (!isAdmin) {
       return;
     }
 
     const confirmed =
       confirm(
-        "Delete this training session?"
+        "Delete this training session? If it repeats weekly, the whole series will be deleted."
       );
 
     if (!confirmed) {
       return;
     }
 
-    const {
-      error
-    } = await supabaseClient
-      .from("training_sessions")
-      .delete()
-      .eq(
-        "id",
-        sessionId
-      );
+    const { error } =
+      await supabaseClient
+        .from("training_sessions")
+        .delete()
+        .eq(
+          "id",
+          sessionId
+        );
 
     if (error) {
-
       console.error(error);
-
       alert(
         "Could not delete training session: " +
         error.message
       );
-
       return;
     }
 
     await loadAdminPanel();
-
-    await loadTrainingSessions();
+    await loadHomeDashboard();
 
     if (
       typeof loadClubCalendar ===
