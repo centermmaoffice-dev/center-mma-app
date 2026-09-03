@@ -10666,34 +10666,86 @@
       return;
     }
 
+    /*
+      Automatic cleanup whenever admin opens this section.
+      Normal notifications: 30 days.
+      Important/admin/payment/membership: 90 days.
+    */
     const {
-      data: groups,
-      error
+      error: cleanupError
     } = await supabaseClient
-      .from("groups")
-      .select("id, name")
-      .order(
-        "name",
-        {
-          ascending: true
-        }
+      .rpc(
+        "cleanup_old_notifications"
       );
 
-    if (error) {
+    if (cleanupError) {
 
-      console.error(error);
+      console.error(
+        "Notification cleanup failed:",
+        cleanupError
+      );
+    }
+
+    const [
+      groupsResult,
+      historyResult
+    ] = await Promise.all([
+
+      supabaseClient
+        .from("groups")
+        .select("id, name")
+        .order(
+          "name",
+          {
+            ascending: true
+          }
+        ),
+
+      supabaseClient
+        .from("notifications")
+        .select("*")
+        .order(
+          "created_at",
+          {
+            ascending: false
+          }
+        )
+        .limit(200)
+
+    ]);
+
+    if (groupsResult.error) {
+
+      console.error(
+        groupsResult.error
+      );
 
       element.innerHTML += `
         <div class="card">
           <div class="message error">
             Could not load groups:
-            ${escapeHtml(error.message)}
+            ${escapeHtml(
+              groupsResult.error.message
+            )}
           </div>
         </div>
       `;
 
       return;
     }
+
+    if (historyResult.error) {
+
+      console.error(
+        historyResult.error
+      );
+    }
+
+    const groups =
+      groupsResult.data || [];
+
+    const history =
+      historyResult.data || [];
 
     element.innerHTML += `
 
@@ -10729,7 +10781,7 @@
           </option>
 
           ${
-            (groups || [])
+            groups
               .map(
                 group => `
                   <option value="group:${group.id}">
@@ -10827,7 +10879,230 @@
 
       </div>
 
+
+      <div class="card">
+
+        <h3>
+          Notification History
+        </h3>
+
+        <p class="muted small">
+          Normal notifications are automatically removed after 30 days.
+          Important, admin, payment and membership notifications are kept for 90 days.
+        </p>
+
+        <button
+          class="danger"
+          onclick="deleteOldNotificationsNow()"
+        >
+          DELETE OLD NOTIFICATIONS NOW
+        </button>
+
+        <div
+          id="adminNotificationCleanupMessage"
+          class="message"
+        ></div>
+
+      </div>
+
+
+      <div id="adminNotificationHistory"></div>
+
     `;
+
+    const historyElement =
+      document.getElementById(
+        "adminNotificationHistory"
+      );
+
+    if (!historyElement) {
+      return;
+    }
+
+    if (history.length === 0) {
+
+      historyElement.innerHTML = `
+        <div class="card">
+          <div class="empty">
+            No notifications in history.
+          </div>
+        </div>
+      `;
+
+      return;
+    }
+
+    historyElement.innerHTML =
+      history
+        .map(
+          function (item) {
+
+            const typeLabel =
+              getNotificationTypeLabel(
+                item.type
+              );
+
+            return `
+              <div class="competition-admin-card">
+
+                <div
+                  class="muted small"
+                  style="
+                    text-transform:uppercase;
+                    letter-spacing:1px;
+                    margin-bottom:5px;
+                  "
+                >
+                  ${escapeHtml(typeLabel)}
+                </div>
+
+                <div
+                  style="
+                    font-size:17px;
+                    font-weight:800;
+                    margin-bottom:6px;
+                  "
+                >
+                  ${escapeHtml(
+                    item.title ||
+                    "Notification"
+                  )}
+                </div>
+
+                <div
+                  class="muted small"
+                  style="
+                    line-height:1.55;
+                    white-space:pre-wrap;
+                  "
+                >
+                  ${escapeHtml(
+                    item.message || ""
+                  )}
+                </div>
+
+                <div
+                  class="muted small"
+                  style="margin-top:8px;"
+                >
+                  ${formatDateTime(
+                    item.created_at
+                  )}
+                </div>
+
+                <button
+                  class="danger"
+                  onclick="deleteAdminNotification(
+                    '${item.id}'
+                  )"
+                >
+                  DELETE
+                </button>
+
+              </div>
+            `;
+          }
+        )
+        .join("");
+  }
+
+
+  async function deleteAdminNotification(
+    notificationId
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const confirmed =
+      confirm(
+        "Delete this notification?"
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const {
+      error
+    } = await supabaseClient
+      .from("notifications")
+      .delete()
+      .eq(
+        "id",
+        notificationId
+      );
+
+    if (error) {
+
+      console.error(error);
+
+      alert(
+        "Could not delete notification: " +
+        error.message
+      );
+
+      return;
+    }
+
+    await renderAdminSection(
+      "notifications"
+    );
+  }
+
+
+  async function deleteOldNotificationsNow() {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const message =
+      document.getElementById(
+        "adminNotificationCleanupMessage"
+      );
+
+    if (message) {
+      message.textContent =
+        "Cleaning old notifications...";
+      message.className =
+        "message";
+    }
+
+    const {
+      data,
+      error
+    } = await supabaseClient
+      .rpc(
+        "cleanup_old_notifications"
+      );
+
+    if (error) {
+
+      console.error(error);
+
+      if (message) {
+        message.textContent =
+          "Could not clean old notifications: " +
+          error.message;
+        message.className =
+          "message error";
+      }
+
+      return;
+    }
+
+    if (message) {
+      message.textContent =
+        "Old notifications cleaned.";
+      message.className =
+        "message success-text";
+    }
+
+    await renderAdminSection(
+      "notifications"
+    );
   }
 
 
