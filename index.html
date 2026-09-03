@@ -13679,14 +13679,24 @@
 
 
         <label>
-          Image URL
+          News image
         </label>
 
         <input
-          id="adminNewsImageUrl"
-          type="url"
-          placeholder="https://..."
+          id="adminNewsImageFile"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          onchange="previewNewsCreateImage(event)"
         >
+
+        <div
+          id="adminNewsImagePreview"
+          style="margin-top:12px;"
+        ></div>
+
+        <p class="muted small" style="margin-top:8px;">
+          JPG, PNG or WebP. Maximum 8 MB.
+        </p>
 
 
         <label>
@@ -13850,16 +13860,41 @@
                   )}</textarea>
 
 
+                  ${item.image_url ? `
+                    <div style="margin:12px 0;">
+                      <img
+                        src="${escapeHtml(item.image_url)}"
+                        alt="News image"
+                        style="
+                          width:100%;
+                          max-height:220px;
+                          object-fit:cover;
+                          border-radius:10px;
+                        "
+                      >
+                    </div>
+                  ` : ""}
+
                   <label>
-                    Image URL
+                    Replace image
                   </label>
 
                   <input
-                    id="adminNewsImageUrl-${item.id}"
-                    value="${escapeHtml(
-                      item.image_url || ""
-                    )}"
+                    id="adminNewsImageFile-${item.id}"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
                   >
+
+                  ${item.image_url ? `
+                    <label style="display:flex;gap:10px;align-items:center;margin-top:12px;">
+                      <input
+                        id="adminNewsRemoveImage-${item.id}"
+                        type="checkbox"
+                        style="width:auto;"
+                      >
+                      Remove current image
+                    </label>
+                  ` : ""}
 
 
                   <label>
@@ -13930,6 +13965,174 @@
   }
 
 
+  const NEWS_IMAGE_BUCKET = "news-images";
+
+
+  function validateNewsImageFile(file) {
+
+    if (!file) {
+      return null;
+    }
+
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp"
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      return "Please select a JPG, PNG or WebP image.";
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      return "Image must be smaller than 8 MB.";
+    }
+
+    return null;
+  }
+
+
+  function previewNewsCreateImage(event) {
+
+    const preview =
+      document.getElementById(
+        "adminNewsImagePreview"
+      );
+
+    if (!preview) {
+      return;
+    }
+
+    const file =
+      event.target.files?.[0];
+
+    if (!file) {
+      preview.innerHTML = "";
+      return;
+    }
+
+    const validationError =
+      validateNewsImageFile(file);
+
+    if (validationError) {
+      preview.innerHTML = `
+        <div class="message error">
+          ${escapeHtml(validationError)}
+        </div>
+      `;
+      event.target.value = "";
+      return;
+    }
+
+    const objectUrl =
+      URL.createObjectURL(file);
+
+    preview.innerHTML = `
+      <img
+        src="${objectUrl}"
+        alt="News image preview"
+        style="
+          width:100%;
+          max-height:240px;
+          object-fit:cover;
+          border-radius:10px;
+        "
+      >
+    `;
+  }
+
+
+  async function uploadNewsImage(file) {
+
+    const validationError =
+      validateNewsImageFile(file);
+
+    if (validationError) {
+      throw new Error(validationError);
+    }
+
+    const safeName =
+      (file.name || "news-image")
+        .replace(
+          /[^a-zA-Z0-9._-]/g,
+          "_"
+        );
+
+    const filePath =
+      `${currentUser.id}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}-${safeName}`;
+
+    const {
+      error: uploadError
+    } = await supabaseClient
+      .storage
+      .from(NEWS_IMAGE_BUCKET)
+      .upload(
+        filePath,
+        file,
+        {
+          upsert: false,
+          contentType:
+            file.type ||
+            "application/octet-stream"
+        }
+      );
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    const {
+      data
+    } = supabaseClient
+      .storage
+      .from(NEWS_IMAGE_BUCKET)
+      .getPublicUrl(filePath);
+
+    const publicUrl =
+      data?.publicUrl || null;
+
+    if (!publicUrl) {
+      await supabaseClient
+        .storage
+        .from(NEWS_IMAGE_BUCKET)
+        .remove([filePath]);
+
+      throw new Error(
+        "Could not create the public image URL."
+      );
+    }
+
+    return {
+      imageUrl: publicUrl,
+      imagePath: filePath
+    };
+  }
+
+
+  async function removeNewsImageFromStorage(
+    imagePath
+  ) {
+
+    if (!imagePath) {
+      return;
+    }
+
+    const {
+      error
+    } = await supabaseClient
+      .storage
+      .from(NEWS_IMAGE_BUCKET)
+      .remove([imagePath]);
+
+    if (error) {
+      console.error(
+        "Could not remove old news image:",
+        error
+      );
+    }
+  }
+
+
   async function createNewsItem() {
 
     if (!isAdmin) {
@@ -13961,13 +14164,13 @@
         .trim();
 
 
-    const imageUrl =
-      document
-        .getElementById(
-          "adminNewsImageUrl"
-        )
-        .value
-        .trim();
+    const imageFileInput =
+      document.getElementById(
+        "adminNewsImageFile"
+      );
+
+    const imageFile =
+      imageFileInput?.files?.[0] || null;
 
 
     const published =
@@ -13991,11 +14194,35 @@
 
 
     message.textContent =
-      "Creating news...";
+      imageFile
+        ? "Uploading image..."
+        : "Creating news...";
 
     message.className =
       "message";
 
+
+    let uploadedImage = null;
+
+    if (imageFile) {
+      try {
+        uploadedImage =
+          await uploadNewsImage(
+            imageFile
+          );
+      } catch (uploadError) {
+        console.error(uploadError);
+        message.textContent =
+          "Could not upload image: " +
+          uploadError.message;
+        message.className =
+          "message error";
+        return;
+      }
+    }
+
+    message.textContent =
+      "Creating news...";
 
     const {
       error
@@ -14010,7 +14237,10 @@
           content,
 
         image_url:
-          imageUrl || null,
+          uploadedImage?.imageUrl || null,
+
+        image_path:
+          uploadedImage?.imagePath || null,
 
         published:
           published,
@@ -14024,6 +14254,12 @@
     if (error) {
 
       console.error(error);
+
+      if (uploadedImage?.imagePath) {
+        await removeNewsImageFromStorage(
+          uploadedImage.imagePath
+        );
+      }
 
       message.textContent =
         "Could not create news: " +
@@ -14066,11 +14302,18 @@
       .value = "";
 
 
-    document
-      .getElementById(
-        "adminNewsImageUrl"
-      )
-      .value = "";
+    if (imageFileInput) {
+      imageFileInput.value = "";
+    }
+
+    const createPreview =
+      document.getElementById(
+        "adminNewsImagePreview"
+      );
+
+    if (createPreview) {
+      createPreview.innerHTML = "";
+    }
 
 
     await loadAdminPanel();
@@ -14115,14 +14358,20 @@
         .trim();
 
 
-    const imageUrl =
-      document
-        .getElementById(
-          "adminNewsImageUrl-" +
-          newsId
-        )
-        .value
-        .trim();
+    const imageFileInput =
+      document.getElementById(
+        "adminNewsImageFile-" +
+        newsId
+      );
+
+    const imageFile =
+      imageFileInput?.files?.[0] || null;
+
+    const removeImage =
+      document.getElementById(
+        "adminNewsRemoveImage-" +
+        newsId
+      )?.checked === true;
 
 
     const published =
@@ -14147,31 +14396,73 @@
 
 
     message.textContent =
-      "Saving...";
+      imageFile
+        ? "Uploading new image..."
+        : "Saving...";
 
     message.className =
       "message";
 
 
     const {
+      data: currentNews,
+      error: currentNewsError
+    } = await supabaseClient
+      .from("news")
+      .select("image_url,image_path")
+      .eq("id", newsId)
+      .single();
+
+    if (currentNewsError) {
+      console.error(currentNewsError);
+      message.textContent =
+        "Could not load the current news item: " +
+        currentNewsError.message;
+      message.className =
+        "message error";
+      return;
+    }
+
+    let uploadedImage = null;
+
+    if (imageFile) {
+      try {
+        uploadedImage =
+          await uploadNewsImage(
+            imageFile
+          );
+      } catch (uploadError) {
+        console.error(uploadError);
+        message.textContent =
+          "Could not upload image: " +
+          uploadError.message;
+        message.className =
+          "message error";
+        return;
+      }
+    }
+
+    const updatePayload = {
+      title: title,
+      content: content,
+      published: published
+    };
+
+    if (uploadedImage) {
+      updatePayload.image_url =
+        uploadedImage.imageUrl;
+      updatePayload.image_path =
+        uploadedImage.imagePath;
+    } else if (removeImage) {
+      updatePayload.image_url = null;
+      updatePayload.image_path = null;
+    }
+
+    const {
       error
     } = await supabaseClient
       .from("news")
-      .update({
-
-        title:
-          title,
-
-        content:
-          content,
-
-        image_url:
-          imageUrl || null,
-
-        published:
-          published
-
-      })
+      .update(updatePayload)
       .eq(
         "id",
         newsId
@@ -14181,6 +14472,12 @@
     if (error) {
 
       console.error(error);
+
+      if (uploadedImage?.imagePath) {
+        await removeNewsImageFromStorage(
+          uploadedImage.imagePath
+        );
+      }
 
       message.textContent =
         "Could not save news: " +
@@ -14198,6 +14495,17 @@
 
     message.className =
       "message success-text";
+
+    if (
+      (uploadedImage || removeImage) &&
+      currentNews?.image_path &&
+      currentNews.image_path !==
+        uploadedImage?.imagePath
+    ) {
+      await removeNewsImageFromStorage(
+        currentNews.image_path
+      );
+    }
 
 
     await loadAdminPanel();
@@ -14227,6 +14535,14 @@
 
 
     const {
+      data: newsToDelete
+    } = await supabaseClient
+      .from("news")
+      .select("image_path")
+      .eq("id", newsId)
+      .single();
+
+    const {
       error
     } = await supabaseClient
       .from("news")
@@ -14249,6 +14565,12 @@
       return;
     }
 
+
+    if (newsToDelete?.image_path) {
+      await removeNewsImageFromStorage(
+        newsToDelete.image_path
+      );
+    }
 
     await loadAdminPanel();
 
