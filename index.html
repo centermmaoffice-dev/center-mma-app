@@ -1675,6 +1675,11 @@
         Don't have an account?
         <span onclick="showRegister()">Create account</span>
       </div>
+
+      <div id="authInstallArea" class="hidden" style="margin-top:18px; padding-top:16px; border-top:1px solid #2a2a2a;">
+        <button id="authInstallButton" type="button" onclick="installCenterMmaApp()" style="width:100%;">INSTALL APP</button>
+        <div id="authInstallHint" class="muted small" style="margin-top:9px; text-align:center;"></div>
+      </div>
     </div>
 
     <!-- REGISTER -->
@@ -18815,22 +18820,38 @@
     const text = document.getElementById("installAppText");
     const iosSteps = document.getElementById("iosInstallSteps");
     const button = document.getElementById("installAppButton");
+    const authArea = document.getElementById("authInstallArea");
+    const authButton = document.getElementById("authInstallButton");
+    const authHint = document.getElementById("authInstallHint");
 
-    if (!card || isStandalonePwa()) {
+    if (isStandalonePwa()) {
       if (card) card.classList.add("hidden");
+      if (authArea) authArea.classList.add("hidden");
       return;
     }
 
     if (isIosDevice()) {
-      card.classList.remove("hidden");
+      if (card) card.classList.remove("hidden");
       if (title) title.textContent = "CENTER MMA auf iPhone installieren";
       if (text) text.textContent = "Auf dem iPhone wird die Installation direkt über Safari durchgeführt:";
       if (iosSteps) iosSteps.classList.remove("hidden");
       if (button) button.classList.add("hidden");
+
+      if (authArea) authArea.classList.remove("hidden");
+      if (authButton) authButton.textContent = "INSTALL ON IPHONE";
+      if (authHint) authHint.textContent = "Safari → Share → Add to Home Screen";
       return;
     }
 
     if (iosSteps) iosSteps.classList.add("hidden");
+
+    if (deferredInstallPrompt) {
+      if (authArea) authArea.classList.remove("hidden");
+      if (authButton) authButton.textContent = "INSTALL APP";
+      if (authHint) authHint.textContent = "Install CENTER MMA on this device";
+    } else {
+      if (authArea) authArea.classList.add("hidden");
+    }
   }
 
 
@@ -18858,6 +18879,8 @@
 
         deferredInstallPrompt =
           event;
+
+        updateInstallCardForDevice();
 
         const card =
           document.getElementById(
@@ -18889,6 +18912,9 @@
             "hidden"
           );
         }
+
+        const authArea = document.getElementById("authInstallArea");
+        if (authArea) authArea.classList.add("hidden");
       }
     );
 
@@ -18903,7 +18929,7 @@
 
     if (isIosDevice()) {
       alert(
-        "Auf dem iPhone: Safari öffnen → Teilen → Zum Home-Bildschirm → Hinzufügen."
+        "On iPhone: open Safari → Share → Add to Home Screen → Add."
       );
       return;
     }
@@ -18935,6 +18961,9 @@
         "hidden"
       );
     }
+
+    const authArea = document.getElementById("authInstallArea");
+    if (authArea) authArea.classList.add("hidden");
   }
 
 
