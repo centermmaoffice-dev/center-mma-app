@@ -1744,9 +1744,15 @@
       <div id="birthdayBanner"></div>
 
       <div id="installAppCard" class="card install-card hidden">
-        <h3>Install CENTER MMA</h3>
-        <p class="muted small">Install the app on this device for a faster full-screen experience.</p>
-        <button onclick="installCenterMmaApp()">INSTALL APP</button>
+        <h3 id="installAppTitle">Install CENTER MMA</h3>
+        <p id="installAppText" class="muted small">Install the app on this device for a faster full-screen experience.</p>
+        <div id="iosInstallSteps" class="hidden" style="margin-top:12px; line-height:1.65; font-size:13px; color:#bbb;">
+          <div><strong>1.</strong> Open this page in Safari.</div>
+          <div><strong>2.</strong> Tap <strong>Share / Teilen</strong> (the square with the arrow).</div>
+          <div><strong>3.</strong> Choose <strong>Add to Home Screen / Zum Home-Bildschirm</strong>.</div>
+          <div><strong>4.</strong> Tap <strong>Add / Hinzufügen</strong>.</div>
+        </div>
+        <button id="installAppButton" onclick="installCenterMmaApp()">INSTALL APP</button>
       </div>
 
       <div id="membershipSummary" class="card home-membership-card"></div>
@@ -18793,7 +18799,44 @@
      PWA / DEVICE ALERTS
   ========================= */
 
+  function isIosDevice() {
+    return /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  }
+
+  function isStandalonePwa() {
+    return window.matchMedia("(display-mode: standalone)").matches ||
+      window.navigator.standalone === true;
+  }
+
+  function updateInstallCardForDevice() {
+    const card = document.getElementById("installAppCard");
+    const title = document.getElementById("installAppTitle");
+    const text = document.getElementById("installAppText");
+    const iosSteps = document.getElementById("iosInstallSteps");
+    const button = document.getElementById("installAppButton");
+
+    if (!card || isStandalonePwa()) {
+      if (card) card.classList.add("hidden");
+      return;
+    }
+
+    if (isIosDevice()) {
+      card.classList.remove("hidden");
+      if (title) title.textContent = "CENTER MMA auf iPhone installieren";
+      if (text) text.textContent = "Auf dem iPhone wird die Installation direkt über Safari durchgeführt:";
+      if (iosSteps) iosSteps.classList.remove("hidden");
+      if (button) button.classList.add("hidden");
+      return;
+    }
+
+    if (iosSteps) iosSteps.classList.add("hidden");
+  }
+
+
   function initializePwa() {
+
+    updateInstallCardForDevice();
 
     if ("serviceWorker" in navigator) {
 
@@ -18857,6 +18900,13 @@
 
 
   async function installCenterMmaApp() {
+
+    if (isIosDevice()) {
+      alert(
+        "Auf dem iPhone: Safari öffnen → Teilen → Zum Home-Bildschirm → Hinzufügen."
+      );
+      return;
+    }
 
     if (!deferredInstallPrompt) {
 
