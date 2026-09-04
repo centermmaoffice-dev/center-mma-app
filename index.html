@@ -1538,6 +1538,97 @@
       }
     }
 
+
+    /* =========================
+       ADMIN COMPACT ACCORDION
+    ========================= */
+    .admin-accordion-card {
+      padding: 0 !important;
+      overflow: hidden;
+    }
+
+    .admin-accordion-toggle {
+      width: 100%;
+      margin: 0 !important;
+      padding: 14px 16px !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+      color: #fff !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      gap: 12px !important;
+      text-align: left !important;
+    }
+
+    .admin-accordion-toggle:hover {
+      background: rgba(255,255,255,.035) !important;
+    }
+
+    .admin-accordion-summary {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .admin-accordion-title {
+      font-size: 15px;
+      font-weight: 900;
+      line-height: 1.3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .admin-accordion-meta {
+      color: #888;
+      font-size: 11px;
+      line-height: 1.4;
+      margin-top: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .admin-accordion-chevron {
+      width: 28px;
+      height: 28px;
+      flex: 0 0 28px;
+      border-radius: 8px;
+      border: 1px solid #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      transition: transform .15s ease;
+    }
+
+    .admin-accordion-card.admin-accordion-open .admin-accordion-chevron {
+      transform: rotate(180deg);
+    }
+
+    .admin-accordion-body {
+      border-top: 1px solid #292929;
+      padding: 15px;
+    }
+
+    .admin-accordion-body.hidden {
+      display: none !important;
+    }
+
+    .permanent-delete-box {
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid #522020;
+    }
+
+    .permanent-delete-note {
+      color: #d99797;
+      font-size: 11px;
+      line-height: 1.5;
+      margin-top: 6px;
+    }
+
   </style>
 </head>
 
@@ -2660,6 +2751,7 @@
     async function () {
 
       initializePwa();
+      initializeAdminAccordionObserver();
 
       const params =
         new URLSearchParams(
@@ -13156,6 +13248,26 @@
                     class="message"
                   ></div>
 
+                  <div class="permanent-delete-box">
+                    <button
+                      class="danger"
+                      ${member.user_id === currentUser?.id ? "disabled" : ""}
+                      onclick="permanentlyDeleteMember(
+                        '${member.id}',
+                        '${member.user_id || ""}',
+                        '${escapeHtml(displayName).replaceAll("'", "\\'")}'
+                      )"
+                    >
+                      PERMANENTLY DELETE MEMBER
+                    </button>
+
+                    <div class="permanent-delete-note">
+                      Deletes the member account and personal app data permanently.
+                      The same e-mail can be registered again afterwards.
+                      ${member.user_id === currentUser?.id ? "You cannot delete your own logged-in admin account." : ""}
+                    </div>
+                  </div>
+
                 </div>
 
                 <div class="admin-edit-box">
@@ -18292,6 +18404,389 @@
     await loadAdminPanel();
   }
 
+
+
+  /* =========================
+     ADMIN COMPACT ACCORDIONS
+  ========================= */
+
+  let adminAccordionObserver = null;
+
+  function initializeAdminAccordionObserver() {
+
+    const root =
+      document.getElementById(
+        "adminContent"
+      );
+
+    if (!root) {
+      return;
+    }
+
+    enhanceAdminAccordionCards(root);
+
+    if (adminAccordionObserver) {
+      adminAccordionObserver.disconnect();
+    }
+
+    adminAccordionObserver =
+      new MutationObserver(
+        function () {
+          enhanceAdminAccordionCards(root);
+        }
+      );
+
+    adminAccordionObserver.observe(
+      root,
+      {
+        childList: true,
+        subtree: true
+      }
+    );
+  }
+
+
+  function getAdminAccordionCandidates(root) {
+
+    return Array.from(
+      root.querySelectorAll(`
+        #adminMembersList .admin-member-card,
+        .payment-item.admin-payment,
+        #adminNewsList > .competition-admin-card,
+        #adminTrainingSessionsList > .competition-admin-card,
+        #adminDocumentsList > .competition-admin-card,
+        #adminGroupsList > .competition-admin-card,
+        #adminNotificationHistory > .competition-admin-card,
+        .participant-card
+      `)
+    );
+  }
+
+
+  function getAdminAccordionSummary(card) {
+
+    let title = "Item";
+    let meta = "Tap to open";
+
+    if (
+      card.classList.contains(
+        "admin-member-card"
+      )
+    ) {
+
+      const children =
+        Array.from(card.children);
+
+      title =
+        children[0]?.textContent?.trim() ||
+        "Member";
+
+      meta =
+        children[1]?.textContent?.trim() ||
+        "Member profile";
+
+    } else if (
+      card.classList.contains(
+        "admin-payment"
+      )
+    ) {
+
+      title =
+        card.querySelector(
+          ".payment-top div div"
+        )?.textContent?.trim() ||
+        "Payment request";
+
+      meta =
+        card.querySelector(
+          ".payment-amount"
+        )?.textContent?.trim() ||
+        "Pending payment";
+
+    } else if (
+      card.classList.contains(
+        "participant-card"
+      )
+    ) {
+
+      title =
+        card.querySelector(
+          ".participant-name"
+        )?.textContent?.trim() ||
+        "Participant";
+
+      meta =
+        card.querySelector(
+          ".muted.small"
+        )?.textContent?.trim() ||
+        "Competition participant";
+
+    } else {
+
+      const boldCandidates =
+        Array.from(
+          card.querySelectorAll(
+            'div[style*="font-weight:800"], h3'
+          )
+        );
+
+      title =
+        boldCandidates
+          .map(
+            item =>
+              item.textContent?.trim()
+          )
+          .find(Boolean) ||
+        "Item";
+
+      const metaCandidates =
+        Array.from(
+          card.querySelectorAll(
+            ".muted.small, div"
+          )
+        );
+
+      meta =
+        metaCandidates
+          .map(
+            item =>
+              item.textContent?.trim()
+          )
+          .find(
+            value =>
+              value &&
+              value !== title &&
+              value.length < 140
+          ) ||
+        "Tap to open";
+    }
+
+    return {
+      title:
+        title.replace(/\s+/g, " "),
+      meta:
+        meta.replace(/\s+/g, " ")
+    };
+  }
+
+
+  function enhanceAdminAccordionCards(root) {
+
+    const cards =
+      getAdminAccordionCandidates(root);
+
+    for (const card of cards) {
+
+      if (
+        card.dataset.adminAccordionReady ===
+        "true"
+      ) {
+        continue;
+      }
+
+      card.dataset.adminAccordionReady =
+        "true";
+
+      const summary =
+        getAdminAccordionSummary(card);
+
+      const body =
+        document.createElement("div");
+
+      body.className =
+        "admin-accordion-body hidden";
+
+      while (card.firstChild) {
+        body.appendChild(
+          card.firstChild
+        );
+      }
+
+      const toggle =
+        document.createElement("button");
+
+      toggle.type = "button";
+      toggle.className =
+        "admin-accordion-toggle";
+
+      toggle.innerHTML = `
+        <div class="admin-accordion-summary">
+          <div class="admin-accordion-title">
+            ${escapeHtml(summary.title)}
+          </div>
+          <div class="admin-accordion-meta">
+            ${escapeHtml(summary.meta)}
+          </div>
+        </div>
+        <div class="admin-accordion-chevron">⌄</div>
+      `;
+
+      toggle.addEventListener(
+        "click",
+        function () {
+          toggleAdminAccordionCard(card);
+        }
+      );
+
+      card.classList.add(
+        "admin-accordion-card"
+      );
+
+      card.appendChild(toggle);
+      card.appendChild(body);
+    }
+  }
+
+
+  function toggleAdminAccordionCard(card) {
+
+    const body =
+      card.querySelector(
+        ":scope > .admin-accordion-body"
+      );
+
+    if (!body) {
+      return;
+    }
+
+    const willOpen =
+      body.classList.contains(
+        "hidden"
+      );
+
+    const parent =
+      card.parentElement;
+
+    if (parent && willOpen) {
+
+      const opened =
+        parent.querySelectorAll(
+          ":scope > .admin-accordion-card.admin-accordion-open"
+        );
+
+      for (const other of opened) {
+
+        if (other === card) {
+          continue;
+        }
+
+        other.classList.remove(
+          "admin-accordion-open"
+        );
+
+        other.querySelector(
+          ":scope > .admin-accordion-body"
+        )?.classList.add(
+          "hidden"
+        );
+      }
+    }
+
+    body.classList.toggle(
+      "hidden",
+      !willOpen
+    );
+
+    card.classList.toggle(
+      "admin-accordion-open",
+      willOpen
+    );
+  }
+
+
+  async function permanentlyDeleteMember(
+    memberId,
+    userId,
+    displayName
+  ) {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    if (!memberId || !userId) {
+      alert(
+        "This member does not have a complete account link and cannot be permanently deleted automatically."
+      );
+      return;
+    }
+
+    if (
+      currentUser?.id === userId
+    ) {
+      alert(
+        "You cannot permanently delete the admin account you are currently using."
+      );
+      return;
+    }
+
+    const firstConfirmed =
+      confirm(
+        `Permanently delete ${displayName || "this member"}?\n\nThe login account and personal app data will be deleted. This cannot be undone.`
+      );
+
+    if (!firstConfirmed) {
+      return;
+    }
+
+    const secondConfirmed =
+      confirm(
+        "FINAL CONFIRMATION\n\nAfter deletion, this person must register again from the beginning. Continue?"
+      );
+
+    if (!secondConfirmed) {
+      return;
+    }
+
+    try {
+
+      const {
+        data,
+        error
+      } = await supabaseClient
+        .functions
+        .invoke(
+          "delete-member",
+          {
+            body: {
+              memberId
+            }
+          }
+        );
+
+      if (error) {
+        throw error;
+      }
+
+      if (
+        data?.error
+      ) {
+        throw new Error(
+          data.error
+        );
+      }
+
+      alert(
+        `${displayName || "Member"} was permanently deleted. The e-mail address can now be registered again.`
+      );
+
+      await renderAdminSection(
+        "members"
+      );
+
+    } catch (error) {
+
+      console.error(
+        "Permanent member deletion failed:",
+        error
+      );
+
+      alert(
+        "Could not permanently delete member: " +
+        (error?.message || String(error))
+      );
+    }
+  }
 
 
   /* =========================
