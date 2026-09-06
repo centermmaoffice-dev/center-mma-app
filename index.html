@@ -3320,6 +3320,11 @@
 
     startNotificationRealtime();
 
+    // Keep the device's Web Push subscription synchronized with the
+    // currently logged-in account. This is what allows notifications to
+    // arrive through the service worker even when the app is closed.
+    syncPushSubscriptionAfterLogin();
+
     currentSectionName =
       "home";
 
@@ -19141,7 +19146,61 @@
   }
 
 
+  async function syncPushSubscriptionAfterLogin() {
+
+    if (
+      !currentUser ||
+      !("Notification" in window) ||
+      !("serviceWorker" in navigator) ||
+      !("PushManager" in window) ||
+      Notification.permission !== "granted"
+    ) {
+      return;
+    }
+
+    try {
+
+      const registration =
+        await navigator.serviceWorker.ready;
+
+      let subscription =
+        await registration.pushManager.getSubscription();
+
+      // If permission was already granted but the browser lost the
+      // subscription (browser update, reinstall, iOS PWA refresh, etc.),
+      // recreate it automatically. No new permission dialog is needed.
+      if (!subscription) {
+        subscription =
+          await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey:
+              urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+          });
+      }
+
+      await savePushSubscription(subscription);
+      await updateDeviceAlertStatus();
+
+    } catch (error) {
+      console.error(
+        "Could not synchronize push subscription:",
+        error
+      );
+    }
+  }
+
+
   async function enableDeviceAlerts() {
+
+    if (
+      isIosDevice() &&
+      !isStandalonePwa()
+    ) {
+      alert(
+        "On iPhone, install CENTER MMA first: Safari → Share → Add to Home Screen. Then open the installed app and enable notifications there."
+      );
+      return;
+    }
 
     if (
       !("Notification" in window) ||
@@ -19276,6 +19335,14 @@
       );
 
     if (!element) {
+      return;
+    }
+
+    if (isIosDevice() && !isStandalonePwa()) {
+
+      element.textContent =
+        "On iPhone, install CENTER MMA with Safari → Share → Add to Home Screen, then enable notifications in the installed app.";
+
       return;
     }
 
