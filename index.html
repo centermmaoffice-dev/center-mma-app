@@ -19270,68 +19270,149 @@
 
   async function enableDeviceAlerts() {
 
-    if (
-      isIosDevice() &&
-      !isStandalonePwa()
-    ) {
-      alert(
-        "On iPhone, install CENTER MMA first: Safari → Share → Add to Home Screen. Then open the installed app and enable notifications there."
-      );
-      return;
-    }
+    const statusElement =
+      document.getElementById("deviceAlertStatus");
 
-    if (
-      !("Notification" in window) ||
-      !("serviceWorker" in navigator) ||
-      !("PushManager" in window)
-    ) {
-
-      alert(
-        "Push notifications are not supported by this browser."
+    const enableButton =
+      document.querySelector(
+        'button[onclick="enableDeviceAlerts()"]'
       );
 
-      return;
+    function setPushStatus(text) {
+      if (statusElement) {
+        statusElement.textContent = text;
+      }
     }
 
-    const permission =
-      await Notification
-        .requestPermission();
-
-    if (permission !== "granted") {
-
-      updateDeviceAlertStatus();
-
-      return;
+    if (enableButton) {
+      enableButton.disabled = true;
     }
 
     try {
 
+      setPushStatus(
+        "Step 1/6: Checking this device..."
+      );
+
+      if (
+        isIosDevice() &&
+        !isStandalonePwa()
+      ) {
+        const message =
+          "On iPhone, install CENTER MMA first: Safari → Share → Add to Home Screen. Then open the installed app and enable notifications there.";
+        setPushStatus(message);
+        alert(message);
+        return;
+      }
+
+      if (
+        !("Notification" in window) ||
+        !("serviceWorker" in navigator) ||
+        !("PushManager" in window)
+      ) {
+        const message =
+          "Push notifications are not supported by this browser.";
+        setPushStatus(message);
+        alert(message);
+        return;
+      }
+
+      if (!window.isSecureContext) {
+        throw new Error(
+          "Push requires a secure HTTPS connection. Current origin: " +
+          window.location.origin
+        );
+      }
+
+      if (!currentUser) {
+        throw new Error(
+          "You must be logged in before enabling push notifications."
+        );
+      }
+
+      setPushStatus(
+        "Step 2/6: Requesting notification permission..."
+      );
+
+      const permission =
+        await Notification.requestPermission();
+
+      setPushStatus(
+        "Step 3/6: Permission = " + permission
+      );
+
+      if (permission !== "granted") {
+        if (permission === "denied") {
+          setPushStatus(
+            "Push notifications are blocked in browser/device settings."
+          );
+        } else {
+          setPushStatus(
+            "Notification permission was not granted."
+          );
+        }
+        return;
+      }
+
+      setPushStatus(
+        "Step 4/6: Preparing service worker..."
+      );
+
       const registration =
         await getReadyServiceWorkerRegistration();
 
-      let subscription =
-        await registration
-          .pushManager
-          .getSubscription();
-
-      if (!subscription) {
-
-        subscription =
-          await registration
-            .pushManager
-            .subscribe({
-              userVisibleOnly:
-                true,
-              applicationServerKey:
-                getValidatedVapidApplicationServerKey()
-            });
+      if (!registration.active) {
+        throw new Error(
+          "Service worker is registered but not active yet."
+        );
       }
 
-      await savePushSubscription(
-        subscription
+      setPushStatus(
+        "Step 5/6: Creating push subscription..."
       );
 
-      updateDeviceAlertStatus();
+      let subscription =
+        await registration.pushManager.getSubscription();
+
+      if (!subscription) {
+        subscription =
+          await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey:
+              getValidatedVapidApplicationServerKey()
+          });
+      }
+
+      if (!subscription) {
+        throw new Error(
+          "PushManager did not return a subscription."
+        );
+      }
+
+      const endpointPreview =
+        subscription.endpoint
+          ? subscription.endpoint.slice(0, 45) + "..."
+          : "missing endpoint";
+
+      setPushStatus(
+        "Step 6/6: Saving subscription to CENTER MMA..."
+      );
+
+      await savePushSubscription(subscription);
+
+      const verifySubscription =
+        await registration.pushManager.getSubscription();
+
+      if (!verifySubscription) {
+        throw new Error(
+          "Subscription was created but could not be verified on this device."
+        );
+      }
+
+      setPushStatus(
+        "Push notifications are active on this device. Endpoint: " +
+        endpointPreview
+      );
 
     } catch (error) {
 
@@ -19343,26 +19424,28 @@
       const details =
         getPushErrorDetails(error);
 
-      alert(
-        "Could not enable push notifications: " +
-        details
-      );
+      const message =
+        "Push setup failed: " + details;
 
-      const statusElement =
-        document.getElementById("deviceAlertStatus");
-
-      if (statusElement) {
-        statusElement.textContent =
-          "Push subscription failed: " + details;
-      }
+      setPushStatus(message);
+      alert(message);
 
       console.error("Push diagnostics", {
         secureContext: window.isSecureContext,
         origin: window.location.origin,
-        permission: Notification.permission,
+        permission:
+          ("Notification" in window)
+            ? Notification.permission
+            : "unsupported",
         standalone: isStandalonePwa(),
         userAgent: navigator.userAgent
       });
+
+    } finally {
+
+      if (enableButton) {
+        enableButton.disabled = false;
+      }
     }
   }
 
