@@ -11290,17 +11290,31 @@
     let uploadError = null;
 
     try {
+      // Mobile/PWA-safe upload: read the selected file into memory first.
+      // Some Android browsers/PWA shells intermittently fail when a File
+      // object from the system picker is passed directly to fetch.
+      const fileBuffer = await file.arrayBuffer();
+      const uploadBody = new Blob(
+        [fileBuffer],
+        {
+          type:
+            file.type ||
+            "application/octet-stream"
+        }
+      );
+
       const uploadResult = await supabaseClient
         .storage
         .from("club-documents")
         .upload(
           filePath,
-          file,
+          uploadBody,
           {
             upsert: false,
             contentType:
               file.type ||
-              "application/octet-stream"
+              "application/octet-stream",
+            cacheControl: "3600"
           }
         );
 
