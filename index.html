@@ -12065,6 +12065,7 @@
       "message";
 
     let userIds = [];
+    let groupId = null;
 
     if (recipient === "all") {
 
@@ -12112,7 +12113,7 @@
       )
     ) {
 
-      const groupId =
+      groupId =
         recipient.slice(
           "group:".length
         );
@@ -12182,31 +12183,27 @@
       return;
     }
 
-    const rows =
-      userIds.map(
-        userId => ({
-          user_id:
-            userId,
-          title:
-            title,
-          message:
-            message,
-          type:
-            "admin",
-          link_section:
-            linkSection,
-          created_by:
-            currentUser.id
-        })
-      );
+    // One database row for a broadcast instead of one duplicate row per member.
+    // user_id = null + group_id = null means all members.
+    // user_id = null + group_id = <id> means one specific group.
+    const row = {
+      user_id: null,
+      group_id: groupId,
+      title: title,
+      message: message,
+      type: "admin",
+      link_section: linkSection,
+      created_by: currentUser.id
+    };
 
     const {
-      data: insertedNotifications,
+      data: insertedNotification,
       error
     } = await supabaseClient
       .from("notifications")
-      .insert(rows)
-      .select("id");
+      .insert(row)
+      .select("id")
+      .single();
 
     if (error) {
 
@@ -12222,27 +12219,27 @@
       return;
     }
 
-    if (
-      insertedNotifications &&
-      insertedNotifications.length
-    ) {
+    if (insertedNotification?.id) {
 
-      await Promise.allSettled(
-        insertedNotifications.map(
-          item =>
-            supabaseClient
-              .functions
-              .invoke(
-                "send-push",
-                {
-                  body: {
-                    notificationId:
-                      item.id
-                  }
-                }
-              )
-        )
-      );
+      const pushResult =
+        await supabaseClient
+          .functions
+          .invoke(
+            "send-push",
+            {
+              body: {
+                notificationId:
+                  insertedNotification.id
+              }
+            }
+          );
+
+      if (pushResult.error) {
+        console.error(
+          "Could not trigger push notification:",
+          pushResult.error
+        );
+      }
     }
 
     status.textContent =
@@ -12250,7 +12247,7 @@
         userIds.length === 1
           ? ""
           : "s"
-      }.`;
+      } using 1 notification record.`;
 
     status.className =
       "message success-text";
