@@ -19058,6 +19058,76 @@
   }
 
 
+  function getPushErrorDetails(error) {
+
+    if (!error) {
+      return "Unknown push error";
+    }
+
+    const parts = [];
+
+    if (error.name) {
+      parts.push(error.name);
+    }
+
+    if (error.message) {
+      parts.push(error.message);
+    }
+
+    if (error.code !== undefined && error.code !== null) {
+      parts.push("code=" + error.code);
+    }
+
+    return parts.join(": ") || String(error);
+  }
+
+
+  function getValidatedVapidApplicationServerKey() {
+
+    const key = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+
+    // A Web Push uncompressed P-256 public key must be 65 bytes
+    // and start with 0x04. Showing a precise error here is much
+    // more useful than a generic PushManager failure.
+    if (key.length !== 65 || key[0] !== 4) {
+      throw new Error(
+        "Invalid VAPID public key. Expected 65-byte uncompressed P-256 key, got " +
+        key.length + " bytes."
+      );
+    }
+
+    return key;
+  }
+
+
+  async function getReadyServiceWorkerRegistration() {
+
+    if (!("serviceWorker" in navigator)) {
+      throw new Error("Service Worker API is not available.");
+    }
+
+    let registration = null;
+
+    try {
+      registration = await navigator.serviceWorker.getRegistration("/");
+    } catch (error) {
+      console.warn("Could not read existing service worker registration:", error);
+    }
+
+    if (!registration) {
+      registration = await navigator.serviceWorker.register("/sw.js");
+    }
+
+    registration = await navigator.serviceWorker.ready;
+
+    if (!registration || !registration.pushManager) {
+      throw new Error("Service worker is ready, but PushManager is unavailable.");
+    }
+
+    return registration;
+  }
+
+
   async function getCurrentPushSubscription() {
 
     if (
@@ -19068,9 +19138,7 @@
     }
 
     const registration =
-      await navigator
-        .serviceWorker
-        .ready;
+      await getReadyServiceWorkerRegistration();
 
     return await registration
       .pushManager
@@ -19161,7 +19229,7 @@
     try {
 
       const registration =
-        await navigator.serviceWorker.ready;
+        await getReadyServiceWorkerRegistration();
 
       let subscription =
         await registration.pushManager.getSubscription();
@@ -19174,7 +19242,7 @@
           await registration.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey:
-              urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+              getValidatedVapidApplicationServerKey()
           });
       }
 
@@ -19182,10 +19250,20 @@
       await updateDeviceAlertStatus();
 
     } catch (error) {
+      const details = getPushErrorDetails(error);
+
       console.error(
         "Could not synchronize push subscription:",
         error
       );
+
+      const statusElement =
+        document.getElementById("deviceAlertStatus");
+
+      if (statusElement) {
+        statusElement.textContent =
+          "Push subscription failed: " + details;
+      }
     }
   }
 
@@ -19229,9 +19307,7 @@
     try {
 
       const registration =
-        await navigator
-          .serviceWorker
-          .ready;
+        await getReadyServiceWorkerRegistration();
 
       let subscription =
         await registration
@@ -19247,9 +19323,7 @@
               userVisibleOnly:
                 true,
               applicationServerKey:
-                urlBase64ToUint8Array(
-                  VAPID_PUBLIC_KEY
-                )
+                getValidatedVapidApplicationServerKey()
             });
       }
 
@@ -19266,12 +19340,29 @@
         error
       );
 
+      const details =
+        getPushErrorDetails(error);
+
       alert(
         "Could not enable push notifications: " +
-        error.message
+        details
       );
 
-      updateDeviceAlertStatus();
+      const statusElement =
+        document.getElementById("deviceAlertStatus");
+
+      if (statusElement) {
+        statusElement.textContent =
+          "Push subscription failed: " + details;
+      }
+
+      console.error("Push diagnostics", {
+        secureContext: window.isSecureContext,
+        origin: window.location.origin,
+        permission: Notification.permission,
+        standalone: isStandalonePwa(),
+        userAgent: navigator.userAgent
+      });
     }
   }
 
