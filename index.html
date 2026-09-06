@@ -11287,31 +11287,80 @@
     const filePath =
       `${Date.now()}-${safeName}`;
 
-    const {
-      error: uploadError
-    } = await supabaseClient
-      .storage
-      .from("club-documents")
-      .upload(
-        filePath,
-        file,
-        {
-          upsert: false,
-          contentType:
-            file.type ||
-            "application/octet-stream"
-        }
-      );
+    let uploadError = null;
+
+    try {
+      const uploadResult = await supabaseClient
+        .storage
+        .from("club-documents")
+        .upload(
+          filePath,
+          file,
+          {
+            upsert: false,
+            contentType:
+              file.type ||
+              "application/octet-stream"
+          }
+        );
+
+      uploadError = uploadResult.error || null;
+    } catch (networkError) {
+      console.error("Document upload network error", networkError);
+
+      let authState = "unknown";
+      let apiState = "unknown";
+
+      try {
+        const { data: sessionData } = await supabaseClient.auth.getSession();
+        authState = sessionData?.session?.user?.id
+          ? "signed-in"
+          : "no-session";
+      } catch (_) {
+        authState = "session-check-failed";
+      }
+
+      try {
+        const probe = await supabaseClient
+          .from("members")
+          .select("id")
+          .limit(1);
+
+        apiState = probe.error
+          ? "api-error: " + probe.error.message
+          : "api-ok";
+      } catch (probeError) {
+        apiState = "api-fetch-failed";
+      }
+
+      message.textContent =
+        "Could not upload file: " +
+        (networkError?.message || "Network request failed") +
+        " | online=" + navigator.onLine +
+        " | auth=" + authState +
+        " | supabase=" + apiState +
+        " | type=" + (file.type || "unknown") +
+        " | size=" + Math.round(file.size / 1024) + " KB";
+
+      message.className =
+        "message error";
+
+      return;
+    }
 
     if (uploadError) {
 
       console.error(
+        "Document upload Storage error",
         uploadError
       );
 
       message.textContent =
         "Could not upload file: " +
-        uploadError.message;
+        (uploadError.message || "Storage error") +
+        (uploadError.statusCode
+          ? " | status=" + uploadError.statusCode
+          : "");
 
       message.className =
         "message error";
