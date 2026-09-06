@@ -18927,7 +18927,7 @@
     if ("serviceWorker" in navigator) {
 
       navigator.serviceWorker
-        .register("/sw.js")
+        .register("/sw.js?v=20260906-1", { updateViaCache: "none" })
         .catch(function (error) {
           console.error(
             "Service worker registration failed:",
@@ -19114,8 +19114,17 @@
       console.warn("Could not read existing service worker registration:", error);
     }
 
-    if (!registration) {
-      registration = await navigator.serviceWorker.register("/sw.js");
+    // Always register the current versioned service worker URL so browsers
+    // do not stay on a stale cached sw.js after a deployment.
+    registration = await navigator.serviceWorker.register(
+      "/sw.js?v=20260906-1",
+      { updateViaCache: "none" }
+    );
+
+    try {
+      await registration.update();
+    } catch (error) {
+      console.warn("Service worker update check failed:", error);
     }
 
     registration = await navigator.serviceWorker.ready;
