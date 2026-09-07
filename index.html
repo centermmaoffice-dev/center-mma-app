@@ -8464,6 +8464,7 @@
       "message";
 
     const {
+      data: insertedMessage,
       error
     } = await supabaseClient
       .from("chat_messages")
@@ -8472,7 +8473,9 @@
           currentUser.id,
         message:
           message
-      });
+      })
+      .select("id")
+      .single();
 
     if (error) {
 
@@ -8488,16 +8491,6 @@
       return;
     }
 
-    const senderName =
-      [
-        currentMember?.first_name,
-        currentMember?.last_name
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .trim() ||
-      "CENTER MMA member";
-
     const {
       error: chatPushError
     } = await supabaseClient
@@ -8506,18 +8499,8 @@
         "send-push",
         {
           body: {
-            type:
-              "chat",
-            title:
-              "New chat message",
-            message:
-              senderName + ": " + message,
-            linkSection:
-              "chat",
-            broadcast:
-              true,
-            excludeCurrentUser:
-              true
+            chatMessageId:
+              insertedMessage.id
           }
         }
       );
