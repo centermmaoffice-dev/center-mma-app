@@ -16613,6 +16613,8 @@
       </div>
 
 
+      <div id="adminCompetitionResultsDashboard"></div>
+
       <div id="adminCompetitionsList"></div>
 
     `;
@@ -16657,6 +16659,253 @@
           }
         )
         .join("");
+
+    await loadAdminCompetitionResults();
+  }
+
+
+  async function loadAdminCompetitionResults() {
+    if (!isAdmin) return;
+
+    const element = document.getElementById("adminCompetitionResultsDashboard");
+    if (!element) return;
+
+    element.innerHTML = `
+      <div class="card">
+        <h3>Athlete Results</h3>
+        <p class="muted small">All competition disciplines, categories and results in one place. You can edit or permanently delete results here.</p>
+        <div class="empty">Loading results...</div>
+      </div>`;
+
+    const [{ data: entries, error: entriesError }, { data: registrations, error: registrationsError }] = await Promise.all([
+      supabaseClient
+        .from("competition_entries")
+        .select("*")
+        .order("created_at", { ascending: false }),
+      supabaseClient
+        .from("competition_registrations")
+        .select(`
+          id, competition_id, member_id, status, participation_role,
+          members ( id, first_name, last_name, membership_number ),
+          competitions ( id, title, date )
+        `)
+    ]);
+
+    if (entriesError || registrationsError) {
+      const err = entriesError || registrationsError;
+      console.error(err);
+      element.innerHTML = `<div class="card"><div class="message error">Could not load athlete results: ${escapeHtml(err.message)}</div></div>`;
+      return;
+    }
+
+    const registrationMap = new Map((registrations || []).map(r => [r.id, r]));
+    const rows = (entries || []).map(entry => ({ entry, registration: registrationMap.get(entry.registration_id) })).filter(x => x.registration);
+
+    const athleteNames = [...new Set(rows.map(x => {
+      const m = x.registration.members || {};
+      return [m.first_name, m.last_name].filter(Boolean).join(" ") || "Unknown athlete";
+    }))].sort((a,b) => a.localeCompare(b));
+    const competitionNames = [...new Set(rows.map(x => x.registration.competitions?.title || "Unknown competition"))].sort((a,b) => a.localeCompare(b));
+    const disciplines = [...new Set(rows.map(x => x.entry.discipline).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+
+    const gold = rows.filter(x => x.entry.medal === "gold").length;
+    const silver = rows.filter(x => x.entry.medal === "silver").length;
+    const bronze = rows.filter(x => x.entry.medal === "bronze").length;
+    const fights = rows.reduce((sum,x) => sum + Number(x.entry.fights_count || 0), 0);
+    const wins = rows.reduce((sum,x) => sum + Number(x.entry.wins_count || 0), 0);
+
+    element.innerHTML = `
+      <div class="card">
+        <h3>Athlete Results</h3>
+        <p class="muted small">All competition disciplines, categories and results in one place. Edit or permanently delete any result here.</p>
+
+        <div class="detail-grid" style="margin-top:14px;">
+          <div class="detail-box"><div class="detail-label">Athletes</div><div class="detail-value">${athleteNames.length}</div></div>
+          <div class="detail-box"><div class="detail-label">Entries</div><div class="detail-value">${rows.length}</div></div>
+          <div class="detail-box"><div class="detail-label">Gold</div><div class="detail-value">${gold}</div></div>
+          <div class="detail-box"><div class="detail-label">Silver</div><div class="detail-value">${silver}</div></div>
+          <div class="detail-box"><div class="detail-label">Bronze</div><div class="detail-value">${bronze}</div></div>
+          <div class="detail-box"><div class="detail-label">Fights / Wins</div><div class="detail-value">${fights} / ${wins}</div></div>
+        </div>
+
+        <label>Athlete</label>
+        <select id="adminResultsAthleteFilter" onchange="filterAdminCompetitionResults()">
+          <option value="">All athletes</option>
+          ${athleteNames.map(x => `<option value="${escapeHtml(x.toLowerCase())}">${escapeHtml(x)}</option>`).join("")}
+        </select>
+
+        <label>Competition</label>
+        <select id="adminResultsCompetitionFilter" onchange="filterAdminCompetitionResults()">
+          <option value="">All competitions</option>
+          ${competitionNames.map(x => `<option value="${escapeHtml(x.toLowerCase())}">${escapeHtml(x)}</option>`).join("")}
+        </select>
+
+        <label>Discipline</label>
+        <select id="adminResultsDisciplineFilter" onchange="filterAdminCompetitionResults()">
+          <option value="">All disciplines</option>
+          ${disciplines.map(x => `<option value="${escapeHtml(x.toLowerCase())}">${escapeHtml(x)}</option>`).join("")}
+        </select>
+
+        <input id="adminResultsSearch" type="text" placeholder="Search athlete, competition or category..." oninput="filterAdminCompetitionResults()" style="margin-top:12px;">
+      </div>
+
+      <div id="adminCompetitionResultsList">
+        ${rows.length ? rows.map(({entry, registration}) => renderAdminCompetitionResultRow(entry, registration)).join("") : `<div class="card"><div class="empty">No competition results yet.</div></div>`}
+      </div>`;
+  }
+
+
+  function renderAdminCompetitionResultRow(entry, registration) {
+    const member = registration.members || {};
+    const competition = registration.competitions || {};
+    const athleteName = [member.first_name, member.last_name].filter(Boolean).join(" ") || "Unknown athlete";
+    const competitionName = competition.title || "Unknown competition";
+    const medalText = entry.medal === "gold" ? "🥇 Gold" : entry.medal === "silver" ? "🥈 Silver" : entry.medal === "bronze" ? "🥉 Bronze" : (entry.result_place ? getOrdinalPlace(Number(entry.result_place)) : "No medal");
+    const search = [athleteName, competitionName, entry.discipline || "", entry.category || "", member.membership_number || ""].join(" ").toLowerCase();
+
+    return `
+      <div class="card admin-result-row"
+        data-athlete="${escapeHtml(athleteName.toLowerCase())}"
+        data-competition="${escapeHtml(competitionName.toLowerCase())}"
+        data-discipline="${escapeHtml(String(entry.discipline || "").toLowerCase())}"
+        data-search="${escapeHtml(search)}">
+
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
+          <div>
+            <div style="font-size:18px;font-weight:900;">${escapeHtml(athleteName)}</div>
+            <div class="muted small">${escapeHtml(competitionName)}${competition.date ? ` • ${formatDate(competition.date)}` : ""}</div>
+            <div class="muted small" style="margin-top:4px;">${escapeHtml(entry.discipline || "-")} ${entry.category ? `• ${escapeHtml(entry.category)}` : ""} • ${medalText}</div>
+          </div>
+          <div class="muted small">Member: ${escapeHtml(member.membership_number || "-")}</div>
+        </div>
+
+        <div class="admin-edit-box" style="margin-top:14px;">
+          <label>Discipline</label>
+          <input id="dashboardEntryDiscipline-${entry.id}" value="${escapeHtml(entry.discipline || "")}">
+
+          <label>Category</label>
+          <input id="dashboardEntryCategory-${entry.id}" value="${escapeHtml(entry.category || "")}" placeholder="e.g. -90 kg, Absolute">
+
+          <label>Weight (optional)</label>
+          <input id="dashboardEntryWeight-${entry.id}" type="number" step="0.1" min="0" value="${escapeHtml(entry.weight ?? "")}">
+
+          <label>Medal</label>
+          <select id="dashboardEntryMedal-${entry.id}">
+            <option value="" ${!entry.medal ? "selected" : ""}>No medal</option>
+            <option value="gold" ${entry.medal === "gold" ? "selected" : ""}>🥇 Gold</option>
+            <option value="silver" ${entry.medal === "silver" ? "selected" : ""}>🥈 Silver</option>
+            <option value="bronze" ${entry.medal === "bronze" ? "selected" : ""}>🥉 Bronze</option>
+          </select>
+
+          <label>Result place (optional)</label>
+          <input id="dashboardEntryResult-${entry.id}" type="number" min="1" value="${escapeHtml(entry.result_place ?? "")}">
+
+          <label>Fights</label>
+          <input id="dashboardEntryFights-${entry.id}" type="number" min="0" value="${escapeHtml(entry.fights_count ?? 0)}">
+
+          <label>Wins</label>
+          <input id="dashboardEntryWins-${entry.id}" type="number" min="0" value="${escapeHtml(entry.wins_count ?? 0)}">
+
+          <label>Notes</label>
+          <textarea id="dashboardEntryNotes-${entry.id}">${escapeHtml(entry.notes || "")}</textarea>
+
+          <div class="admin-actions">
+            <button onclick="saveCompetitionEntryFromDashboard('${entry.id}')">SAVE RESULT</button>
+            <button class="danger" onclick="deleteCompetitionEntryFromDashboard('${entry.id}')">DELETE RESULT PERMANENTLY</button>
+          </div>
+
+          <button class="danger" style="margin-top:10px;" onclick="deleteCompetitionParticipantFromDashboard('${registration.id}','${registration.competition_id}')">DELETE ATHLETE FROM THIS COMPETITION</button>
+        </div>
+      </div>`;
+  }
+
+
+  function filterAdminCompetitionResults() {
+    const athlete = String(document.getElementById("adminResultsAthleteFilter")?.value || "");
+    const competition = String(document.getElementById("adminResultsCompetitionFilter")?.value || "");
+    const discipline = String(document.getElementById("adminResultsDisciplineFilter")?.value || "");
+    const search = String(document.getElementById("adminResultsSearch")?.value || "").trim().toLowerCase();
+
+    document.querySelectorAll(".admin-result-row").forEach(row => {
+      const show = (!athlete || row.dataset.athlete === athlete) &&
+        (!competition || row.dataset.competition === competition) &&
+        (!discipline || row.dataset.discipline === discipline) &&
+        (!search || String(row.dataset.search || "").includes(search));
+      row.classList.toggle("hidden", !show);
+    });
+  }
+
+
+  async function saveCompetitionEntryFromDashboard(entryId) {
+    if (!isAdmin) return;
+
+    const discipline = document.getElementById("dashboardEntryDiscipline-" + entryId).value.trim();
+    const category = document.getElementById("dashboardEntryCategory-" + entryId).value.trim();
+    const weightRaw = document.getElementById("dashboardEntryWeight-" + entryId).value.trim();
+    const medal = document.getElementById("dashboardEntryMedal-" + entryId).value;
+    const resultRaw = document.getElementById("dashboardEntryResult-" + entryId).value.trim();
+    const fightsRaw = document.getElementById("dashboardEntryFights-" + entryId).value.trim();
+    const winsRaw = document.getElementById("dashboardEntryWins-" + entryId).value.trim();
+    const notes = document.getElementById("dashboardEntryNotes-" + entryId).value.trim();
+
+    const weight = weightRaw === "" ? null : Math.abs(Number(weightRaw));
+    const resultPlace = resultRaw === "" ? null : Number(resultRaw);
+    const fightsCount = fightsRaw === "" ? 0 : Number(fightsRaw);
+    const winsCount = winsRaw === "" ? 0 : Number(winsRaw);
+
+    if (!discipline) return alert("Discipline is required.");
+    if (weight !== null && Number.isNaN(weight)) return alert("Invalid weight.");
+    if (resultPlace !== null && (Number.isNaN(resultPlace) || resultPlace < 1)) return alert("Result place must be 1 or higher.");
+    if (Number.isNaN(fightsCount) || fightsCount < 0) return alert("Fights count cannot be negative.");
+    if (Number.isNaN(winsCount) || winsCount < 0) return alert("Wins count cannot be negative.");
+    if (winsCount > fightsCount) return alert("Wins count cannot be higher than fights count.");
+
+    const { error } = await supabaseClient
+      .from("competition_entries")
+      .update({ discipline, category: category || null, weight, medal: medal || null, result_place: resultPlace, fights_count: fightsCount, wins_count: winsCount, notes: notes || null, updated_at: new Date().toISOString() })
+      .eq("id", entryId);
+
+    if (error) {
+      console.error(error);
+      alert("Could not save result: " + error.message);
+      return;
+    }
+
+    await loadAdminCompetitionResults();
+  }
+
+
+  async function deleteCompetitionEntryFromDashboard(entryId) {
+    if (!isAdmin) return;
+    if (!confirm("Permanently delete this competition result? This cannot be undone.")) return;
+
+    const { error } = await supabaseClient.from("competition_entries").delete().eq("id", entryId);
+    if (error) {
+      console.error(error);
+      alert("Could not delete result: " + error.message);
+      return;
+    }
+
+    await loadAdminCompetitionResults();
+  }
+
+
+  async function deleteCompetitionParticipantFromDashboard(registrationId, competitionId) {
+    if (!isAdmin) return;
+    if (!confirm("Permanently delete this athlete from this competition? All of this athlete's categories/results for this competition will also be deleted. This cannot be undone.")) return;
+
+    const { error } = await supabaseClient.from("competition_registrations").delete().eq("id", registrationId);
+    if (error) {
+      console.error(error);
+      alert("Could not delete athlete from competition: " + error.message);
+      return;
+    }
+
+    await loadAdminCompetitionResults();
+    const participants = document.getElementById("adminParticipants-" + competitionId);
+    if (participants && !participants.classList.contains("hidden")) {
+      await loadAdminParticipants(competitionId);
+    }
   }
 
 
@@ -17717,6 +17966,7 @@
     await loadAdminParticipants(
       competitionId
     );
+    await loadAdminCompetitionResults();
   }
 
 
@@ -17802,6 +18052,7 @@
     }
 
     await loadAdminParticipants(competitionId);
+    await loadAdminCompetitionResults();
   }
 
 
@@ -17862,6 +18113,7 @@
     }
 
     await loadAdminParticipants(competitionId);
+    await loadAdminCompetitionResults();
   }
 
 
@@ -17911,6 +18163,7 @@
     }
 
     await loadAdminParticipants(competitionId);
+    await loadAdminCompetitionResults();
   }
 
 
@@ -17930,6 +18183,7 @@
     }
 
     await loadAdminParticipants(competitionId);
+    await loadAdminCompetitionResults();
   }
 
 
