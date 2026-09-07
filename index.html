@@ -13044,6 +13044,7 @@
         phone,
         emergency_contact_name,
         emergency_contact_phone,
+        birth_date,
         membership_number,
         role,
         is_active,
@@ -13269,6 +13270,14 @@
                   <input
                     id="adminMemberEmergencyPhone-${member.id}"
                     value="${escapeHtml(member.emergency_contact_phone || "")}"
+                  >
+
+                  <label>Geburtsdatum</label>
+                  <input
+                    type="date"
+                    value="${escapeHtml(member.birth_date || "")}"
+                    readonly
+                    style="opacity:.85; cursor:default;"
                   >
 
                   <label>Membership number</label>
