@@ -20419,10 +20419,46 @@
         "shopAdminTools"
       );
 
+    // Always hide admin controls first.
+    // Then verify admin rights directly with Supabase.
     if (adminTools) {
-      adminTools.classList.toggle(
-        "hidden",
-        !isAdmin
+      adminTools.classList.add(
+        "hidden"
+      );
+    }
+
+    let canManageShop = false;
+
+    try {
+      const {
+        data: adminAllowed,
+        error: adminCheckError
+      } = await supabaseClient
+        .rpc("is_admin");
+
+      if (adminCheckError) {
+        console.error(
+          "Shop admin check failed:",
+          adminCheckError
+        );
+      }
+
+      canManageShop =
+        adminAllowed === true &&
+        currentMember?.role === "admin";
+    } catch (error) {
+      console.error(
+        "Shop admin check failed:",
+        error
+      );
+    }
+
+    if (
+      adminTools &&
+      canManageShop
+    ) {
+      adminTools.classList.remove(
+        "hidden"
       );
     }
 
@@ -21162,7 +21198,21 @@
   }
 
   async function toggleShopAdminTools() {
-    if (!isAdmin) {
+    const {
+      data: adminAllowed,
+      error: adminCheckError
+    } = await supabaseClient
+      .rpc("is_admin");
+
+    if (
+      adminCheckError ||
+      adminAllowed !== true ||
+      currentMember?.role !== "admin"
+    ) {
+      console.error(
+        "Shop management denied.",
+        adminCheckError || ""
+      );
       return;
     }
 
