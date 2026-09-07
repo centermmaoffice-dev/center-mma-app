@@ -21098,6 +21098,7 @@
           size
         )
       `)
+      .eq("user_id", currentUser.id)
       .order("created_at", {
         ascending: false
       })
@@ -21213,6 +21214,7 @@
         )
       `)
       .eq("id", orderId)
+      .eq("user_id", currentUser.id)
       .single();
 
     if (error) {
@@ -22238,6 +22240,13 @@
                     `
                     : ""
                 }
+
+                <button
+                  class="danger"
+                  onclick="adminDeleteShopOrder('${order.id}','${order.status}')"
+                >
+                  DELETE ORDER
+                </button>
               </div>
 
               <div
@@ -22249,6 +22258,51 @@
         }
       ).join("");
   }
+
+  async function adminDeleteShopOrder(
+    orderId,
+    status
+  ) {
+    if (!isAdmin) {
+      return;
+    }
+
+    const restoresStock =
+      ["new", "confirmed", "ready"].includes(status);
+
+    const warning = restoresStock
+      ? "Delete this order permanently? Reserved stock will be returned before deletion."
+      : "Delete this order permanently? This cannot be undone.";
+
+    if (!confirm(warning)) {
+      return;
+    }
+
+    const { error } = await supabaseClient
+      .rpc(
+        "admin_delete_shop_order",
+        {
+          p_order_id: orderId
+        }
+      );
+
+    if (error) {
+      console.error(error);
+      alert(
+        "Could not delete order: " +
+        error.message
+      );
+      return;
+    }
+
+    await Promise.all([
+      loadAdminShopOrders(),
+      loadAdminShopProducts(),
+      loadShopProducts(),
+      loadMyShopOrders()
+    ]);
+  }
+
 
   async function setShopOrderStatus(
     orderId,
