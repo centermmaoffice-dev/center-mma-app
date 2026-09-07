@@ -20296,18 +20296,42 @@
   let shopProducts = [];
   let shopCart = [];
   let shopViewMode = "products";
-  let shopSubmittedOrderId =
-    localStorage.getItem("centerMmaShopSubmittedOrderId") || "";
+  let shopSubmittedOrderId = "";
+
+  function getShopCartStorageKey() {
+    return currentUser?.id
+      ? `centerMmaShopCart:${currentUser.id}`
+      : "centerMmaShopCart:guest";
+  }
+
+  function getShopSubmittedOrderStorageKey() {
+    return currentUser?.id
+      ? `centerMmaShopSubmittedOrderId:${currentUser.id}`
+      : "centerMmaShopSubmittedOrderId:guest";
+  }
 
   function loadShopCartFromStorage() {
     try {
       const saved = JSON.parse(
-        localStorage.getItem("centerMmaShopCart") || "[]"
+        localStorage.getItem(
+          getShopCartStorageKey()
+        ) || "[]"
       );
-      shopCart = Array.isArray(saved) ? saved : [];
+
+      shopCart =
+        Array.isArray(saved)
+          ? saved
+          : [];
+
+      shopSubmittedOrderId =
+        localStorage.getItem(
+          getShopSubmittedOrderStorageKey()
+        ) || "";
     } catch (error) {
       shopCart = [];
+      shopSubmittedOrderId = "";
     }
+
     updateShopCartBadge();
   }
 
@@ -20317,12 +20341,12 @@
 
     if (shopSubmittedOrderId) {
       localStorage.setItem(
-        "centerMmaShopSubmittedOrderId",
+        getShopSubmittedOrderStorageKey(),
         shopSubmittedOrderId
       );
     } else {
       localStorage.removeItem(
-        "centerMmaShopSubmittedOrderId"
+        getShopSubmittedOrderStorageKey()
       );
     }
   }
@@ -20346,7 +20370,7 @@
 
   function saveShopCart() {
     localStorage.setItem(
-      "centerMmaShopCart",
+      getShopCartStorageKey(),
       JSON.stringify(shopCart)
     );
     updateShopCartBadge();
@@ -20803,12 +20827,11 @@
     }
 
     if (orderButton) {
-      orderButton.disabled =
-        Boolean(shopSubmittedOrderId);
+      orderButton.disabled = false;
 
       orderButton.textContent =
         shopSubmittedOrderId
-          ? "ORDER SENT"
+          ? "SAVE ORDER CHANGES"
           : "PLACE CASH ORDER";
     }
 
@@ -20843,38 +20866,30 @@
                   ${formatEuro(item.price)} each
                 </div>
                 <div class="shop-cart-actions">
-                  ${
-                    shopSubmittedOrderId
-                      ? `
-                        <strong>ORDER SENT</strong>
-                      `
-                      : `
-                        <button
-                          class="secondary"
-                          onclick="changeShopCartQuantity(
-                            '${item.product_id}',
-                            '${escapeHtml(item.size || "")}',
-                            -1
-                          )"
-                        >−</button>
-                        <strong>${Number(item.quantity || 1)}</strong>
-                        <button
-                          class="secondary"
-                          onclick="changeShopCartQuantity(
-                            '${item.product_id}',
-                            '${escapeHtml(item.size || "")}',
-                            1
-                          )"
-                        >+</button>
-                        <button
-                          class="danger"
-                          onclick="removeShopCartItem(
-                            '${item.product_id}',
-                            '${escapeHtml(item.size || "")}'
-                          )"
-                        >REMOVE</button>
-                      `
-                  }
+                  <button
+                    class="secondary"
+                    onclick="changeShopCartQuantity(
+                      '${item.product_id}',
+                      '${escapeHtml(item.size || "")}',
+                      -1
+                    )"
+                  >−</button>
+                  <strong>${Number(item.quantity || 1)}</strong>
+                  <button
+                    class="secondary"
+                    onclick="changeShopCartQuantity(
+                      '${item.product_id}',
+                      '${escapeHtml(item.size || "")}',
+                      1
+                    )"
+                  >+</button>
+                  <button
+                    class="danger"
+                    onclick="removeShopCartItem(
+                      '${item.product_id}',
+                      '${escapeHtml(item.size || "")}'
+                    )"
+                  >REMOVE</button>
                 </div>
               </div>
             </div>
@@ -20902,6 +20917,9 @@
       ${
         shopSubmittedOrderId
           ? `
+            <div class="shop-cash-note">
+              You are editing an existing order. Changes are possible only while the order status is NEW.
+            </div>
             <button
               class="secondary"
               onclick="startNewShopOrder()"
@@ -20953,16 +20971,31 @@
         })
       );
 
+    const rpcName =
+      shopSubmittedOrderId
+        ? "member_update_shop_order"
+        : "create_shop_order";
+
+    const rpcArgs =
+      shopSubmittedOrderId
+        ? {
+            p_order_id:
+              shopSubmittedOrderId,
+            p_items:
+              items
+          }
+        : {
+            p_items:
+              items
+          };
+
     const {
       data,
       error
     } = await supabaseClient
       .rpc(
-        "create_shop_order",
-        {
-          p_items:
-            items
-        }
+        rpcName,
+        rpcArgs
       );
 
     if (button) {
@@ -20979,8 +21012,13 @@
       return;
     }
 
+    const isEditing =
+      Boolean(shopSubmittedOrderId);
+
     const orderId =
-      data?.order_id || "";
+      data?.order_id ||
+      shopSubmittedOrderId ||
+      "";
 
     const notificationIds =
       Array.isArray(data?.notification_ids)
@@ -20991,30 +21029,35 @@
     saveShopCart();
     renderShopCart();
 
-    for (const notificationId of notificationIds) {
-      const {
-        error: pushError
-      } = await supabaseClient
-        .functions
-        .invoke(
-          "send-push",
-          {
-            body: {
-              notificationId
+    // New-order push only. Editing an order does not create extra Shop notifications.
+    if (!isEditing) {
+      for (const notificationId of notificationIds) {
+        const {
+          error: pushError
+        } = await supabaseClient
+          .functions
+          .invoke(
+            "send-push",
+            {
+              body: {
+                notificationId
+              }
             }
-          }
-        );
+          );
 
-      if (pushError) {
-        console.error(
-          "Could not send admin shop push:",
-          pushError
-        );
+        if (pushError) {
+          console.error(
+            "Could not send admin shop push:",
+            pushError
+          );
+        }
       }
     }
 
     message.textContent =
-      "Order sent. Please pay cash when you receive it.";
+      isEditing
+        ? "Order updated."
+        : "Order sent. Please pay cash when you receive it.";
     message.className =
       "message success-text";
 
@@ -21048,6 +21091,7 @@
         created_at,
         shop_order_items (
           id,
+          product_id,
           product_title,
           price,
           quantity,
@@ -21104,12 +21148,212 @@
                       `${escapeHtml(item.product_title)}${item.size ? " / " + escapeHtml(item.size) : ""} × ${Number(item.quantity || 1)}`
                   ).join("<br>")}
                 </div>
+
+                ${
+                  order.status === "new"
+                    ? `
+                      <div class="shop-cart-actions" style="margin-top:10px;">
+                        <button
+                          class="secondary"
+                          onclick="editMyShopOrder('${order.id}')"
+                        >
+                          EDIT ORDER
+                        </button>
+
+                        <button
+                          class="danger"
+                          onclick="cancelMyShopOrder('${order.id}')"
+                        >
+                          CANCEL ORDER
+                        </button>
+                      </div>
+                    `
+                    : ""
+                }
+
+                ${
+                  order.status === "cancelled"
+                    ? `
+                      <div class="shop-cart-actions" style="margin-top:10px;">
+                        <button
+                          class="danger"
+                          onclick="deleteMyCancelledShopOrder('${order.id}')"
+                        >
+                          DELETE ORDER
+                        </button>
+                      </div>
+                    `
+                    : ""
+                }
               </div>
             </div>
           `;
         }
       ).join("");
   }
+
+
+  async function editMyShopOrder(
+    orderId
+  ) {
+    const {
+      data,
+      error
+    } = await supabaseClient
+      .from("shop_orders")
+      .select(`
+        id,
+        status,
+        shop_order_items (
+          product_id,
+          product_title,
+          price,
+          quantity,
+          size
+        )
+      `)
+      .eq("id", orderId)
+      .single();
+
+    if (error) {
+      console.error(error);
+      alert(
+        "Could not load order: " +
+        error.message
+      );
+      return;
+    }
+
+    if (data?.status !== "new") {
+      alert(
+        "This order can no longer be changed because it has already been accepted or processed."
+      );
+      await loadMyShopOrders();
+      return;
+    }
+
+    shopCart =
+      (data.shop_order_items || [])
+        .filter(item => item.product_id)
+        .map(
+          item => ({
+            product_id:
+              item.product_id,
+            title:
+              item.product_title || "Product",
+            price:
+              Number(item.price || 0),
+            image_url:
+              null,
+            size:
+              item.size || "",
+            quantity:
+              Number(item.quantity || 1)
+          })
+        );
+
+    setShopSubmittedOrderId(
+      orderId
+    );
+    saveShopCart();
+    showShopCart();
+    renderShopCart();
+  }
+
+
+  async function cancelMyShopOrder(
+    orderId
+  ) {
+    if (
+      !confirm(
+        "Cancel this order? The reserved products will be returned to stock."
+      )
+    ) {
+      return;
+    }
+
+    const {
+      error
+    } = await supabaseClient
+      .rpc(
+        "member_cancel_shop_order",
+        {
+          p_order_id:
+            orderId
+        }
+      );
+
+    if (error) {
+      console.error(error);
+      alert(
+        "Could not cancel order: " +
+        error.message
+      );
+      return;
+    }
+
+    if (
+      shopSubmittedOrderId ===
+      orderId
+    ) {
+      shopCart = [];
+      setShopSubmittedOrderId("");
+      saveShopCart();
+      renderShopCart();
+    }
+
+    await Promise.all([
+      loadMyShopOrders(),
+      loadShopProducts()
+    ]);
+  }
+
+
+
+  async function deleteMyCancelledShopOrder(
+    orderId
+  ) {
+    if (
+      !confirm(
+        "Delete this cancelled order permanently? It will disappear from My Orders."
+      )
+    ) {
+      return;
+    }
+
+    const {
+      error
+    } = await supabaseClient
+      .rpc(
+        "member_delete_cancelled_shop_order",
+        {
+          p_order_id:
+            orderId
+        }
+      );
+
+    if (error) {
+      console.error(error);
+      alert(
+        "Could not delete order: " +
+        error.message
+      );
+      return;
+    }
+
+    if (
+      shopSubmittedOrderId ===
+      orderId
+    ) {
+      shopCart = [];
+      setShopSubmittedOrderId("");
+      saveShopCart();
+      renderShopCart();
+    }
+
+    await loadMyShopOrders();
+  }
+
 
   function validateShopImageFile(file) {
     if (!file) {
