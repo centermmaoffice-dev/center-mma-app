@@ -2154,6 +2154,22 @@
         <h2>Shop</h2>
       </div>
 
+
+      <div id="shopAdminTools" class="hidden" style="margin-bottom:14px;">
+        <button
+          class="secondary"
+          onclick="toggleShopAdminTools()"
+        >
+          ⚙ MANAGE SHOP
+        </button>
+
+        <div
+          id="shopAdminToolsContent"
+          class="hidden"
+          style="margin-top:12px;"
+        ></div>
+      </div>
+
       <div class="shop-toolbar">
         <div class="muted small">CENTER MMA merchandise</div>
         <button
@@ -4980,6 +4996,7 @@
       "membership",
       "payments",
       "news",
+      "shop",
       "profile",
       "calendar",
       "attendance",
@@ -10619,21 +10636,6 @@
 
         <div
           class="feature"
-          onclick="openAdminSection('shop')"
-        >
-          <div class="feature-icon">🛒</div>
-          <div class="feature-title">
-            Shop
-          </div>
-          <div class="feature-text">
-            Products and cash orders
-          </div>
-        </div>
-
-
-
-        <div
-          class="feature"
           onclick="openAdminSection('birthdays')"
         >
           <div class="feature-icon">🎂</div>
@@ -10713,8 +10715,6 @@
         "Groups",
       notifications:
         "Notifications",
-      shop:
-        "Shop",
       birthdays:
         "Birthdays"
     };
@@ -10821,14 +10821,6 @@
     ) {
 
       await loadAdminNotifications(
-        content
-      );
-
-    } else if (
-      section === "shop"
-    ) {
-
-      await loadAdminShop(
         content
       );
 
@@ -17590,6 +17582,16 @@
             SAVE PARTICIPANT
           </button>
 
+          <button
+            class="danger"
+            onclick="deleteCompetitionRegistration(
+              '${registration.id}',
+              '${registration.competition_id}'
+            )"
+          >
+            DELETE PARTICIPANT FROM COMPETITION
+          </button>
+
 
           <div
             id="adminParticipantMessage-${registration.id}"
@@ -18104,6 +18106,50 @@
         competitionId
       );
     }
+  }
+
+
+  async function deleteCompetitionRegistration(
+    registrationId,
+    competitionId
+  ) {
+    if (!isAdmin) {
+      return;
+    }
+
+    const confirmed =
+      confirm(
+        "Delete this athlete from the competition completely? The registration record will be permanently deleted."
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const {
+      error
+    } = await supabaseClient
+      .from("competition_registrations")
+      .delete()
+      .eq(
+        "id",
+        registrationId
+      );
+
+    if (error) {
+      console.error(error);
+
+      alert(
+        "Could not delete participant: " +
+        error.message
+      );
+
+      return;
+    }
+
+    await loadAdminParticipants(
+      competitionId
+    );
   }
 
 
@@ -20261,6 +20307,8 @@
   let shopProducts = [];
   let shopCart = [];
   let shopViewMode = "products";
+  let shopSubmittedOrderId =
+    localStorage.getItem("centerMmaShopSubmittedOrderId") || "";
 
   function loadShopCartFromStorage() {
     try {
@@ -20272,6 +20320,39 @@
       shopCart = [];
     }
     updateShopCartBadge();
+  }
+
+  function setShopSubmittedOrderId(orderId) {
+    shopSubmittedOrderId =
+      String(orderId || "");
+
+    if (shopSubmittedOrderId) {
+      localStorage.setItem(
+        "centerMmaShopSubmittedOrderId",
+        shopSubmittedOrderId
+      );
+    } else {
+      localStorage.removeItem(
+        "centerMmaShopSubmittedOrderId"
+      );
+    }
+  }
+
+  function startNewShopOrder() {
+    if (
+      shopCart.length > 0 &&
+      !confirm(
+        "Start a new order? The current submitted cart will be cleared."
+      )
+    ) {
+      return;
+    }
+
+    shopCart = [];
+    setShopSubmittedOrderId("");
+    saveShopCart();
+    renderShopCart();
+    showShopProducts();
   }
 
   function saveShopCart() {
@@ -20333,6 +20414,18 @@
   async function loadShop() {
     loadShopCartFromStorage();
 
+    const adminTools =
+      document.getElementById(
+        "shopAdminTools"
+      );
+
+    if (adminTools) {
+      adminTools.classList.toggle(
+        "hidden",
+        !isAdmin
+      );
+    }
+
     if (shopViewMode === "cart") {
       showShopCart();
     } else {
@@ -20371,6 +20464,7 @@
         image_url,
         sizes,
         in_stock,
+        stock_quantity,
         is_active,
         created_at
       `)
@@ -20458,13 +20552,17 @@
                   ${formatEuro(product.price)}
                 </div>
 
+                <div class="shop-cart-meta" style="margin-bottom:10px;">
+                  Available: ${Math.max(0, Number(product.stock_quantity || 0))}
+                </div>
+
                 ${sizeSelector}
 
                 <button
-                  ${product.in_stock ? "" : "disabled"}
+                  ${Number(product.stock_quantity || 0) > 0 ? "" : "disabled"}
                   onclick="addShopProductToCart('${product.id}')"
                 >
-                  ${product.in_stock ? "ADD TO CART" : "OUT OF STOCK"}
+                  ${Number(product.stock_quantity || 0) > 0 ? "ADD TO CART" : "OUT OF STOCK"}
                 </button>
               </div>
             </div>
@@ -20479,7 +20577,17 @@
         item => item.id === productId
       );
 
-    if (!product || !product.in_stock) {
+    if (
+      !product ||
+      Number(product.stock_quantity || 0) <= 0
+    ) {
+      return;
+    }
+
+    if (shopSubmittedOrderId) {
+      alert(
+        "Your previous order has already been sent. Start a new order first."
+      );
       return;
     }
 
@@ -20655,7 +20763,13 @@
     }
 
     if (orderButton) {
-      orderButton.disabled = false;
+      orderButton.disabled =
+        Boolean(shopSubmittedOrderId);
+
+      orderButton.textContent =
+        shopSubmittedOrderId
+          ? "ORDER SENT"
+          : "PLACE CASH ORDER";
     }
 
     list.innerHTML =
@@ -20689,30 +20803,38 @@
                   ${formatEuro(item.price)} each
                 </div>
                 <div class="shop-cart-actions">
-                  <button
-                    class="secondary"
-                    onclick="changeShopCartQuantity(
-                      '${item.product_id}',
-                      '${escapeHtml(item.size || "")}',
-                      -1
-                    )"
-                  >−</button>
-                  <strong>${Number(item.quantity || 1)}</strong>
-                  <button
-                    class="secondary"
-                    onclick="changeShopCartQuantity(
-                      '${item.product_id}',
-                      '${escapeHtml(item.size || "")}',
-                      1
-                    )"
-                  >+</button>
-                  <button
-                    class="danger"
-                    onclick="removeShopCartItem(
-                      '${item.product_id}',
-                      '${escapeHtml(item.size || "")}'
-                    )"
-                  >REMOVE</button>
+                  ${
+                    shopSubmittedOrderId
+                      ? `
+                        <strong>ORDER SENT</strong>
+                      `
+                      : `
+                        <button
+                          class="secondary"
+                          onclick="changeShopCartQuantity(
+                            '${item.product_id}',
+                            '${escapeHtml(item.size || "")}',
+                            -1
+                          )"
+                        >−</button>
+                        <strong>${Number(item.quantity || 1)}</strong>
+                        <button
+                          class="secondary"
+                          onclick="changeShopCartQuantity(
+                            '${item.product_id}',
+                            '${escapeHtml(item.size || "")}',
+                            1
+                          )"
+                        >+</button>
+                        <button
+                          class="danger"
+                          onclick="removeShopCartItem(
+                            '${item.product_id}',
+                            '${escapeHtml(item.size || "")}'
+                          )"
+                        >REMOVE</button>
+                      `
+                  }
                 </div>
               </div>
             </div>
@@ -20737,6 +20859,18 @@
       <div class="shop-cash-note">
         Payment method: <strong>Cash</strong>. No online payment will be taken.
       </div>
+      ${
+        shopSubmittedOrderId
+          ? `
+            <button
+              class="secondary"
+              onclick="startNewShopOrder()"
+            >
+              START NEW ORDER
+            </button>
+          `
+          : ""
+      }
     `;
   }
 
@@ -20805,16 +20939,49 @@
       return;
     }
 
-    shopCart = [];
+    const orderId =
+      data?.order_id || "";
+
+    const notificationIds =
+      Array.isArray(data?.notification_ids)
+        ? data.notification_ids
+        : [];
+
+    setShopSubmittedOrderId(orderId);
     saveShopCart();
     renderShopCart();
 
+    for (const notificationId of notificationIds) {
+      const {
+        error: pushError
+      } = await supabaseClient
+        .functions
+        .invoke(
+          "send-push",
+          {
+            body: {
+              notificationId
+            }
+          }
+        );
+
+      if (pushError) {
+        console.error(
+          "Could not send admin shop push:",
+          pushError
+        );
+      }
+    }
+
     message.textContent =
-      "Order placed. Please pay cash when you receive your order.";
+      "Order sent. Please pay cash when you receive it.";
     message.className =
       "message success-text";
 
-    await loadMyShopOrders();
+    await Promise.all([
+      loadMyShopOrders(),
+      loadShopProducts()
+    ]);
   }
 
   async function loadMyShopOrders() {
@@ -20994,6 +21161,35 @@
     };
   }
 
+  async function toggleShopAdminTools() {
+    if (!isAdmin) {
+      return;
+    }
+
+    const content =
+      document.getElementById(
+        "shopAdminToolsContent"
+      );
+
+    if (!content) {
+      return;
+    }
+
+    const willOpen =
+      content.classList.contains("hidden");
+
+    content.classList.toggle(
+      "hidden",
+      !willOpen
+    );
+
+    if (willOpen) {
+      content.innerHTML = "";
+      await loadAdminShop(content);
+    }
+  }
+
+
   async function loadAdminShop(
     element
   ) {
@@ -21042,11 +21238,17 @@
           accept="image/jpeg,image/png,image/webp"
         >
 
-        <label>Availability</label>
-        <select id="adminShopInStock">
-          <option value="true">In stock</option>
-          <option value="false">Out of stock</option>
-        </select>
+        <label>Available quantity</label>
+        <input
+          id="adminShopStockQuantity"
+          type="number"
+          min="0"
+          step="1"
+          value="0"
+        >
+        <div class="muted small">
+          When the quantity reaches 0, ordering stops automatically.
+        </div>
 
         <button onclick="createShopProduct()">
           CREATE PRODUCT
@@ -21122,12 +21324,19 @@
         )
         ?.value || "";
 
-    const inStock =
-      document
-        .getElementById(
-          "adminShopInStock"
+    const stockQuantity =
+      Math.max(
+        0,
+        Math.floor(
+          Number(
+            document
+              .getElementById(
+                "adminShopStockQuantity"
+              )
+              ?.value || 0
+          )
         )
-        ?.value === "true";
+      );
 
     const imageFile =
       document
@@ -21186,8 +21395,10 @@
             description || null,
           price,
           sizes,
+          stock_quantity:
+            stockQuantity,
           in_stock:
-            inStock,
+            stockQuantity > 0,
           is_active:
             true,
           image_url:
@@ -21235,8 +21446,15 @@
         .getElementById(
           "adminShopImage"
         ).value = "";
+      document
+        .getElementById(
+          "adminShopStockQuantity"
+        ).value = "0";
 
-      await loadAdminShopProducts();
+      await Promise.all([
+        loadAdminShopProducts(),
+        loadShopProducts()
+      ]);
 
     } catch (error) {
       console.error(error);
@@ -21332,15 +21550,14 @@
                 )}"
               >
 
-              <label>Availability</label>
-              <select id="adminShopInStock-${product.id}">
-                <option value="true" ${product.in_stock ? "selected" : ""}>
-                  In stock
-                </option>
-                <option value="false" ${!product.in_stock ? "selected" : ""}>
-                  Out of stock
-                </option>
-              </select>
+              <label>Available quantity</label>
+              <input
+                id="adminShopStock-${product.id}"
+                type="number"
+                min="0"
+                step="1"
+                value="${Math.max(0, Number(product.stock_quantity || 0))}"
+              >
 
               <label>Visible in shop</label>
               <select id="adminShopActive-${product.id}">
@@ -21433,13 +21650,20 @@
         .filter(Boolean)
         .slice(0, 30);
 
-    const inStock =
-      document
-        .getElementById(
-          "adminShopInStock-" +
-          productId
+    const stockQuantity =
+      Math.max(
+        0,
+        Math.floor(
+          Number(
+            document
+              .getElementById(
+                "adminShopStock-" +
+                productId
+              )
+              ?.value || 0
+          )
         )
-        ?.value === "true";
+      );
 
     const isActive =
       document
@@ -21471,8 +21695,10 @@
           description || null,
         price,
         sizes,
+        stock_quantity:
+          stockQuantity,
         in_stock:
-          inStock,
+          stockQuantity > 0,
         is_active:
           isActive
       })
@@ -21639,33 +21865,65 @@
                 ).join("<br>")}
               </div>
 
-              <label>Status</label>
-              <select
-                id="adminShopOrderStatus-${order.id}"
-              >
-                ${[
-                  "new",
-                  "confirmed",
-                  "ready",
-                  "completed",
-                  "cancelled"
-                ].map(
-                  status => `
-                    <option
-                      value="${status}"
-                      ${order.status === status ? "selected" : ""}
-                    >
-                      ${escapeHtml(shopStatusLabel(status))}
-                    </option>
-                  `
-                ).join("")}
-              </select>
+              <div style="margin-top:10px;">
+                <div class="shop-status">
+                  ${escapeHtml(shopStatusLabel(order.status))}
+                </div>
+              </div>
 
-              <button
-                onclick="saveShopOrderStatus('${order.id}')"
-              >
-                SAVE STATUS
-              </button>
+              <div class="admin-actions">
+                ${
+                  order.status === "new"
+                    ? `
+                      <button
+                        class="success"
+                        onclick="setShopOrderStatus('${order.id}','confirmed')"
+                      >
+                        ACCEPT ORDER
+                      </button>
+                    `
+                    : ""
+                }
+
+                ${
+                  order.status === "confirmed"
+                    ? `
+                      <button
+                        class="success"
+                        onclick="setShopOrderStatus('${order.id}','ready')"
+                      >
+                        READY FOR PICKUP
+                      </button>
+                    `
+                    : ""
+                }
+
+                ${
+                  order.status === "ready"
+                    ? `
+                      <button
+                        class="success"
+                        onclick="setShopOrderStatus('${order.id}','completed')"
+                      >
+                        COMPLETE
+                      </button>
+                    `
+                    : ""
+                }
+
+                ${
+                  !["completed","cancelled"].includes(order.status)
+                    ? `
+                      <button
+                        class="danger"
+                        onclick="setShopOrderStatus('${order.id}','cancelled')"
+                      >
+                        CANCEL ORDER
+                      </button>
+                    `
+                    : ""
+                }
+              </div>
 
               <div
                 id="adminShopOrderMessage-${order.id}"
@@ -21677,8 +21935,9 @@
       ).join("");
   }
 
-  async function saveShopOrderStatus(
-    orderId
+  async function setShopOrderStatus(
+    orderId,
+    status
   ) {
     if (!isAdmin) {
       return;
@@ -21690,54 +21949,59 @@
         orderId
       );
 
-    const status =
-      document
-        .getElementById(
-          "adminShopOrderStatus-" +
-          orderId
-        )
-        ?.value;
+    const labels = {
+      confirmed:
+        "Accept this order?",
+      ready:
+        "Mark this order as ready for pickup?",
+      completed:
+        "Mark this order as completed?",
+      cancelled:
+        "Cancel this order? Reserved stock will be returned."
+    };
 
-    const allowed = [
-      "new",
-      "confirmed",
-      "ready",
-      "completed",
-      "cancelled"
-    ];
-
-    if (!allowed.includes(status)) {
+    if (
+      !confirm(
+        labels[status] ||
+        "Change order status?"
+      )
+    ) {
       return;
     }
 
     const {
       error
     } = await supabaseClient
-      .from("shop_orders")
-      .update({
-        status
-      })
-      .eq(
-        "id",
-        orderId
+      .rpc(
+        "admin_set_shop_order_status",
+        {
+          p_order_id:
+            orderId,
+          p_status:
+            status
+        }
       );
 
     if (error) {
       console.error(error);
-      message.textContent =
-        "Could not save order: " +
-        error.message;
-      message.className =
-        "message error";
+
+      if (message) {
+        message.textContent =
+          "Could not update order: " +
+          error.message;
+        message.className =
+          "message error";
+      }
+
       return;
     }
 
-    message.textContent =
-      "Order status saved.";
-    message.className =
-      "message success-text";
+    await Promise.all([
+      loadAdminShopOrders(),
+      loadAdminShopProducts(),
+      loadShopProducts()
+    ]);
   }
-
 
   function escapeHtml(
     value
