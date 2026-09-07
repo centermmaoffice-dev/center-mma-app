@@ -2155,20 +2155,7 @@
       </div>
 
 
-      <div id="shopAdminTools" class="hidden" style="margin-bottom:14px;">
-        <button
-          class="secondary"
-          onclick="toggleShopAdminTools()"
-        >
-          ⚙ MANAGE SHOP
-        </button>
-
-        <div
-          id="shopAdminToolsContent"
-          class="hidden"
-          style="margin-top:12px;"
-        ></div>
-      </div>
+      <div id="shopAdminToolsMount"></div>
 
       <div class="shop-toolbar">
         <div class="muted small">CENTER MMA merchandise</div>
@@ -20414,17 +20401,14 @@
   async function loadShop() {
     loadShopCartFromStorage();
 
-    const adminTools =
+    const adminMount =
       document.getElementById(
-        "shopAdminTools"
+        "shopAdminToolsMount"
       );
 
-    // Always hide admin controls first.
-    // Then verify admin rights directly with Supabase.
-    if (adminTools) {
-      adminTools.classList.add(
-        "hidden"
-      );
+    // Remove admin UI from the DOM every time Shop opens.
+    if (adminMount) {
+      adminMount.innerHTML = "";
     }
 
     let canManageShop = false;
@@ -20453,13 +20437,30 @@
       );
     }
 
+    // Admin controls are created only after a positive server-side check.
     if (
-      adminTools &&
+      adminMount &&
       canManageShop
     ) {
-      adminTools.classList.remove(
-        "hidden"
-      );
+      adminMount.innerHTML = `
+        <div
+          id="shopAdminTools"
+          style="margin-bottom:14px;"
+        >
+          <button
+            class="secondary"
+            onclick="toggleShopAdminTools()"
+          >
+            ⚙ MANAGE SHOP
+          </button>
+
+          <div
+            id="shopAdminToolsContent"
+            class="hidden"
+            style="margin-top:12px;"
+          ></div>
+        </div>
+      `;
     }
 
     if (shopViewMode === "cart") {
@@ -21243,7 +21244,22 @@
   async function loadAdminShop(
     element
   ) {
-    if (!isAdmin || !element) {
+    if (!element) {
+      return;
+    }
+
+    const {
+      data: adminAllowed,
+      error: adminCheckError
+    } = await supabaseClient
+      .rpc("is_admin");
+
+    if (
+      adminCheckError ||
+      adminAllowed !== true ||
+      currentMember?.role !== "admin"
+    ) {
+      element.innerHTML = "";
       return;
     }
 
