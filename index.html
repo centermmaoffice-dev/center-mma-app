@@ -2965,6 +2965,8 @@
      GLOBAL VARIABLES
   ========================= */
 
+  const SHOP_ADMIN_USER_ID = "2122aca6-4bc2-420a-817b-a1ef16eb2b23";
+
   let currentUser = null;
   let currentMember = null;
   let currentMembership = null;
@@ -20429,7 +20431,8 @@
 
       canManageShop =
         adminAllowed === true &&
-        currentMember?.role === "admin";
+        currentMember?.role === "admin" &&
+        currentUser?.id === SHOP_ADMIN_USER_ID;
     } catch (error) {
       console.error(
         "Shop admin check failed:",
@@ -21208,7 +21211,8 @@
     if (
       adminCheckError ||
       adminAllowed !== true ||
-      currentMember?.role !== "admin"
+      currentMember?.role !== "admin" ||
+      currentUser?.id !== SHOP_ADMIN_USER_ID
     ) {
       console.error(
         "Shop management denied.",
@@ -21257,7 +21261,8 @@
     if (
       adminCheckError ||
       adminAllowed !== true ||
-      currentMember?.role !== "admin"
+      currentMember?.role !== "admin" ||
+      currentUser?.id !== SHOP_ADMIN_USER_ID
     ) {
       element.innerHTML = "";
       return;
