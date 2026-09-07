@@ -4369,13 +4369,50 @@
         addDaysToDateString(today, 370)
       );
 
-    const trainings =
+    const visibleTrainings =
       isStaff
         ? allFutureTrainings
         : filterTrainingSessionsForMember(
             allFutureTrainings,
             memberGroupIds || []
           );
+
+    // Do not keep today's training in "Nächster Termin" after it has ended.
+    // For sessions without end_time, start_time is used as the fallback cutoff.
+    const nowForHome = new Date();
+    const currentMinutesForHome =
+      nowForHome.getHours() * 60 +
+      nowForHome.getMinutes();
+
+    const trainings = visibleTrainings.filter(
+      function (training) {
+        const trainingDate = String(
+          training.training_date || ""
+        );
+
+        if (trainingDate > today) return true;
+        if (trainingDate < today) return false;
+
+        const cutoffRaw = String(
+          training.end_time ||
+          training.start_time ||
+          ""
+        ).slice(0, 5);
+
+        if (!cutoffRaw) return true;
+
+        const parts = cutoffRaw.split(":");
+        const cutoffMinutes =
+          Number(parts[0]) * 60 +
+          Number(parts[1]);
+
+        if (!Number.isFinite(cutoffMinutes)) {
+          return true;
+        }
+
+        return currentMinutesForHome < cutoffMinutes;
+      }
+    );
 
     trainings.sort(
       function (a, b) {
