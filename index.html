@@ -16664,6 +16664,9 @@
   }
 
 
+  let currentAdminResultsMemberId = null;
+
+
   async function loadAdminCompetitionResults() {
     if (!isAdmin) return;
 
@@ -16671,10 +16674,57 @@
     if (!element) return;
 
     element.innerHTML = `
-      <div class="card">
-        <h3>Athlete Results</h3>
-        <p class="muted small">All competition disciplines, categories and results in one place. You can edit or permanently delete results here.</p>
-        <div class="empty">Loading results...</div>
+      <div class="card" style="padding:14px;">
+        <div
+          onclick="openAdminAthleteResults()"
+          style="display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;"
+        >
+          <div>
+            <div style="font-size:18px;font-weight:900;">🏅 Athlete Results</div>
+            <div class="muted small" style="margin-top:4px;">Open athlete competition history and achievements</div>
+          </div>
+          <div style="font-size:24px;font-weight:900;">›</div>
+        </div>
+      </div>`;
+  }
+
+
+  async function openAdminCompetitionsHome() {
+    currentAdminResultsMemberId = null;
+    const content = document.getElementById("adminSectionContent");
+    if (!content) return;
+
+    const title = document.getElementById("staffPanelTitle");
+    if (title) title.textContent = "Competitions";
+
+    await loadAdminCompetitions(content);
+  }
+
+
+  async function openAdminAthleteResults() {
+    if (!isAdmin) return;
+
+    currentAdminResultsMemberId = null;
+
+    const content = document.getElementById("adminSectionContent");
+    if (!content) return;
+
+    const title = document.getElementById("staffPanelTitle");
+    if (title) title.textContent = "Athlete Results";
+
+    content.innerHTML = `
+      <button class="secondary back-button" onclick="openAdminCompetitionsHome()" style="margin-bottom:15px;">
+        ← BACK TO COMPETITIONS
+      </button>
+
+      <div class="card" style="padding:14px;">
+        <h3 style="margin-bottom:6px;">Athlete Results</h3>
+        <p class="muted small">Select an athlete to view all competition achievements.</p>
+        <input id="adminAthleteResultsSearch" type="text" placeholder="Search athlete..." oninput="filterAdminAthleteResultCards()" style="margin-top:12px;">
+      </div>
+
+      <div id="adminAthleteResultsList">
+        <div class="card"><div class="empty">Loading athletes...</div></div>
       </div>`;
 
     const [{ data: entries, error: entriesError }, { data: registrations, error: registrationsError }] = await Promise.all([
@@ -16685,101 +16735,245 @@
       supabaseClient
         .from("competition_registrations")
         .select(`
-          id, competition_id, member_id, status, participation_role,
+          id, competition_id, member_id, status,
           members ( id, first_name, last_name, membership_number ),
           competitions ( id, title, date )
         `)
     ]);
 
+    const list = document.getElementById("adminAthleteResultsList");
+    if (!list) return;
+
     if (entriesError || registrationsError) {
       const err = entriesError || registrationsError;
+      console.error(err);
+      list.innerHTML = `<div class="card"><div class="message error">Could not load athlete results: ${escapeHtml(err.message)}</div></div>`;
+      return;
+    }
+
+    const registrationMap = new Map((registrations || []).map(r => [r.id, r]));
+    const athletes = new Map();
+
+    (entries || []).forEach(entry => {
+      const registration = registrationMap.get(entry.registration_id);
+      if (!registration || !registration.member_id) return;
+
+      const member = registration.members || {};
+      const athleteName = [member.first_name, member.last_name].filter(Boolean).join(" ") || "Unknown athlete";
+
+      if (!athletes.has(registration.member_id)) {
+        athletes.set(registration.member_id, {
+          memberId: registration.member_id,
+          name: athleteName,
+          membershipNumber: member.membership_number || "",
+          competitions: new Set(),
+          entries: 0,
+          gold: 0,
+          silver: 0,
+          bronze: 0,
+          fights: 0,
+          wins: 0
+        });
+      }
+
+      const athlete = athletes.get(registration.member_id);
+      athlete.entries += 1;
+      athlete.competitions.add(registration.competition_id);
+      if (entry.medal === "gold") athlete.gold += 1;
+      if (entry.medal === "silver") athlete.silver += 1;
+      if (entry.medal === "bronze") athlete.bronze += 1;
+      athlete.fights += Number(entry.fights_count || 0);
+      athlete.wins += Number(entry.wins_count || 0);
+    });
+
+    const rows = [...athletes.values()].sort((a, b) => a.name.localeCompare(b.name));
+
+    list.innerHTML = rows.length ? rows.map(athlete => `
+      <div
+        class="card admin-athlete-result-card"
+        data-search="${escapeHtml((athlete.name + " " + athlete.membershipNumber).toLowerCase())}"
+        onclick="openAdminAthleteResultDetail('${athlete.memberId}')"
+        style="padding:12px 14px;cursor:pointer;"
+      >
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div style="min-width:0;flex:1;">
+            <div style="font-size:16px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(athlete.name)}</div>
+            <div class="muted" style="font-size:11px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              ${athlete.competitions.size} comp. · ${athlete.fights} fights · ${athlete.wins} wins
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:7px;flex-shrink:0;font-size:13px;font-weight:800;">
+            <span>🥇${athlete.gold}</span>
+            <span>🥈${athlete.silver}</span>
+            <span>🥉${athlete.bronze}</span>
+            <span style="font-size:22px;">›</span>
+          </div>
+        </div>
+      </div>`).join("") : `<div class="card"><div class="empty">No athlete results yet.</div></div>`;
+  }
+
+
+  function filterAdminAthleteResultCards() {
+    const search = String(document.getElementById("adminAthleteResultsSearch")?.value || "").trim().toLowerCase();
+    document.querySelectorAll(".admin-athlete-result-card").forEach(card => {
+      card.classList.toggle("hidden", Boolean(search) && !String(card.dataset.search || "").includes(search));
+    });
+  }
+
+
+  async function openAdminAthleteResultDetail(memberId) {
+    if (!isAdmin || !memberId) return;
+
+    currentAdminResultsMemberId = memberId;
+
+    const content = document.getElementById("adminSectionContent");
+    if (!content) return;
+
+    content.innerHTML = `
+      <button class="secondary back-button" onclick="openAdminAthleteResults()" style="margin-bottom:15px;">
+        ← BACK TO ATHLETES
+      </button>
+      <div id="adminAthleteResultDetail">
+        <div class="card"><div class="empty">Loading athlete results...</div></div>
+      </div>`;
+
+    const [{ data: entries, error: entriesError }, { data: registrations, error: registrationsError }, { data: member, error: memberError }] = await Promise.all([
+      supabaseClient
+        .from("competition_entries")
+        .select("*")
+        .order("created_at", { ascending: false }),
+      supabaseClient
+        .from("competition_registrations")
+        .select(`
+          id, competition_id, member_id, status,
+          competitions ( id, title, date, location )
+        `)
+        .eq("member_id", memberId),
+      supabaseClient
+        .from("members")
+        .select("id, first_name, last_name, membership_number")
+        .eq("id", memberId)
+        .maybeSingle()
+    ]);
+
+    const element = document.getElementById("adminAthleteResultDetail");
+    if (!element) return;
+
+    if (entriesError || registrationsError || memberError) {
+      const err = entriesError || registrationsError || memberError;
       console.error(err);
       element.innerHTML = `<div class="card"><div class="message error">Could not load athlete results: ${escapeHtml(err.message)}</div></div>`;
       return;
     }
 
+    const athleteName = [member?.first_name, member?.last_name].filter(Boolean).join(" ") || "Athlete";
+    const title = document.getElementById("staffPanelTitle");
+    if (title) title.textContent = athleteName;
+
     const registrationMap = new Map((registrations || []).map(r => [r.id, r]));
-    const rows = (entries || []).map(entry => ({ entry, registration: registrationMap.get(entry.registration_id) })).filter(x => x.registration);
+    const rows = (entries || [])
+      .map(entry => ({ entry, registration: registrationMap.get(entry.registration_id) }))
+      .filter(x => x.registration);
 
-    const athleteNames = [...new Set(rows.map(x => {
-      const m = x.registration.members || {};
-      return [m.first_name, m.last_name].filter(Boolean).join(" ") || "Unknown athlete";
-    }))].sort((a,b) => a.localeCompare(b));
-    const competitionNames = [...new Set(rows.map(x => x.registration.competitions?.title || "Unknown competition"))].sort((a,b) => a.localeCompare(b));
-    const disciplines = [...new Set(rows.map(x => x.entry.discipline).filter(Boolean))].sort((a,b) => a.localeCompare(b));
-
+    const uniqueCompetitions = new Set(rows.map(x => x.registration.competition_id));
     const gold = rows.filter(x => x.entry.medal === "gold").length;
     const silver = rows.filter(x => x.entry.medal === "silver").length;
     const bronze = rows.filter(x => x.entry.medal === "bronze").length;
-    const fights = rows.reduce((sum,x) => sum + Number(x.entry.fights_count || 0), 0);
-    const wins = rows.reduce((sum,x) => sum + Number(x.entry.wins_count || 0), 0);
+    const fights = rows.reduce((sum, x) => sum + Number(x.entry.fights_count || 0), 0);
+    const wins = rows.reduce((sum, x) => sum + Number(x.entry.wins_count || 0), 0);
+
+    const grouped = new Map();
+    rows.forEach(row => {
+      const key = row.registration.id;
+      if (!grouped.has(key)) grouped.set(key, { registration: row.registration, entries: [] });
+      grouped.get(key).entries.push(row.entry);
+    });
+
+    const groups = [...grouped.values()].sort((a, b) => String(b.registration.competitions?.date || "").localeCompare(String(a.registration.competitions?.date || "")));
 
     element.innerHTML = `
-      <div class="card">
-        <h3>Athlete Results</h3>
-        <p class="muted small">All competition disciplines, categories and results in one place. Edit or permanently delete any result here.</p>
+      <div class="card" style="padding:14px;">
+        <div style="font-size:21px;font-weight:900;">${escapeHtml(athleteName)}</div>
+        ${member?.membership_number ? `<div class="muted small" style="margin-top:3px;">${escapeHtml(member.membership_number)}</div>` : ""}
 
-        <div class="detail-grid" style="margin-top:14px;">
-          <div class="detail-box"><div class="detail-label">Athletes</div><div class="detail-value">${athleteNames.length}</div></div>
-          <div class="detail-box"><div class="detail-label">Entries</div><div class="detail-value">${rows.length}</div></div>
-          <div class="detail-box"><div class="detail-label">Gold</div><div class="detail-value">${gold}</div></div>
-          <div class="detail-box"><div class="detail-label">Silver</div><div class="detail-value">${silver}</div></div>
-          <div class="detail-box"><div class="detail-label">Bronze</div><div class="detail-value">${bronze}</div></div>
-          <div class="detail-box"><div class="detail-label">Fights / Wins</div><div class="detail-value">${fights} / ${wins}</div></div>
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:12px;">
+          <div class="detail-box" style="padding:8px;"><div class="detail-label">Competitions</div><div class="detail-value">${uniqueCompetitions.size}</div></div>
+          <div class="detail-box" style="padding:8px;"><div class="detail-label">Fights</div><div class="detail-value">${fights}</div></div>
+          <div class="detail-box" style="padding:8px;"><div class="detail-label">Wins</div><div class="detail-value">${wins}</div></div>
         </div>
 
-        <label>Athlete</label>
-        <select id="adminResultsAthleteFilter" onchange="filterAdminCompetitionResults()">
-          <option value="">All athletes</option>
-          ${athleteNames.map(x => `<option value="${escapeHtml(x.toLowerCase())}">${escapeHtml(x)}</option>`).join("")}
-        </select>
-
-        <label>Competition</label>
-        <select id="adminResultsCompetitionFilter" onchange="filterAdminCompetitionResults()">
-          <option value="">All competitions</option>
-          ${competitionNames.map(x => `<option value="${escapeHtml(x.toLowerCase())}">${escapeHtml(x)}</option>`).join("")}
-        </select>
-
-        <label>Discipline</label>
-        <select id="adminResultsDisciplineFilter" onchange="filterAdminCompetitionResults()">
-          <option value="">All disciplines</option>
-          ${disciplines.map(x => `<option value="${escapeHtml(x.toLowerCase())}">${escapeHtml(x)}</option>`).join("")}
-        </select>
-
-        <input id="adminResultsSearch" type="text" placeholder="Search athlete, competition or category..." oninput="filterAdminCompetitionResults()" style="margin-top:12px;">
+        <div style="display:flex;gap:12px;margin-top:10px;font-weight:900;font-size:16px;">
+          <span>🥇 ${gold}</span><span>🥈 ${silver}</span><span>🥉 ${bronze}</span>
+        </div>
       </div>
 
-      <div id="adminCompetitionResultsList">
-        ${rows.length ? rows.map(({entry, registration}) => renderAdminCompetitionResultRow(entry, registration)).join("") : `<div class="card"><div class="empty">No competition results yet.</div></div>`}
+      ${groups.length ? groups.map(group => renderAdminAthleteCompetitionGroup(group.registration, group.entries)).join("") : `<div class="card"><div class="empty">No competition results yet.</div></div>`}`;
+  }
+
+
+  function renderAdminAthleteCompetitionGroup(registration, entries) {
+    const competition = registration.competitions || {};
+    const medals = {
+      gold: entries.filter(x => x.medal === "gold").length,
+      silver: entries.filter(x => x.medal === "silver").length,
+      bronze: entries.filter(x => x.medal === "bronze").length
+    };
+    const medalSummary = [
+      medals.gold ? `🥇${medals.gold}` : "",
+      medals.silver ? `🥈${medals.silver}` : "",
+      medals.bronze ? `🥉${medals.bronze}` : ""
+    ].filter(Boolean).join(" ") || `${entries.length} result${entries.length === 1 ? "" : "s"}`;
+
+    return `
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div
+          onclick="toggleAdminAthleteCompetitionGroup('${registration.id}')"
+          style="padding:13px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;"
+        >
+          <div style="min-width:0;">
+            <div style="font-size:16px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(competition.title || "Competition")}</div>
+            <div class="muted small">${competition.date ? formatDate(competition.date) : ""}${competition.location ? ` · ${escapeHtml(competition.location)}` : ""}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            <span style="font-size:13px;font-weight:800;">${medalSummary}</span>
+            <span id="adminAthleteCompetitionArrow-${registration.id}" style="font-size:21px;">›</span>
+          </div>
+        </div>
+
+        <div id="adminAthleteCompetitionDetails-${registration.id}" class="hidden" style="padding:0 12px 12px;">
+          ${entries.map(entry => renderAdminAthleteResultEntry(entry)).join("")}
+          <button class="danger" style="margin-top:10px;" onclick="deleteCompetitionParticipantFromDashboard('${registration.id}','${registration.competition_id}')">
+            DELETE ATHLETE FROM THIS COMPETITION
+          </button>
+        </div>
       </div>`;
   }
 
 
-  function renderAdminCompetitionResultRow(entry, registration) {
-    const member = registration.members || {};
-    const competition = registration.competitions || {};
-    const athleteName = [member.first_name, member.last_name].filter(Boolean).join(" ") || "Unknown athlete";
-    const competitionName = competition.title || "Unknown competition";
+  function toggleAdminAthleteCompetitionGroup(registrationId) {
+    const details = document.getElementById("adminAthleteCompetitionDetails-" + registrationId);
+    const arrow = document.getElementById("adminAthleteCompetitionArrow-" + registrationId);
+    if (!details) return;
+    const opening = details.classList.contains("hidden");
+    details.classList.toggle("hidden", !opening);
+    if (arrow) arrow.textContent = opening ? "⌄" : "›";
+  }
+
+
+  function renderAdminAthleteResultEntry(entry) {
     const medalText = entry.medal === "gold" ? "🥇 Gold" : entry.medal === "silver" ? "🥈 Silver" : entry.medal === "bronze" ? "🥉 Bronze" : (entry.result_place ? getOrdinalPlace(Number(entry.result_place)) : "No medal");
-    const search = [athleteName, competitionName, entry.discipline || "", entry.category || "", member.membership_number || ""].join(" ").toLowerCase();
 
     return `
-      <div class="card admin-result-row"
-        data-athlete="${escapeHtml(athleteName.toLowerCase())}"
-        data-competition="${escapeHtml(competitionName.toLowerCase())}"
-        data-discipline="${escapeHtml(String(entry.discipline || "").toLowerCase())}"
-        data-search="${escapeHtml(search)}">
-
-        <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
+      <div style="border-top:1px solid #292929;padding:11px 0;">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
           <div>
-            <div style="font-size:18px;font-weight:900;">${escapeHtml(athleteName)}</div>
-            <div class="muted small">${escapeHtml(competitionName)}${competition.date ? ` • ${formatDate(competition.date)}` : ""}</div>
-            <div class="muted small" style="margin-top:4px;">${escapeHtml(entry.discipline || "-")} ${entry.category ? `• ${escapeHtml(entry.category)}` : ""} • ${medalText}</div>
+            <div style="font-weight:900;">${escapeHtml(entry.discipline || "-")}${entry.category ? ` · ${escapeHtml(entry.category)}` : ""}</div>
+            <div class="muted small" style="margin-top:3px;">${medalText} · ${Number(entry.fights_count || 0)} fights · ${Number(entry.wins_count || 0)} wins</div>
           </div>
-          <div class="muted small">Member: ${escapeHtml(member.membership_number || "-")}</div>
+          <button class="secondary" style="width:auto;padding:7px 10px;margin:0;" onclick="toggleAdminAthleteResultEdit('${entry.id}')">EDIT</button>
         </div>
 
-        <div class="admin-edit-box" style="margin-top:14px;">
+        <div id="adminAthleteResultEdit-${entry.id}" class="hidden admin-edit-box" style="margin-top:10px;">
           <label>Discipline</label>
           <input id="dashboardEntryDiscipline-${entry.id}" value="${escapeHtml(entry.discipline || "")}">
 
@@ -16813,26 +17007,14 @@
             <button onclick="saveCompetitionEntryFromDashboard('${entry.id}')">SAVE RESULT</button>
             <button class="danger" onclick="deleteCompetitionEntryFromDashboard('${entry.id}')">DELETE RESULT PERMANENTLY</button>
           </div>
-
-          <button class="danger" style="margin-top:10px;" onclick="deleteCompetitionParticipantFromDashboard('${registration.id}','${registration.competition_id}')">DELETE ATHLETE FROM THIS COMPETITION</button>
         </div>
       </div>`;
   }
 
 
-  function filterAdminCompetitionResults() {
-    const athlete = String(document.getElementById("adminResultsAthleteFilter")?.value || "");
-    const competition = String(document.getElementById("adminResultsCompetitionFilter")?.value || "");
-    const discipline = String(document.getElementById("adminResultsDisciplineFilter")?.value || "");
-    const search = String(document.getElementById("adminResultsSearch")?.value || "").trim().toLowerCase();
-
-    document.querySelectorAll(".admin-result-row").forEach(row => {
-      const show = (!athlete || row.dataset.athlete === athlete) &&
-        (!competition || row.dataset.competition === competition) &&
-        (!discipline || row.dataset.discipline === discipline) &&
-        (!search || String(row.dataset.search || "").includes(search));
-      row.classList.toggle("hidden", !show);
-    });
+  function toggleAdminAthleteResultEdit(entryId) {
+    const element = document.getElementById("adminAthleteResultEdit-" + entryId);
+    if (element) element.classList.toggle("hidden");
   }
 
 
@@ -16871,7 +17053,11 @@
       return;
     }
 
-    await loadAdminCompetitionResults();
+    if (currentAdminResultsMemberId) {
+      await openAdminAthleteResultDetail(currentAdminResultsMemberId);
+    } else {
+      await loadAdminCompetitionResults();
+    }
   }
 
 
@@ -16886,7 +17072,11 @@
       return;
     }
 
-    await loadAdminCompetitionResults();
+    if (currentAdminResultsMemberId) {
+      await openAdminAthleteResultDetail(currentAdminResultsMemberId);
+    } else {
+      await loadAdminCompetitionResults();
+    }
   }
 
 
@@ -16901,7 +17091,12 @@
       return;
     }
 
-    await loadAdminCompetitionResults();
+    if (currentAdminResultsMemberId) {
+      await openAdminAthleteResultDetail(currentAdminResultsMemberId);
+    } else {
+      await loadAdminCompetitionResults();
+    }
+
     const participants = document.getElementById("adminParticipants-" + competitionId);
     if (participants && !participants.classList.contains("hidden")) {
       await loadAdminParticipants(competitionId);
