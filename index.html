@@ -1837,7 +1837,7 @@
           </div>
         </div>
 
-        <div class="home-tile" onclick="openSection('membership')">
+        <div class="home-tile" onclick="openSection('payments')">
           <div class="home-tile-icon">€</div>
           <div class="home-tile-title">Payments</div>
           <div class="home-tile-text">
@@ -1915,10 +1915,27 @@
 
       <div id="membershipDetails" class="card"></div>
 
+    </div>
+
+
+    <!-- PAYMENTS -->
+    <div id="paymentsSection" class="hidden">
+
+      <div class="section-title">
+        <button
+          class="secondary back-button"
+          onclick="goBackInApp()"
+        >
+          ← BACK
+        </button>
+
+        <h2>Payments</h2>
+      </div>
+
       <div class="card">
         <h2 style="margin-bottom:6px;">Payment History</h2>
         <p class="muted small" style="margin-bottom:14px;">
-          Your membership payment history
+          Your CENTER MMA payment history
         </p>
         <div id="paymentsList"></div>
       </div>
@@ -4443,6 +4460,7 @@
 
     [
       "membership",
+      "payments",
       "news",
       "profile",
       "calendar",
@@ -4508,6 +4526,10 @@
     document
       .getElementById("membershipSection")
       .classList.add("hidden");
+
+    document
+      .getElementById("paymentsSection")
+      ?.classList.add("hidden");
 
     document
       .getElementById("newsSection")
@@ -4725,6 +4747,7 @@
     const sections = [
       "home",
       "membership",
+      "payments",
       "news",
       "profile",
       "calendar",
@@ -4780,6 +4803,10 @@
 
     if (section === "news") {
       loadNews();
+    }
+
+    if (section === "payments") {
+      loadPayments();
     }
 
     if (section === "calendar") {
@@ -8464,7 +8491,6 @@
       "message";
 
     const {
-      data: insertedMessage,
       error
     } = await supabaseClient
       .from("chat_messages")
@@ -8473,9 +8499,7 @@
           currentUser.id,
         message:
           message
-      })
-      .select("id")
-      .single();
+      });
 
     if (error) {
 
@@ -8491,6 +8515,16 @@
       return;
     }
 
+    const senderName =
+      [
+        currentMember?.first_name,
+        currentMember?.last_name
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .trim() ||
+      "CENTER MMA member";
+
     const {
       error: chatPushError
     } = await supabaseClient
@@ -8499,8 +8533,18 @@
         "send-push",
         {
           body: {
-            chatMessageId:
-              insertedMessage.id
+            type:
+              "chat",
+            title:
+              "New chat message",
+            message:
+              senderName + ": " + message,
+            linkSection:
+              "chat",
+            broadcast:
+              true,
+            excludeCurrentUser:
+              true
           }
         }
       );
