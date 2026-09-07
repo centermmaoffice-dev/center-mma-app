@@ -6133,34 +6133,14 @@
 
   async function loadCompetitionRecord() {
 
-    if (!currentMember) {
-      return;
-    }
+    if (!currentMember) return;
 
+    const element = document.getElementById("competitionRecord");
+    if (!element) return;
 
-    const element =
-      document.getElementById(
-        "competitionRecord"
-      );
+    element.innerHTML = `<div class="empty">Loading competition record...</div>`;
 
-    if (!element) {
-      return;
-    }
-
-
-    element.innerHTML = `
-
-      <div class="empty">
-        Loading competition record...
-      </div>
-
-    `;
-
-
-    const {
-      data,
-      error
-    } = await supabaseClient
+    const { data, error } = await supabaseClient
       .from("competition_registrations")
       .select(`
         id,
@@ -6183,102 +6163,45 @@
           date,
           location,
           discipline
+        ),
+        competition_entries (
+          id,
+          discipline,
+          category,
+          weight,
+          result_place,
+          medal,
+          fights_count,
+          wins_count,
+          notes,
+          created_at
         )
       `)
-      .eq(
-        "member_id",
-        currentMember.id
-      )
-      .eq(
-        "status",
-        "approved"
-      )
-      .order(
-        "created_at",
-        {
-          ascending: false
-        }
-      );
-
+      .eq("member_id", currentMember.id)
+      .eq("status", "approved")
+      .order("created_at", { ascending: false });
 
     if (error) {
-
       console.error(error);
-
-      element.innerHTML = `
-
-        <div class="empty error">
-          Could not load competition record.
-        </div>
-
-      `;
-
+      element.innerHTML = `<div class="empty error">Could not load competition record.</div>`;
       return;
     }
-
 
     if (!data || data.length === 0) {
-
       element.innerHTML = `
-
         <div class="empty">
-
           No competition history yet.
-
-          <div
-            class="muted small"
-            style="margin-top:8px;"
-          >
-            Your competition results will appear here
-            after you participate in competitions.
+          <div class="muted small" style="margin-top:8px;">
+            Your competition results will appear here after you participate in competitions.
           </div>
-
-        </div>
-
-      `;
-
+        </div>`;
       return;
     }
 
-
-    const competitionsCount =
-      data.length;
-
-
-    const fightsCount =
-      data.reduce(
-        function (total, item) {
-
-          return total +
-            Number(
-              item.fights_count || 0
-            );
-
-        },
-        0
-      );
-
-
-    const winsCount =
-      data.reduce(
-        function (total, item) {
-
-          return total +
-            Number(
-              item.wins_count || 0
-            );
-
-        },
-        0
-      );
-
-
     const medalName = function (item) {
-      const saved = String(item.medal || "").toLowerCase();
-      if (["gold", "silver", "bronze"].includes(saved)) {
-        return saved;
-      }
-      const place = item.result_place !== null && item.result_place !== undefined
+      const saved = String(item?.medal || "").toLowerCase();
+      if (["gold", "silver", "bronze"].includes(saved)) return saved;
+      const place = item?.result_place !== null && item?.result_place !== undefined
         ? Number(item.result_place)
         : null;
       if (place === 1) return "gold";
@@ -6287,289 +6210,100 @@
       return "";
     };
 
-    const goldCount = data.filter(item => medalName(item) === "gold").length;
-    const silverCount = data.filter(item => medalName(item) === "silver").length;
-    const bronzeCount = data.filter(item => medalName(item) === "bronze").length;
+    const entriesForRegistration = function (registration) {
+      const role = String(registration.participation_role || "athlete").toLowerCase();
+      if (role === "trainer") return [];
+
+      const entries = Array.isArray(registration.competition_entries)
+        ? registration.competition_entries
+        : [];
+
+      if (entries.length) return entries;
+
+      // Legacy fallback for registrations created before multi-category support.
+      return [{
+        id: null,
+        discipline: registration.competitions?.discipline || "Competition",
+        category: registration.division || "",
+        weight: registration.weight,
+        result_place: registration.result_place,
+        medal: registration.medal,
+        fights_count: registration.fights_count || 0,
+        wins_count: registration.wins_count || 0,
+        notes: registration.notes || null
+      }];
+    };
+
+    const allEntries = data.flatMap(entriesForRegistration);
+    const competitionsCount = data.length;
+    const fightsCount = allEntries.reduce((total, item) => total + Number(item.fights_count || 0), 0);
+    const winsCount = allEntries.reduce((total, item) => total + Number(item.wins_count || 0), 0);
+    const goldCount = allEntries.filter(item => medalName(item) === "gold").length;
+    const silverCount = allEntries.filter(item => medalName(item) === "silver").length;
+    const bronzeCount = allEntries.filter(item => medalName(item) === "bronze").length;
     const medalsCount = goldCount + silverCount + bronzeCount;
 
+    const renderEntryResult = function (entry) {
+      const medal = medalName(entry);
+      if (medal === "gold") return "🥇 Gold";
+      if (medal === "silver") return "🥈 Silver";
+      if (medal === "bronze") return "🥉 Bronze";
+      if (entry.result_place !== null && entry.result_place !== undefined) {
+        return getOrdinalPlace(Number(entry.result_place));
+      }
+      return "No medal";
+    };
 
     element.innerHTML = `
-
       <div class="record-summary">
-
-        <div class="record-summary-box">
-          <div class="record-summary-number">${competitionsCount}</div>
-          <div class="record-summary-label">Competitions</div>
-        </div>
-
-        <div class="record-summary-box">
-          <div class="record-summary-number">${fightsCount}</div>
-          <div class="record-summary-label">Fights</div>
-        </div>
-
-        <div class="record-summary-box">
-          <div class="record-summary-number">${winsCount}</div>
-          <div class="record-summary-label">Wins</div>
-        </div>
-
-        <div class="record-summary-box">
-          <div class="record-summary-number">${medalsCount}</div>
-          <div class="record-summary-label">Medals</div>
-        </div>
-
-        <div class="record-summary-box">
-          <div class="record-summary-number">🥇 ${goldCount}</div>
-          <div class="record-summary-label">Gold</div>
-        </div>
-
-        <div class="record-summary-box">
-          <div class="record-summary-number">🥈 ${silverCount}</div>
-          <div class="record-summary-label">Silver</div>
-        </div>
-
-        <div class="record-summary-box">
-          <div class="record-summary-number">🥉 ${bronzeCount}</div>
-          <div class="record-summary-label">Bronze</div>
-        </div>
-
+        <div class="record-summary-box"><div class="record-summary-number">${competitionsCount}</div><div class="record-summary-label">Competitions</div></div>
+        <div class="record-summary-box"><div class="record-summary-number">${fightsCount}</div><div class="record-summary-label">Fights</div></div>
+        <div class="record-summary-box"><div class="record-summary-number">${winsCount}</div><div class="record-summary-label">Wins</div></div>
+        <div class="record-summary-box"><div class="record-summary-number">${medalsCount}</div><div class="record-summary-label">Medals</div></div>
+        <div class="record-summary-box"><div class="record-summary-number">🥇 ${goldCount}</div><div class="record-summary-label">Gold</div></div>
+        <div class="record-summary-box"><div class="record-summary-number">🥈 ${silverCount}</div><div class="record-summary-label">Silver</div></div>
+        <div class="record-summary-box"><div class="record-summary-number">🥉 ${bronzeCount}</div><div class="record-summary-label">Bronze</div></div>
       </div>
 
+      ${data.map(function (registration) {
+        const competition = registration.competitions || {};
+        const isTrainerParticipation = String(registration.participation_role || "athlete").toLowerCase() === "trainer";
+        const entries = entriesForRegistration(registration);
 
-      ${data.map(
-        function (registration) {
-
-          const competition =
-            registration.competitions ||
-            {};
-
-
-          const place =
-            registration.result_place !== null &&
-            registration.result_place !== undefined
-              ? Number(
-                  registration.result_place
-                )
-              : null;
-
-
-          const medal = medalName(registration);
-          const participationRole = String(registration.participation_role || "athlete").toLowerCase();
-          const isTrainerParticipation = participationRole === "trainer";
-
-          let resultText = isTrainerParticipation ? "Trainer" : "No medal";
-
-          if (!isTrainerParticipation && medal === "gold") {
-            resultText = "🥇 Gold";
-          } else if (!isTrainerParticipation && medal === "silver") {
-            resultText = "🥈 Silver";
-          } else if (!isTrainerParticipation && medal === "bronze") {
-            resultText = "🥉 Bronze";
-          } else if (!isTrainerParticipation && place !== null) {
-            resultText = "Place: " + getOrdinalPlace(place);
-          }
-
-
-          return `
-
-            <div class="competition-record-item">
-
-              <div class="record-title">
-                ${escapeHtml(
-                  competition.title ||
-                  "Competition"
-                )}
-              </div>
-
-
-              <div class="muted small">
-
-                ${formatDate(
-                  competition.date
-                )}
-
-                ${
-                  competition.location
-                    ? `
-                      •
-                      ${escapeHtml(
-                        competition.location
-                      )}
-                    `
-                    : ""
-                }
-
-              </div>
-
-
-              <div class="record-result">
-
-                ${resultText}
-
-              </div>
-
-
-              <div class="record-stats">
-
-                <div class="record-stat">
-                  Role:
-                  <strong>${isTrainerParticipation ? "Trainer" : "Athlete"}</strong>
-                </div>
-
-                <div class="record-stat">
-                  Fights:
-                  <strong>
-                    ${Number(
-                      registration.fights_count || 0
-                    )}
-                  </strong>
-                </div>
-
-
-                <div class="record-stat">
-                  Wins:
-                  <strong>
-                    ${Number(
-                      registration.wins_count || 0
-                    )}
-                  </strong>
-                </div>
-
-
-                ${
-                  competition.discipline
-                    ? `
-                      <div class="record-stat">
-                        Discipline:
-                        <strong>${escapeHtml(competition.discipline)}</strong>
-                      </div>
-                    `
-                    : ""
-                }
-
-                ${
-                  registration.weight !== null &&
-                  registration.weight !== undefined
-                    ? `
-                      <div class="record-stat">
-                        Weight:
-                        <strong>
-                          ${escapeHtml(
-                            registration.weight
-                          )} kg
-                        </strong>
-                      </div>
-                    `
-                    : ""
-                }
-
-              </div>
-
-
-              ${
-                registration.division ||
-                registration.age_category ||
-                registration.belt ||
-                registration.experience ||
-                registration.notes
-                  ? `
-
-                    <div class="record-details">
-
-                      ${
-                        registration.division
-                          ? `
-                            <div class="record-detail-line">
-                              Division:
-                              <strong>
-                                ${escapeHtml(
-                                  registration.division
-                                )}
-                              </strong>
-                            </div>
-                          `
-                          : ""
-                      }
-
-
-                      ${
-                        registration.age_category
-                          ? `
-                            <div class="record-detail-line">
-                              Age:
-                              <strong>
-                                ${escapeHtml(
-                                  registration.age_category
-                                )}
-                              </strong>
-                            </div>
-                          `
-                          : ""
-                      }
-
-
-                      ${
-                        registration.belt
-                          ? `
-                            <div class="record-detail-line">
-                              Belt:
-                              <strong>
-                                ${escapeHtml(
-                                  registration.belt
-                                )}
-                              </strong>
-                            </div>
-                          `
-                          : ""
-                      }
-
-
-                      ${
-                        registration.experience
-                          ? `
-                            <div class="record-detail-line">
-                              Experience:
-                              <strong>
-                                ${escapeHtml(
-                                  registration.experience
-                                )}
-                              </strong>
-                            </div>
-                          `
-                          : ""
-                      }
-
-
-                      ${
-                        registration.notes
-                          ? `
-                            <div
-                              class="record-detail-line"
-                              style="margin-top:5px;"
-                            >
-                              Notes:
-                              <strong>
-                                ${escapeHtml(
-                                  registration.notes
-                                )}
-                              </strong>
-                            </div>
-                          `
-                          : ""
-                      }
-
-                    </div>
-
-                  `
-                  : ""
-              }
-
+        return `
+          <div class="competition-record-item">
+            <div class="record-title">${escapeHtml(competition.title || "Competition")}</div>
+            <div class="muted small">
+              ${formatDate(competition.date)}
+              ${competition.location ? ` • ${escapeHtml(competition.location)}` : ""}
             </div>
 
-          `;
+            ${isTrainerParticipation ? `
+              <div class="record-result">Trainer</div>
+            ` : `
+              <div style="margin-top:12px; display:grid; gap:10px;">
+                ${entries.map(function (entry) {
+                  return `
+                    <div class="record-details" style="margin-top:0;">
+                      <div class="record-result" style="margin-top:0;">${renderEntryResult(entry)}</div>
+                      <div class="record-detail-line">Discipline: <strong>${escapeHtml(entry.discipline || competition.discipline || "Competition")}</strong></div>
+                      ${entry.category ? `<div class="record-detail-line">Category: <strong>${escapeHtml(entry.category)}</strong></div>` : ""}
+                      ${entry.weight !== null && entry.weight !== undefined ? `<div class="record-detail-line">Weight: <strong>${escapeHtml(entry.weight)} kg</strong></div>` : ""}
+                      <div class="record-detail-line">Fights: <strong>${Number(entry.fights_count || 0)}</strong> • Wins: <strong>${Number(entry.wins_count || 0)}</strong></div>
+                      ${entry.notes ? `<div class="record-detail-line">Notes: <strong>${escapeHtml(entry.notes)}</strong></div>` : ""}
+                    </div>`;
+                }).join("")}
+              </div>
+            `}
 
-        }
-      ).join("")}
-
+            ${(registration.age_category || registration.belt || registration.experience) ? `
+              <div class="record-details">
+                ${registration.age_category ? `<div class="record-detail-line">Age: <strong>${escapeHtml(registration.age_category)}</strong></div>` : ""}
+                ${registration.belt ? `<div class="record-detail-line">Belt: <strong>${escapeHtml(registration.belt)}</strong></div>` : ""}
+                ${registration.experience ? `<div class="record-detail-line">Experience: <strong>${escapeHtml(registration.experience)}</strong></div>` : ""}
+              </div>` : ""}
+          </div>`;
+      }).join("")}
     `;
   }
 
@@ -14156,6 +13890,18 @@
           last_name,
           email,
           membership_number
+        ),
+        competition_entries (
+          id,
+          discipline,
+          category,
+          weight,
+          result_place,
+          medal,
+          fights_count,
+          wins_count,
+          notes,
+          created_at
         )
       `)
       .eq("status", "pending")
@@ -16814,13 +16560,11 @@
           Discipline
         </label>
 
-        <select id="adminCompetitionDiscipline">
-          <option value="Grappling">Grappling</option>
-          <option value="MMA">MMA</option>
-          <option value="Boxing">Boxing</option>
-          <option value="Kickboxing">Kickboxing</option>
-          <option value="Other">Other</option>
-        </select>
+        <input
+          id="adminCompetitionDiscipline"
+          type="text"
+          placeholder="e.g. Grappling, MMA or Multi-discipline"
+        >
 
 
         <label>
@@ -17022,11 +16766,12 @@
               Discipline
             </label>
 
-            <select id="editCompetitionDiscipline-${competition.id}">
-              ${["Grappling", "MMA", "Boxing", "Kickboxing", "Other"].map(function (option) {
-                return `<option value="${option}" ${String(competition.discipline || "Grappling") === option ? "selected" : ""}>${option}</option>`;
-              }).join("")}
-            </select>
+            <input
+              id="editCompetitionDiscipline-${competition.id}"
+              type="text"
+              placeholder="e.g. Grappling, MMA or Multi-discipline"
+              value="${escapeHtml(competition.discipline || "")}"
+            >
 
 
             <label>
@@ -17274,361 +17019,155 @@
     registration
   ) {
 
-    const member =
-      registration.members ||
-      {};
+    const member = registration.members || {};
+    const status = registration.status || "requested";
+    const isTrainerParticipation = String(registration.participation_role || "athlete").toLowerCase() === "trainer";
+    const entries = Array.isArray(registration.competition_entries)
+      ? [...registration.competition_entries].sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")))
+      : [];
 
-
-    const status =
-      registration.status ||
-      "requested";
-
+    const entryResultText = function (entry) {
+      if (entry.medal === "gold") return "🥇 Gold";
+      if (entry.medal === "silver") return "🥈 Silver";
+      if (entry.medal === "bronze") return "🥉 Bronze";
+      return entry.result_place ? getOrdinalPlace(Number(entry.result_place)) : "No result";
+    };
 
     return `
+      <div class="participant-card" id="participant-${registration.id}">
+        <div class="participant-name">${escapeHtml((member.first_name || "") + " " + (member.last_name || ""))}</div>
+        <div class="muted small">${escapeHtml(member.email || "")}</div>
+        <div class="muted small" style="margin-top:4px;">Member number: ${escapeHtml(member.membership_number || "-")}</div>
 
-      <div
-        class="participant-card"
-        id="participant-${registration.id}"
-      >
+        <div style="margin-top:10px;"><span class="status ${escapeHtml(status)}">${escapeHtml(status)}</span></div>
 
-        <div class="participant-name">
-
-          ${escapeHtml(
-            (member.first_name || "") +
-            " " +
-            (member.last_name || "")
-          )}
-
-        </div>
-
-
-        <div class="muted small">
-          ${escapeHtml(
-            member.email || ""
-          )}
-        </div>
-
-
-        <div class="muted small" style="margin-top:4px;">
-          Member number:
-          ${escapeHtml(
-            member.membership_number || "-"
-          )}
-        </div>
-
-
-        <div style="margin-top:10px;">
-
-          <span class="status ${escapeHtml(status)}">
-            ${escapeHtml(status)}
-          </span>
-
-        </div>
-
-
-        ${
-          status === "requested"
-            ? `
-
-              <div class="admin-actions">
-
-                <button
-                  class="success"
-                  onclick="approveCompetitionRegistration(
-                    '${registration.id}'
-                  )"
-                >
-                  APPROVE
-                </button>
-
-
-                <button
-                  class="danger"
-                  onclick="rejectCompetitionRegistration(
-                    '${registration.id}'
-                  )"
-                >
-                  REJECT
-                </button>
-
-              </div>
-
-            `
-            : ""
-        }
-
+        ${status === "requested" ? `
+          <div class="admin-actions">
+            <button class="success" onclick="approveCompetitionRegistration('${registration.id}')">APPROVE</button>
+            <button class="danger" onclick="rejectCompetitionRegistration('${registration.id}')">REJECT</button>
+          </div>` : ""}
 
         <div class="detail-grid">
-
-          <div class="detail-box">
-            <div class="detail-label">Role</div>
-            <div class="detail-value">${String(registration.participation_role || "athlete").toLowerCase() === "trainer" ? "Trainer" : "Athlete"}</div>
-          </div>
-
-          <div class="detail-box">
-
-            <div class="detail-label">
-              Weight
-            </div>
-
-            <div class="detail-value">
-              ${
-                registration.weight !== null &&
-                registration.weight !== undefined
-                  ? escapeHtml(
-                      registration.weight
-                    ) + " kg"
-                  : "-"
-              }
-            </div>
-
-          </div>
-
-
-          <div class="detail-box">
-
-            <div class="detail-label">
-              Division
-            </div>
-
-            <div class="detail-value">
-              ${escapeHtml(
-                registration.division || "-"
-              )}
-            </div>
-
-          </div>
-
-
-          <div class="detail-box">
-
-            <div class="detail-label">
-              Age
-            </div>
-
-            <div class="detail-value">
-              ${escapeHtml(
-                registration.age_category || "-"
-              )}
-            </div>
-
-          </div>
-
-
-          <div class="detail-box">
-
-            <div class="detail-label">
-              Belt
-            </div>
-
-            <div class="detail-value">
-              ${escapeHtml(
-                registration.belt || "-"
-              )}
-            </div>
-
-          </div>
-
-
-          <div class="detail-box">
-
-            <div class="detail-label">
-              Experience
-            </div>
-
-            <div class="detail-value">
-              ${escapeHtml(
-                registration.experience || "-"
-              )}
-            </div>
-
-          </div>
-
-
-          <div class="detail-box">
-
-            <div class="detail-label">
-              Result
-            </div>
-
-            <div class="detail-value">
-              ${registration.medal === "gold" ? "🥇 Gold" : registration.medal === "silver" ? "🥈 Silver" : registration.medal === "bronze" ? "🥉 Bronze" : (registration.result_place ? escapeHtml(registration.result_place) : "-")}
-            </div>
-
-          </div>
-
+          <div class="detail-box"><div class="detail-label">Role</div><div class="detail-value">${isTrainerParticipation ? "Trainer" : "Athlete"}</div></div>
+          <div class="detail-box"><div class="detail-label">Age</div><div class="detail-value">${escapeHtml(registration.age_category || "-")}</div></div>
+          <div class="detail-box"><div class="detail-label">Belt</div><div class="detail-value">${escapeHtml(registration.belt || "-")}</div></div>
+          <div class="detail-box"><div class="detail-label">Experience</div><div class="detail-value">${escapeHtml(registration.experience || "-")}</div></div>
+          ${!isTrainerParticipation ? `<div class="detail-box"><div class="detail-label">Entries</div><div class="detail-value">${entries.length}</div></div>` : ""}
         </div>
 
-
         <div class="admin-edit-box">
-
-          <h3>
-            Admin details
-          </h3>
+          <h3>Participant details</h3>
 
           <label>Role</label>
           <select id="adminRole-${registration.id}">
-            <option value="athlete" ${String(registration.participation_role || "athlete").toLowerCase() !== "trainer" ? "selected" : ""}>Athlete</option>
-            <option value="trainer" ${String(registration.participation_role || "athlete").toLowerCase() === "trainer" ? "selected" : ""}>Trainer</option>
+            <option value="athlete" ${!isTrainerParticipation ? "selected" : ""}>Athlete</option>
+            <option value="trainer" ${isTrainerParticipation ? "selected" : ""}>Trainer</option>
           </select>
 
-          <label>
-            Weight
-          </label>
+          <label>Age category</label>
+          <input id="adminAge-${registration.id}" value="${escapeHtml(registration.age_category || "")}">
 
-          <input
-            id="adminWeight-${registration.id}"
-            type="number"
-            step="0.1"
-            value="${escapeHtml(
-              registration.weight ?? ""
-            )}"
-          >
+          <label>Belt</label>
+          <input id="adminBelt-${registration.id}" value="${escapeHtml(registration.belt || "")}">
 
+          <label>Experience</label>
+          <input id="adminExperience-${registration.id}" value="${escapeHtml(registration.experience || "")}">
 
-          <label>
-            Division
-          </label>
+          <label>Participant notes</label>
+          <textarea id="adminNotes-${registration.id}">${escapeHtml(registration.notes || "")}</textarea>
 
-          <input
-            id="adminDivision-${registration.id}"
-            value="${escapeHtml(
-              registration.division || ""
-            )}"
-          >
+          <button onclick="saveAdminParticipant('${registration.id}','${registration.competition_id}')">SAVE PARTICIPANT</button>
+          <button class="danger" onclick="deleteCompetitionRegistration('${registration.id}','${registration.competition_id}')">DELETE PARTICIPANT FROM COMPETITION</button>
 
-
-          <label>
-            Age category
-          </label>
-
-          <input
-            id="adminAge-${registration.id}"
-            value="${escapeHtml(
-              registration.age_category || ""
-            )}"
-          >
-
-
-          <label>
-            Belt
-          </label>
-
-          <input
-            id="adminBelt-${registration.id}"
-            value="${escapeHtml(
-              registration.belt || ""
-            )}"
-          >
-
-
-          <label>
-            Experience
-          </label>
-
-          <input
-            id="adminExperience-${registration.id}"
-            value="${escapeHtml(
-              registration.experience || ""
-            )}"
-          >
-
-
-          <label>
-            Medal
-          </label>
-
-          <select id="adminMedal-${registration.id}">
-            <option value="" ${!registration.medal ? "selected" : ""}>No medal</option>
-            <option value="gold" ${registration.medal === "gold" ? "selected" : ""}>🥇 Gold</option>
-            <option value="silver" ${registration.medal === "silver" ? "selected" : ""}>🥈 Silver</option>
-            <option value="bronze" ${registration.medal === "bronze" ? "selected" : ""}>🥉 Bronze</option>
-          </select>
-
-
-          <label>
-            Result place (optional)
-          </label>
-
-          <input
-            id="adminResult-${registration.id}"
-            type="number"
-            min="1"
-            value="${escapeHtml(
-              registration.result_place ?? ""
-            )}"
-          >
-
-
-          <label>
-            Fights count
-          </label>
-
-          <input
-            id="adminFights-${registration.id}"
-            type="number"
-            min="0"
-            value="${escapeHtml(
-              registration.fights_count ?? ""
-            )}"
-          >
-
-
-          <label>
-            Wins count
-          </label>
-
-          <input
-            id="adminWins-${registration.id}"
-            type="number"
-            min="0"
-            value="${escapeHtml(
-              registration.wins_count ?? ""
-            )}"
-          >
-
-
-          <label>
-            Notes
-          </label>
-
-          <textarea
-            id="adminNotes-${registration.id}"
-          >${escapeHtml(
-            registration.notes || ""
-          )}</textarea>
-
-
-          <button
-            onclick="saveAdminParticipant(
-              '${registration.id}',
-              '${registration.competition_id}'
-            )"
-          >
-            SAVE PARTICIPANT
-          </button>
-
-          <button
-            class="danger"
-            onclick="deleteCompetitionRegistration(
-              '${registration.id}',
-              '${registration.competition_id}'
-            )"
-          >
-            DELETE PARTICIPANT FROM COMPETITION
-          </button>
-
-
-          <div
-            id="adminParticipantMessage-${registration.id}"
-            class="message"
-          ></div>
-
+          <div id="adminParticipantMessage-${registration.id}" class="message"></div>
         </div>
 
-      </div>
+        ${!isTrainerParticipation ? `
+          <div class="admin-edit-box" style="margin-top:14px;">
+            <h3>Disciplines, categories & results</h3>
+            <p class="muted small">One athlete can have multiple entries in the same competition.</p>
 
-    `;
+            <div style="display:grid; gap:12px; margin-top:12px;">
+              ${entries.length ? entries.map(function (entry) {
+                return `
+                  <div style="border:1px solid #292929; border-radius:12px; padding:12px;">
+                    <div style="font-weight:800; margin-bottom:8px;">${escapeHtml(entry.discipline || "Discipline")} ${entry.category ? `• ${escapeHtml(entry.category)}` : ""}</div>
+                    <div class="muted small" style="margin-bottom:10px;">${entryResultText(entry)} • ${Number(entry.fights_count || 0)} fights • ${Number(entry.wins_count || 0)} wins</div>
+
+                    <label>Discipline</label>
+                    <input id="entryDiscipline-${entry.id}" value="${escapeHtml(entry.discipline || "")}" placeholder="e.g. Grappling, MMA, Kickboxing">
+
+                    <label>Category</label>
+                    <input id="entryCategory-${entry.id}" value="${escapeHtml(entry.category || "")}" placeholder="e.g. -90 kg, Absolute, Adult Advanced">
+
+                    <label>Weight (optional)</label>
+                    <input id="entryWeight-${entry.id}" type="number" step="0.1" min="0" value="${escapeHtml(entry.weight ?? "")}">
+
+                    <label>Medal</label>
+                    <select id="entryMedal-${entry.id}">
+                      <option value="" ${!entry.medal ? "selected" : ""}>No medal</option>
+                      <option value="gold" ${entry.medal === "gold" ? "selected" : ""}>🥇 Gold</option>
+                      <option value="silver" ${entry.medal === "silver" ? "selected" : ""}>🥈 Silver</option>
+                      <option value="bronze" ${entry.medal === "bronze" ? "selected" : ""}>🥉 Bronze</option>
+                    </select>
+
+                    <label>Result place (optional)</label>
+                    <input id="entryResult-${entry.id}" type="number" min="1" value="${escapeHtml(entry.result_place ?? "")}">
+
+                    <label>Fights</label>
+                    <input id="entryFights-${entry.id}" type="number" min="0" value="${escapeHtml(entry.fights_count ?? 0)}">
+
+                    <label>Wins</label>
+                    <input id="entryWins-${entry.id}" type="number" min="0" value="${escapeHtml(entry.wins_count ?? 0)}">
+
+                    <label>Notes</label>
+                    <textarea id="entryNotes-${entry.id}">${escapeHtml(entry.notes || "")}</textarea>
+
+                    <div class="admin-actions">
+                      <button onclick="saveCompetitionEntry('${entry.id}','${registration.competition_id}')">SAVE ENTRY</button>
+                      <button class="danger" onclick="deleteCompetitionEntry('${entry.id}','${registration.competition_id}')">DELETE ENTRY</button>
+                    </div>
+                  </div>`;
+              }).join("") : `<div class="empty">No disciplines/categories added yet.</div>`}
+            </div>
+
+            <div style="border-top:1px solid #292929; margin-top:16px; padding-top:14px;">
+              <h3>Add category</h3>
+
+              <label>Discipline</label>
+              <input id="newEntryDiscipline-${registration.id}" placeholder="e.g. Grappling, MMA, Kickboxing, Boxing">
+
+              <label>Category</label>
+              <input id="newEntryCategory-${registration.id}" placeholder="e.g. -90 kg, Absolute, Adult Advanced">
+
+              <label>Weight (optional)</label>
+              <input id="newEntryWeight-${registration.id}" type="number" step="0.1" min="0" placeholder="e.g. 90">
+
+              <label>Medal</label>
+              <select id="newEntryMedal-${registration.id}">
+                <option value="">No medal</option>
+                <option value="gold">🥇 Gold</option>
+                <option value="silver">🥈 Silver</option>
+                <option value="bronze">🥉 Bronze</option>
+              </select>
+
+              <label>Result place (optional)</label>
+              <input id="newEntryResult-${registration.id}" type="number" min="1">
+
+              <label>Fights</label>
+              <input id="newEntryFights-${registration.id}" type="number" min="0" value="0">
+
+              <label>Wins</label>
+              <input id="newEntryWins-${registration.id}" type="number" min="0" value="0">
+
+              <label>Notes</label>
+              <textarea id="newEntryNotes-${registration.id}"></textarea>
+
+              <button onclick="addCompetitionEntry('${registration.id}','${registration.competition_id}')">ADD CATEGORY / RESULT</button>
+              <div id="competitionEntryMessage-${registration.id}" class="message"></div>
+            </div>
+          </div>` : ""}
+      </div>`;
   }
 
 
@@ -17663,7 +17202,8 @@
         .getElementById(
           "adminCompetitionDiscipline"
         )
-        .value;
+        .value
+        .trim();
 
 
     const date =
@@ -17721,7 +17261,7 @@
           title,
 
         discipline:
-          discipline || "Grappling",
+          discipline || "Competition",
 
         date:
           date,
@@ -17778,7 +17318,7 @@
       .getElementById(
         "adminCompetitionDiscipline"
       )
-      .value = "Grappling";
+      .value = "";
 
 
     document
@@ -17842,7 +17382,8 @@
           "editCompetitionDiscipline-" +
           competitionId
         )
-        .value;
+        .value
+        .trim();
 
 
     const date =
@@ -17903,7 +17444,7 @@
           title,
 
         discipline:
-          discipline || "Grappling",
+          discipline || "Competition",
 
         date:
           date,
@@ -18220,323 +17761,175 @@
     competitionId
   ) {
 
-    if (!isAdmin) {
-      return;
+    if (!isAdmin) return;
+
+    const message = document.getElementById("adminParticipantMessage-" + registrationId);
+    const roleElement = document.getElementById("adminRole-" + registrationId);
+    const participationRole = roleElement && roleElement.value === "trainer" ? "trainer" : "athlete";
+    const ageCategory = document.getElementById("adminAge-" + registrationId).value.trim();
+    const belt = document.getElementById("adminBelt-" + registrationId).value.trim();
+    const experience = document.getElementById("adminExperience-" + registrationId).value.trim();
+    const notes = document.getElementById("adminNotes-" + registrationId).value.trim();
+
+    if (message) {
+      message.textContent = "Saving...";
+      message.className = "message";
     }
 
-
-    const message =
-      document.getElementById(
-        "adminParticipantMessage-" +
-        registrationId
-      );
-
-
-    const roleElement =
-      document.getElementById(
-        "adminRole-" +
-        registrationId
-      );
-
-    const participationRole =
-      roleElement && roleElement.value === "trainer"
-        ? "trainer"
-        : "athlete";
-
-    const weightValue =
-      document
-        .getElementById(
-          "adminWeight-" +
-          registrationId
-        )
-        .value
-        .trim();
-
-
-    const division =
-      document
-        .getElementById(
-          "adminDivision-" +
-          registrationId
-        )
-        .value
-        .trim();
-
-
-    const ageCategory =
-      document
-        .getElementById(
-          "adminAge-" +
-          registrationId
-        )
-        .value
-        .trim();
-
-
-    const belt =
-      document
-        .getElementById(
-          "adminBelt-" +
-          registrationId
-        )
-        .value
-        .trim();
-
-
-    const experience =
-      document
-        .getElementById(
-          "adminExperience-" +
-          registrationId
-        )
-        .value
-        .trim();
-
-
-    const medal =
-      document
-        .getElementById(
-          "adminMedal-" +
-          registrationId
-        )
-        .value;
-
-
-    const resultValue =
-      document
-        .getElementById(
-          "adminResult-" +
-          registrationId
-        )
-        .value
-        .trim();
-
-
-    const fightsValue =
-      document
-        .getElementById(
-          "adminFights-" +
-          registrationId
-        )
-        .value
-        .trim();
-
-
-    const winsValue =
-      document
-        .getElementById(
-          "adminWins-" +
-          registrationId
-        )
-        .value
-        .trim();
-
-
-    const notes =
-      document
-        .getElementById(
-          "adminNotes-" +
-          registrationId
-        )
-        .value
-        .trim();
-
-
-    let weight =
-      weightValue === ""
-        ? null
-        : Number(weightValue);
-
-
-    let resultPlace =
-      resultValue === ""
-        ? null
-        : Number(resultValue);
-
-
-    let fightsCount =
-      fightsValue === ""
-        ? null
-        : Number(fightsValue);
-
-
-    let winsCount =
-      winsValue === ""
-        ? null
-        : Number(winsValue);
-
-
-    if (
-      weight !== null &&
-      (
-        Number.isNaN(weight) ||
-        weight < 0
-      )
-    ) {
-
-      message.textContent =
-        "Invalid weight.";
-
-      message.className =
-        "message error";
-
-      return;
-    }
-
-
-    if (
-      resultPlace !== null &&
-      (
-        Number.isNaN(resultPlace) ||
-        resultPlace < 1
-      )
-    ) {
-
-      message.textContent =
-        "Result place must be 1 or higher.";
-
-      message.className =
-        "message error";
-
-      return;
-    }
-
-
-    if (
-      fightsCount !== null &&
-      (
-        Number.isNaN(fightsCount) ||
-        fightsCount < 0
-      )
-    ) {
-
-      message.textContent =
-        "Fights count cannot be negative.";
-
-      message.className =
-        "message error";
-
-      return;
-    }
-
-
-    if (
-      winsCount !== null &&
-      (
-        Number.isNaN(winsCount) ||
-        winsCount < 0
-      )
-    ) {
-
-      message.textContent =
-        "Wins count cannot be negative.";
-
-      message.className =
-        "message error";
-
-      return;
-    }
-
-
-    if (
-      fightsCount !== null &&
-      winsCount !== null &&
-      winsCount > fightsCount
-    ) {
-      message.textContent =
-        "Wins count cannot be higher than fights count.";
-      message.className =
-        "message error";
-      return;
-    }
-
-
-    if (participationRole === "trainer") {
-      weight = null;
-      resultPlace = null;
-      fightsCount = 0;
-      winsCount = 0;
-    }
-
-
-    message.textContent =
-      "Saving...";
-
-    message.className =
-      "message";
-
-
-    const {
-      error
-    } = await supabaseClient
+    const { error } = await supabaseClient
       .from("competition_registrations")
       .update({
-
-        participation_role:
-          participationRole,
-
-        weight:
-          participationRole === "trainer" ? null : weight,
-
-        division:
-          participationRole === "trainer" ? null : (division || null),
-
-        age_category:
-          participationRole === "trainer" ? null : (ageCategory || null),
-
-        belt:
-          participationRole === "trainer" ? null : (belt || null),
-
-        experience:
-          participationRole === "trainer" ? null : (experience || null),
-
-        result_place:
-          participationRole === "trainer" ? null : resultPlace,
-
-        medal:
-          participationRole === "trainer" ? null : (medal || null),
-
-        fights_count:
-          participationRole === "trainer" ? 0 : fightsCount,
-
-        wins_count:
-          participationRole === "trainer" ? 0 : winsCount,
-
-        notes:
-          notes || null
-
+        participation_role: participationRole,
+        age_category: participationRole === "trainer" ? null : (ageCategory || null),
+        belt: participationRole === "trainer" ? null : (belt || null),
+        experience: participationRole === "trainer" ? null : (experience || null),
+        notes: notes || null
       })
-      .eq(
-        "id",
-        registrationId
-      );
-
+      .eq("id", registrationId);
 
     if (error) {
-
       console.error(error);
-
-      message.textContent =
-        "Could not save participant: " +
-        error.message;
-
-      message.className =
-        "message error";
-
+      if (message) {
+        message.textContent = "Could not save participant: " + error.message;
+        message.className = "message error";
+      }
       return;
     }
 
+    if (message) {
+      message.textContent = "Participant saved successfully.";
+      message.className = "message success-text";
+    }
 
-    message.textContent =
-      "Participant saved successfully.";
-
-    message.className =
-      "message success-text";
+    await loadAdminParticipants(competitionId);
+  }
 
 
-    await loadAdminParticipants(
-      competitionId
-    );
+  async function addCompetitionEntry(registrationId, competitionId) {
+    if (!isAdmin) return;
+
+    const message = document.getElementById("competitionEntryMessage-" + registrationId);
+    const discipline = document.getElementById("newEntryDiscipline-" + registrationId).value.trim();
+    const category = document.getElementById("newEntryCategory-" + registrationId).value.trim();
+    const weightRaw = document.getElementById("newEntryWeight-" + registrationId).value.trim();
+    const medal = document.getElementById("newEntryMedal-" + registrationId).value;
+    const resultRaw = document.getElementById("newEntryResult-" + registrationId).value.trim();
+    const fightsRaw = document.getElementById("newEntryFights-" + registrationId).value.trim();
+    const winsRaw = document.getElementById("newEntryWins-" + registrationId).value.trim();
+    const notes = document.getElementById("newEntryNotes-" + registrationId).value.trim();
+
+    const weight = weightRaw === "" ? null : Number(weightRaw);
+    const resultPlace = resultRaw === "" ? null : Number(resultRaw);
+    const fightsCount = fightsRaw === "" ? 0 : Number(fightsRaw);
+    const winsCount = winsRaw === "" ? 0 : Number(winsRaw);
+
+    const fail = function (text) {
+      if (message) {
+        message.textContent = text;
+        message.className = "message error";
+      }
+    };
+
+    if (!discipline) return fail("Discipline is required.");
+    if (weight !== null && (Number.isNaN(weight) || weight < 0)) return fail("Invalid weight.");
+    if (resultPlace !== null && (Number.isNaN(resultPlace) || resultPlace < 1)) return fail("Result place must be 1 or higher.");
+    if (Number.isNaN(fightsCount) || fightsCount < 0) return fail("Fights count cannot be negative.");
+    if (Number.isNaN(winsCount) || winsCount < 0) return fail("Wins count cannot be negative.");
+    if (winsCount > fightsCount) return fail("Wins count cannot be higher than fights count.");
+
+    if (message) {
+      message.textContent = "Adding category...";
+      message.className = "message";
+    }
+
+    const { error } = await supabaseClient
+      .from("competition_entries")
+      .insert({
+        registration_id: registrationId,
+        discipline,
+        category: category || null,
+        weight,
+        medal: medal || null,
+        result_place: resultPlace,
+        fights_count: fightsCount,
+        wins_count: winsCount,
+        notes: notes || null
+      });
+
+    if (error) {
+      console.error(error);
+      return fail("Could not add category: " + error.message);
+    }
+
+    await loadAdminParticipants(competitionId);
+  }
+
+
+  async function saveCompetitionEntry(entryId, competitionId) {
+    if (!isAdmin) return;
+
+    const discipline = document.getElementById("entryDiscipline-" + entryId).value.trim();
+    const category = document.getElementById("entryCategory-" + entryId).value.trim();
+    const weightRaw = document.getElementById("entryWeight-" + entryId).value.trim();
+    const medal = document.getElementById("entryMedal-" + entryId).value;
+    const resultRaw = document.getElementById("entryResult-" + entryId).value.trim();
+    const fightsRaw = document.getElementById("entryFights-" + entryId).value.trim();
+    const winsRaw = document.getElementById("entryWins-" + entryId).value.trim();
+    const notes = document.getElementById("entryNotes-" + entryId).value.trim();
+
+    const weight = weightRaw === "" ? null : Number(weightRaw);
+    const resultPlace = resultRaw === "" ? null : Number(resultRaw);
+    const fightsCount = fightsRaw === "" ? 0 : Number(fightsRaw);
+    const winsCount = winsRaw === "" ? 0 : Number(winsRaw);
+
+    if (!discipline) return alert("Discipline is required.");
+    if (weight !== null && (Number.isNaN(weight) || weight < 0)) return alert("Invalid weight.");
+    if (resultPlace !== null && (Number.isNaN(resultPlace) || resultPlace < 1)) return alert("Result place must be 1 or higher.");
+    if (Number.isNaN(fightsCount) || fightsCount < 0) return alert("Fights count cannot be negative.");
+    if (Number.isNaN(winsCount) || winsCount < 0) return alert("Wins count cannot be negative.");
+    if (winsCount > fightsCount) return alert("Wins count cannot be higher than fights count.");
+
+    const { error } = await supabaseClient
+      .from("competition_entries")
+      .update({
+        discipline,
+        category: category || null,
+        weight,
+        medal: medal || null,
+        result_place: resultPlace,
+        fights_count: fightsCount,
+        wins_count: winsCount,
+        notes: notes || null,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", entryId);
+
+    if (error) {
+      console.error(error);
+      alert("Could not save category: " + error.message);
+      return;
+    }
+
+    await loadAdminParticipants(competitionId);
+  }
+
+
+  async function deleteCompetitionEntry(entryId, competitionId) {
+    if (!isAdmin) return;
+    if (!confirm("Delete this discipline/category result?")) return;
+
+    const { error } = await supabaseClient
+      .from("competition_entries")
+      .delete()
+      .eq("id", entryId);
+
+    if (error) {
+      console.error(error);
+      alert("Could not delete category: " + error.message);
+      return;
+    }
+
+    await loadAdminParticipants(competitionId);
   }
 
 
