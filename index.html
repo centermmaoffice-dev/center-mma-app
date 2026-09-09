@@ -4838,6 +4838,23 @@
             ${escapeHtml(reason)}
           </p>
 
+          ${(!currentMember?.membership_number || !String(currentMember.membership_number).trim()) ? `
+            <div style="margin-top:18px; text-align:left;">
+              <label for="firstMembershipNumber">Mitgliedsnummer</label>
+              <input
+                id="firstMembershipNumber"
+                type="text"
+                inputmode="numeric"
+                autocomplete="off"
+                maxlength="8"
+                placeholder="2605-018"
+              >
+              <div class="muted small" style="margin-top:7px; line-height:1.45;">
+                Bei der ersten Aktivierung einmalig erforderlich. Eingabe als 2605018 oder 2605-018 möglich.
+              </div>
+            </div>
+          ` : ""}
+
           <button onclick="requestPaymentConfirmation()">
             REQUEST PAYMENT CONFIRMATION
           </button>
@@ -4919,6 +4936,44 @@
     }
 
 
+    let requestedMembershipNumber = null;
+
+    const hasMembershipNumber =
+      !!String(currentMember.membership_number || "").trim();
+
+    if (!hasMembershipNumber) {
+
+      const membershipNumberInput =
+        document.getElementById("firstMembershipNumber");
+
+      const rawMembershipNumber =
+        String(membershipNumberInput?.value || "").trim();
+
+      const digits =
+        rawMembershipNumber.replace(/\D/g, "");
+
+      if (digits.length !== 7) {
+
+        if (message) {
+          message.textContent =
+            "Please enter your Mitgliedsnummer in the format 2605-018 or 2605018.";
+          message.className =
+            "message error";
+        }
+
+        membershipNumberInput?.focus();
+        return;
+      }
+
+      requestedMembershipNumber =
+        digits.slice(0, 4) + "-" + digits.slice(4);
+
+      if (membershipNumberInput) {
+        membershipNumberInput.value = requestedMembershipNumber;
+      }
+    }
+
+
     const {
       data: existing,
       error: existingError
@@ -4990,7 +5045,10 @@
           "pending",
 
         requested_at:
-          new Date().toISOString()
+          new Date().toISOString(),
+
+        requested_membership_number:
+          requestedMembershipNumber
 
       });
 
