@@ -2656,13 +2656,13 @@
           ← BACK
         </button>
 
-        <h2>Club Chat</h2>
+        <h2 id="clubChatSectionTitle">Club Chat</h2>
       </div>
 
       <div class="card">
         <div class="chat-notice">
-          <strong>CLUB CHAT</strong>
-          All club members can see your messages. Please communicate respectfully and behave appropriately.
+          <strong id="clubChatNoticeTitle">CLUB CHAT</strong>
+          <span id="clubChatNoticeText">All club members can see your messages. Please communicate respectfully and behave appropriately.</span>
         </div>
 
         <div id="chatMessages" class="chat-list">
@@ -22672,6 +22672,74 @@
   if (copyrightYearElement) {
     copyrightYearElement.textContent = String(new Date().getFullYear());
   }
+</script>
+
+<script>
+  function updateClubChatLanguage(language) {
+    const lang = ["de", "en", "uk"].includes(language) ? language : "en";
+
+    const translations = {
+      de: {
+        sectionTitle: "Vereinschat",
+        noticeTitle: "VEREINSCHAT",
+        noticeText: "Alle Vereinsmitglieder können deine Nachrichten sehen. Bitte kommuniziere respektvoll und verhalte dich angemessen."
+      },
+      en: {
+        sectionTitle: "Club Chat",
+        noticeTitle: "CLUB CHAT",
+        noticeText: "All club members can see your messages. Please communicate respectfully and behave appropriately."
+      },
+      uk: {
+        sectionTitle: "Чат клубу",
+        noticeTitle: "ЧАТ КЛУБУ",
+        noticeText: "Усі члени клубу можуть бачити ваші повідомлення. Будь ласка, спілкуйтеся шанобливо та поводьтеся належним чином."
+      }
+    };
+
+    const t = translations[lang];
+    const sectionTitle = document.getElementById("clubChatSectionTitle");
+    const noticeTitle = document.getElementById("clubChatNoticeTitle");
+    const noticeText = document.getElementById("clubChatNoticeText");
+
+    if (sectionTitle) sectionTitle.textContent = t.sectionTitle;
+    if (noticeTitle) noticeTitle.textContent = t.noticeTitle;
+    if (noticeText) noticeText.textContent = t.noticeText;
+  }
+
+  function syncClubChatLanguageFromInterface() {
+    const select = document.getElementById("profileLanguageSelect");
+    let lang = select && ["de", "en", "uk"].includes(select.value)
+      ? select.value
+      : null;
+
+    if (!lang) {
+      const logoutText = (document.querySelector("button.logout")?.textContent || "").trim().toUpperCase();
+      if (logoutText === "ABMELDEN") lang = "de";
+      else if (/ВИЙТИ|ВИХІД/.test(logoutText)) lang = "uk";
+      else lang = "en";
+    }
+
+    updateClubChatLanguage(lang);
+  }
+
+  // Keep the new Club Chat notice synchronized with the app's existing i18n system
+  // without changing /i18n.js.
+  if (typeof window.setAppLanguage === "function") {
+    const originalSetAppLanguage = window.setAppLanguage;
+    window.setAppLanguage = function(language) {
+      const result = originalSetAppLanguage.apply(this, arguments);
+      Promise.resolve(result).finally(() => {
+        updateClubChatLanguage(language);
+      });
+      return result;
+    };
+  }
+
+  // Apply the saved/current interface language after the existing i18n script initializes.
+  window.addEventListener("load", () => {
+    syncClubChatLanguageFromInterface();
+    setTimeout(syncClubChatLanguageFromInterface, 250);
+  });
 </script>
 
 </body>
