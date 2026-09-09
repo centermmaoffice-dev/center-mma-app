@@ -5017,6 +5017,7 @@
 
 
     const {
+      data: createdPayment,
       error
     } = await supabaseClient
       .from("payments")
@@ -5050,7 +5051,9 @@
         requested_membership_number:
           requestedMembershipNumber
 
-      });
+      })
+      .select("id")
+      .single();
 
 
     if (error) {
@@ -5068,6 +5071,17 @@
       }
 
       return;
+    }
+
+
+    if (createdPayment?.id) {
+      await triggerAdminRequestNotification(
+        "notify_admin_payment_request",
+        {
+          target_payment_id:
+            createdPayment.id
+        }
+      );
     }
 
 
@@ -9172,6 +9186,63 @@
      NOTIFICATIONS
   ========================= */
 
+  async function triggerAdminRequestNotification(
+    rpcName,
+    rpcParams
+  ) {
+
+    try {
+      const {
+        data: notificationId,
+        error: notificationError
+      } = await supabaseClient
+        .rpc(
+          rpcName,
+          rpcParams
+        );
+
+      if (notificationError) {
+        console.error(
+          "Could not create admin request notification:",
+          notificationError
+        );
+        return;
+      }
+
+      if (!notificationId) {
+        return;
+      }
+
+      const {
+        error: pushError
+      } = await supabaseClient
+        .functions
+        .invoke(
+          "send-push",
+          {
+            body: {
+              notificationId:
+                notificationId
+            }
+          }
+        );
+
+      if (pushError) {
+        console.error(
+          "Could not trigger admin request push:",
+          pushError
+        );
+      }
+
+    } catch (error) {
+      console.error(
+        "Admin request notification failed:",
+        error
+      );
+    }
+  }
+
+
   async function createNotification(
     title,
     message,
@@ -10432,6 +10503,7 @@
 
 
     const {
+      data: createdRegistration,
       error
     } = await supabaseClient
       .from("competition_registrations")
@@ -10446,7 +10518,9 @@
         status:
           "requested"
 
-      });
+      })
+      .select("id")
+      .single();
 
 
     if (error) {
@@ -10464,6 +10538,17 @@
       }
 
       return;
+    }
+
+
+    if (createdRegistration?.id) {
+      await triggerAdminRequestNotification(
+        "notify_admin_competition_request",
+        {
+          target_registration_id:
+            createdRegistration.id
+        }
+      );
     }
 
 
