@@ -4847,10 +4847,10 @@
                 inputmode="numeric"
                 autocomplete="off"
                 maxlength="8"
-                placeholder="2605-018"
+                placeholder="0000-000"
               >
               <div class="muted small" style="margin-top:7px; line-height:1.45;">
-                Bei der ersten Aktivierung einmalig erforderlich. Eingabe als 2605018 oder 2605-018 möglich.
+                Bei der ersten Aktivierung einmalig erforderlich. Format: 0000-000.
               </div>
             </div>
           ` : ""}
@@ -4956,7 +4956,7 @@
 
         if (message) {
           message.textContent =
-            "Please enter your Mitgliedsnummer in the format 2605-018 or 2605018.";
+            "Please enter your Mitgliedsnummer in the format 0000-000.";
           message.className =
             "message error";
         }
@@ -19548,6 +19548,15 @@
     try {
 
       const {
+        data: { session },
+        error: sessionError
+      } = await supabaseClient.auth.getSession();
+
+      if (sessionError || !session?.access_token) {
+        throw new Error("Admin session not found. Please log in again.");
+      }
+
+      const {
         data,
         error
       } = await supabaseClient
@@ -19557,6 +19566,9 @@
           {
             body: {
               memberId
+            },
+            headers: {
+              Authorization: `Bearer ${session.access_token}`
             }
           }
         );
