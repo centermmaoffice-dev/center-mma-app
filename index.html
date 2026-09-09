@@ -896,6 +896,26 @@
       border-radius: 20px;
     }
 
+
+    .chat-notice {
+      background: #151515;
+      border: 1px solid #2b2b2b;
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      line-height: 1.4;
+      color: #aaa;
+    }
+
+    .chat-notice strong {
+      display: block;
+      margin-bottom: 3px;
+      color: #fff;
+      font-size: 12px;
+      letter-spacing: .3px;
+    }
+
     .chat-list {
       max-height: 55vh;
       overflow-y: auto;
@@ -2522,6 +2542,18 @@
 
       </div>
 
+      <div
+        style="
+          margin:28px 0 18px;
+          text-align:center;
+          color:#777;
+          font-size:12px;
+          line-height:1.5;
+        "
+      >
+        © <span id="copyrightYear"></span> SPORTUNION Center MMA. All rights reserved.
+      </div>
+
     </div>
     <!-- CALENDAR -->
     <div id="calendarSection" class="hidden">
@@ -2628,6 +2660,11 @@
       </div>
 
       <div class="card">
+        <div class="chat-notice">
+          <strong>CLUB CHAT</strong>
+          All club members can see your messages. Please communicate respectfully and behave appropriately.
+        </div>
+
         <div id="chatMessages" class="chat-list">
           <div class="empty">Loading chat...</div>
         </div>
@@ -5432,13 +5469,11 @@
                 src="${escapeHtml(item.image_url)}"
                 alt=""
                 style="
-  width:100%;
-  height:auto;
-  display:block;
-  object-fit:contain;
-  border-radius:10px;
-  margin-bottom:15px;
-"
+                  width:100%;
+                  max-height:280px;
+                  object-fit:cover;
+                  border-radius:10px;
+                  margin-bottom:15px;
                 "
               >
             `
@@ -22630,6 +22665,13 @@
       );
   }
 
+</script>
+
+<script>
+  const copyrightYearElement = document.getElementById("copyrightYear");
+  if (copyrightYearElement) {
+    copyrightYearElement.textContent = String(new Date().getFullYear());
+  }
 </script>
 
 </body>
