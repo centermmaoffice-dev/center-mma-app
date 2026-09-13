@@ -1650,6 +1650,23 @@
     }
 
   
+    /* NEWS CARDS */
+    .news-card {
+      background:#151515;
+      border:1px solid #272727;
+      border-radius:14px;
+      overflow:hidden;
+      margin-bottom:15px;
+    }
+    .news-card-image {
+      width:100%;
+      height:auto;
+      display:block;
+    }
+    .news-card-body {
+      padding:20px;
+    }
+
     /* =========================
        SHOP
     ========================= */
@@ -5540,20 +5557,15 @@
               <img
                 src="${escapeHtml(item.image_url)}"
                 alt=""
-                style="
-                 width:100%;
-height:auto;
-display:block;
-border-radius:10px;
-margin-bottom:15px;
+                class="news-card-image"
               >
             `
             : "";
 
         return `
-          <div class="card">
-
+          <article class="news-card">
             ${image}
+            <div class="news-card-body">
 
             <div
               class="muted small"
@@ -5579,7 +5591,8 @@ margin-bottom:15px;
               "
             >${escapeHtml(item.content || "")}</div>
 
-          </div>
+            </div>
+          </article>
         `;
 
       }).join("");
@@ -10103,9 +10116,15 @@ margin-bottom:15px;
     }
 
 
-    element.innerHTML =
-      competitions
-        .map(
+    const today = getLocalDateString();
+    const currentCompetitions = competitions
+      .filter(function (competition) { return competition.date >= today; })
+      .sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); });
+    const pastCompetitions = competitions
+      .filter(function (competition) { return competition.date < today; })
+      .sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
+
+    const renderCompetitionCard =
           function (competition) {
 
             const registration =
@@ -10291,9 +10310,26 @@ margin-bottom:15px;
 
             `;
 
-          }
-        )
-        .join("");
+          };
+
+    const currentHtml = currentCompetitions.length
+      ? currentCompetitions.map(renderCompetitionCard).join("")
+      : `<div class="card"><div class="empty">No current competitions.</div></div>`;
+
+    const pastHtml = pastCompetitions.length
+      ? pastCompetitions.map(renderCompetitionCard).join("")
+      : `<div class="card"><div class="empty">No past competitions.</div></div>`;
+
+    element.innerHTML = `
+      <div style="font-size:13px;font-weight:900;letter-spacing:1px;text-transform:uppercase;margin:4px 0 12px;color:#aaa;">
+        Aktuelle Wettkämpfe
+      </div>
+      ${currentHtml}
+      <div style="font-size:13px;font-weight:900;letter-spacing:1px;text-transform:uppercase;margin:28px 0 12px;color:#777;">
+        Vergangene Wettkämpfe
+      </div>
+      ${pastHtml}
+    `;
   }
 
 
