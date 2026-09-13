@@ -6,7 +6,7 @@
   <title>CENTER MMA</title>
 
   <meta name="theme-color" content="#0b0b0b">
-  <meta name="center-mma-release" content="test-2026-09-02">
+  <meta name="center-mma-release" content="push-gate-i18n-2026-09-13">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="CENTER MMA">
@@ -1923,6 +1923,77 @@
       .shop-grid{grid-template-columns:1fr;}
     }
 
+
+
+    /* =========================
+       MANDATORY PUSH GATE
+    ========================= */
+    .push-gate-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 999999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(0,0,0,.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .push-gate-overlay.hidden {
+      display: none !important;
+    }
+
+    .push-gate-card {
+      width: min(100%, 470px);
+      background: linear-gradient(145deg,#191919,#0d0d0d);
+      border: 1px solid #444;
+      border-radius: 18px;
+      padding: 24px;
+      box-shadow: 0 28px 70px rgba(0,0,0,.65);
+      text-align: center;
+    }
+
+    .push-gate-icon {
+      font-size: 42px;
+      margin-bottom: 12px;
+    }
+
+    .push-gate-title {
+      font-size: 22px;
+      font-weight: 900;
+      margin-bottom: 12px;
+    }
+
+    .push-gate-text {
+      color: #bbb;
+      font-size: 14px;
+      line-height: 1.6;
+      white-space: pre-line;
+    }
+
+    .push-gate-note {
+      margin-top: 13px;
+      color: #888;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .push-gate-button {
+      margin-top: 20px;
+      background: #fff;
+      color: #000;
+      font-weight: 900;
+    }
+
+    .push-gate-status {
+      min-height: 18px;
+      margin-top: 12px;
+      color: #ffb4b4;
+      font-size: 12px;
+      line-height: 1.45;
+    }
 </style>
 </head>
 
@@ -2794,34 +2865,33 @@
       <div class="section-title">
 
         <button
+          id="notificationsBackButton"
           class="secondary back-button"
           onclick="goBackInApp()"
         >
           ← BACK
         </button>
 
-        <h2>Notifications</h2>
+        <h2 id="notificationsSectionTitle">Notifications</h2>
 
       </div>
 
       <div class="card">
 
-        <h3>
+        <h3 id="notificationPreferencesTitle">
           Notification Preferences
         </h3>
 
-        <p class="muted small">
+        <p id="notificationPreferencesIntro" class="muted small">
           Choose which optional notifications you want to receive.
         </p>
 
-        <div
-          class="notification-setting-row"
-        >
+        <div class="notification-setting-row">
           <div class="notification-setting-copy">
-            <div class="notification-setting-title">
+            <div id="notifMandatoryTitle" class="notification-setting-title">
               🔒 Important club notifications
             </div>
-            <div class="notification-setting-text">
+            <div id="notifMandatoryText" class="notification-setting-text">
               Admin, group, payment and membership notifications. Always enabled.
             </div>
           </div>
@@ -2834,203 +2904,136 @@
           >
         </div>
 
-        <div
-          class="notification-setting-row"
-        >
+        <div class="notification-setting-row">
           <div class="notification-setting-copy">
-            <div class="notification-setting-title">
+            <div id="notifChatTitle" class="notification-setting-title">
               💬 Chat messages
             </div>
-            <div class="notification-setting-text">
+            <div id="notifChatText" class="notification-setting-text">
               Notify me about new club chat messages.
             </div>
           </div>
-
-          <input
-            id="notifPrefChat"
-            type="checkbox"
-            class="notification-checkbox"
-          >
+          <input id="notifPrefChat" type="checkbox" class="notification-checkbox">
         </div>
 
-        <div
-          class="notification-setting-row"
-        >
+        <div class="notification-setting-row">
           <div class="notification-setting-copy">
-            <div class="notification-setting-title">
+            <div id="notifTrainingReminderTitle" class="notification-setting-title">
               ⏰ Training reminders (2 hours before)
             </div>
-            <div class="notification-setting-text">
+            <div id="notifTrainingReminderText" class="notification-setting-text">
               Reminders before upcoming training sessions.
             </div>
           </div>
-
-          <input
-            id="notifPrefTrainingReminders"
-            type="checkbox"
-            class="notification-checkbox"
-          >
+          <input id="notifPrefTrainingReminders" type="checkbox" class="notification-checkbox">
         </div>
 
-        <div
-          class="notification-setting-row"
-        >
+        <div class="notification-setting-row">
           <div class="notification-setting-copy">
-            <div class="notification-setting-title">
+            <div id="notifTrainingChangesTitle" class="notification-setting-title">
               🥋 Training changes
             </div>
-            <div class="notification-setting-text">
+            <div id="notifTrainingChangesText" class="notification-setting-text">
               New, changed or cancelled training sessions.
             </div>
           </div>
-
-          <input
-            id="notifPrefTrainingChanges"
-            type="checkbox"
-            class="notification-checkbox"
-          >
+          <input id="notifPrefTrainingChanges" type="checkbox" class="notification-checkbox">
         </div>
 
-        <div
-          class="notification-setting-row"
-        >
+        <div class="notification-setting-row">
           <div class="notification-setting-copy">
-            <div class="notification-setting-title">
+            <div id="notifCompetitionsTitle" class="notification-setting-title">
               🏆 Competitions
             </div>
-            <div class="notification-setting-text">
+            <div id="notifCompetitionsText" class="notification-setting-text">
               New competitions and competition updates.
             </div>
           </div>
-
-          <input
-            id="notifPrefCompetitions"
-            type="checkbox"
-            class="notification-checkbox"
-          >
+          <input id="notifPrefCompetitions" type="checkbox" class="notification-checkbox">
         </div>
 
-        <div
-          class="notification-setting-row"
-        >
+        <div class="notification-setting-row">
           <div class="notification-setting-copy">
-            <div class="notification-setting-title">
+            <div id="notifNewsTitle" class="notification-setting-title">
               📰 News
             </div>
-            <div class="notification-setting-text">
+            <div id="notifNewsText" class="notification-setting-text">
               Notify me when new club news is published.
             </div>
           </div>
-
-          <input
-            id="notifPrefNews"
-            type="checkbox"
-            class="notification-checkbox"
-          >
+          <input id="notifPrefNews" type="checkbox" class="notification-checkbox">
         </div>
 
-        <div
-          class="notification-setting-row"
-        >
+        <div class="notification-setting-row">
           <div class="notification-setting-copy">
-            <div class="notification-setting-title">
+            <div id="notifDocumentsTitle" class="notification-setting-title">
               📄 Documents
             </div>
-            <div class="notification-setting-text">
+            <div id="notifDocumentsText" class="notification-setting-text">
               Notify me when new club documents are added.
             </div>
           </div>
-
-          <input
-            id="notifPrefDocuments"
-            type="checkbox"
-            class="notification-checkbox"
-          >
+          <input id="notifPrefDocuments" type="checkbox" class="notification-checkbox">
         </div>
 
-        <div
-          class="notification-setting-row"
-        >
+        <div class="notification-setting-row">
           <div class="notification-setting-copy">
-            <div class="notification-setting-title">
+            <div id="notifBirthdaysTitle" class="notification-setting-title">
               🎂 Birthday reminders
             </div>
-            <div class="notification-setting-text">
+            <div id="notifBirthdaysText" class="notification-setting-text">
               Birthday and club celebration reminders.
             </div>
           </div>
-
-          <input
-            id="notifPrefBirthdays"
-            type="checkbox"
-            class="notification-checkbox"
-          >
+          <input id="notifPrefBirthdays" type="checkbox" class="notification-checkbox">
         </div>
 
-        <div
-          class="notification-setting-row"
-        >
+        <div class="notification-setting-row">
           <div class="notification-setting-copy">
-            <div class="notification-setting-title">
-              📱 Device alerts
+            <div id="notifDeviceTitle" class="notification-setting-title">
+              📱 Device notifications
             </div>
-            <div class="notification-setting-text">
+            <div id="notifDeviceText" class="notification-setting-text">
               Receive push notifications on this device, even when CENTER MMA is closed.
             </div>
           </div>
         </div>
 
         <button
+          id="enablePushButton"
           class="secondary"
           onclick="enableDeviceAlerts()"
         >
           ENABLE PUSH NOTIFICATIONS
         </button>
 
-        <button
-          class="secondary"
-          onclick="disableDeviceAlerts()"
-        >
-          DISABLE PUSH ON THIS DEVICE
-        </button>
-
-        <div
-          id="deviceAlertStatus"
-          class="device-alert-status"
-        ></div>
+        <div id="deviceAlertStatus" class="device-alert-status"></div>
 
         <button
+          id="saveNotificationPreferencesButton"
           onclick="saveNotificationPreferencesFromNotifications()"
         >
           SAVE PREFERENCES
         </button>
 
-        <div
-          id="notificationsPreferencesMessage"
-          class="message"
-        ></div>
+        <div id="notificationsPreferencesMessage" class="message"></div>
 
       </div>
 
-
       <div class="card">
-        <h3>Notification History</h3>
-        <p class="muted small">
+        <h3 id="notificationHistoryTitle">Notification History</h3>
+        <p id="notificationHistoryText" class="muted small">
           Your recent notifications.
         </p>
       </div>
 
-
       <div id="notificationsList">
-        <div class="empty">
+        <div id="notificationsLoadingText" class="empty">
           Loading notifications...
         </div>
       </div>
 
-      <div
-        id="notificationDetail"
-        class="hidden"
-      ></div>
+      <div id="notificationDetail" class="hidden"></div>
 
     </div>
 
@@ -3084,6 +3087,21 @@
 
   </div>
 
+</div>
+
+
+<!-- MANDATORY PUSH GATE -->
+<div id="mandatoryPushGate" class="push-gate-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="mandatoryPushGateTitle">
+  <div class="push-gate-card">
+    <div class="push-gate-icon">🔔</div>
+    <div id="mandatoryPushGateTitle" class="push-gate-title">Enable Push Notifications</div>
+    <div id="mandatoryPushGateText" class="push-gate-text"></div>
+    <div id="mandatoryPushGateNote" class="push-gate-note"></div>
+    <button id="mandatoryPushGateButton" class="push-gate-button" onclick="activateMandatoryPush()">
+      ENABLE PUSH NOTIFICATIONS
+    </button>
+    <div id="mandatoryPushGateStatus" class="push-gate-status"></div>
+  </div>
 </div>
 
 
@@ -3738,6 +3756,10 @@
     // currently logged-in account. This is what allows notifications to
     // arrive through the service worker even when the app is closed.
     syncPushSubscriptionAfterLogin();
+
+    // Mandatory push gate: only disappears when this device has an active
+    // push permission + subscription. No skip/close action is provided.
+    setTimeout(checkMandatoryPushGate, 250);
 
     currentSectionName =
       "home";
@@ -6215,6 +6237,8 @@
         "notificationsPreferencesMessage"
       );
 
+    const t = getPushTranslations(getCurrentInterfaceLanguage());
+
     const payload = {
       user_id:
         currentUser.id,
@@ -6252,7 +6276,7 @@
 
     if (message) {
       message.textContent =
-        "Saving...";
+        t.saving;
       message.className =
         "message";
     }
@@ -6275,8 +6299,7 @@
 
       if (message) {
         message.textContent =
-          "Could not save notification settings: " +
-          error.message;
+          t.saveError + error.message;
         message.className =
           "message error";
       }
@@ -6286,7 +6309,7 @@
 
     if (message) {
       message.textContent =
-        "Notification settings saved.";
+        t.saved;
       message.className =
         "message success-text";
     }
@@ -20715,14 +20738,382 @@
   }
 
 
+  function getCurrentInterfaceLanguage() {
+    const select = document.getElementById("profileLanguageSelect");
+    if (select && ["de", "en", "uk"].includes(select.value)) {
+      return select.value;
+    }
+
+    const saved = localStorage.getItem("centerMmaLanguage") || localStorage.getItem("language");
+    if (["de", "en", "uk"].includes(saved)) {
+      return saved;
+    }
+
+    const logoutText = (document.querySelector("button.logout")?.textContent || "").trim().toUpperCase();
+    if (logoutText === "ABMELDEN") return "de";
+    if (/ВИЙТИ|ВИХІД/.test(logoutText)) return "uk";
+    return "en";
+  }
+
+
+  function getPushTranslations(language) {
+    const lang = ["de", "en", "uk"].includes(language) ? language : "en";
+
+    const translations = {
+      de: {
+        back: "← ZURÜCK",
+        sectionTitle: "Benachrichtigungen",
+        preferencesTitle: "Benachrichtigungseinstellungen",
+        preferencesIntro: "Wähle aus, welche optionalen Benachrichtigungen du erhalten möchtest.",
+        mandatoryTitle: "🔒 Wichtige Vereinsmitteilungen",
+        mandatoryText: "Admin-, Gruppen-, Zahlungs-, Mitgliedschafts- und Kontomitteilungen. Immer aktiviert.",
+        chatTitle: "💬 Chat-Nachrichten",
+        chatText: "Benachrichtige mich über neue Nachrichten im Vereinschat.",
+        reminderTitle: "⏰ Trainingserinnerungen (2 Stunden vorher)",
+        reminderText: "Erinnerungen vor bevorstehenden Trainingseinheiten.",
+        changesTitle: "🥋 Trainingsänderungen",
+        changesText: "Neue, geänderte oder abgesagte Trainingseinheiten.",
+        competitionsTitle: "🏆 Wettkämpfe",
+        competitionsText: "Neue Wettkämpfe und Wettkampf-Updates.",
+        newsTitle: "📰 News",
+        newsText: "Benachrichtige mich über neue Vereinsnews.",
+        documentsTitle: "📄 Dokumente",
+        documentsText: "Benachrichtige mich, wenn neue Vereinsdokumente hinzugefügt werden.",
+        birthdaysTitle: "🎂 Geburtstagserinnerungen",
+        birthdaysText: "Erinnerungen an Geburtstage und Vereinsfeiern.",
+        deviceTitle: "📱 Gerätebenachrichtigungen",
+        deviceText: "Push-Benachrichtigungen auf diesem Gerät erhalten, auch wenn CENTER MMA geschlossen ist.",
+        enable: "PUSH-BENACHRICHTIGUNGEN AKTIVIEREN",
+        save: "EINSTELLUNGEN SPEICHERN",
+        historyTitle: "Benachrichtigungsverlauf",
+        historyText: "Deine letzten Benachrichtigungen.",
+        loading: "Benachrichtigungen werden geladen...",
+        saving: "Wird gespeichert...",
+        saved: "Benachrichtigungseinstellungen gespeichert.",
+        saveError: "Benachrichtigungseinstellungen konnten nicht gespeichert werden: ",
+        statusEnabling: "Push-Benachrichtigungen werden aktiviert...",
+        statusActive: "Push-Benachrichtigungen sind auf diesem Gerät aktiv.",
+        statusNotEnabled: "Push-Benachrichtigungen sind noch nicht aktiviert.",
+        statusBlocked: "Push-Benachrichtigungen sind in den Browser-/Geräteeinstellungen blockiert.",
+        statusUnsupported: "Push-Benachrichtigungen werden von diesem Browser nicht unterstützt.",
+        statusNoSubscription: "Die Berechtigung wurde erteilt, aber dieses Gerät ist noch nicht für Push registriert.",
+        statusCheckError: "Der Push-Status konnte nicht geprüft werden.",
+        permissionNotGranted: "Die Berechtigung für Benachrichtigungen wurde nicht erteilt.",
+        mustLogin: "Du musst angemeldet sein, bevor Push-Benachrichtigungen aktiviert werden können.",
+        httpsRequired: "Push benötigt eine sichere HTTPS-Verbindung.",
+        swInactive: "Der Service Worker ist noch nicht aktiv. Bitte öffne CENTER MMA erneut und versuche es noch einmal.",
+        subscriptionFailed: "Push-Benachrichtigungen konnten nicht aktiviert werden: ",
+        iosInstall: "Auf dem iPhone muss CENTER MMA zuerst installiert werden: Safari → Teilen → Zum Home-Bildschirm. Öffne danach die installierte App und aktiviere dort die Benachrichtigungen.",
+        gateTitle: "Push-Benachrichtigungen aktivieren",
+        gateText: "CENTER MMA verwendet Push-Benachrichtigungen für wichtige Vereinsinformationen, Trainingsänderungen, Termine, Erinnerungen und Chat-Nachrichten.\n\nOhne aktivierte Push-Benachrichtigungen kannst du wichtige Informationen verpassen.",
+        gateNote: "Nach der Aktivierung sind zunächst alle Benachrichtigungen eingeschaltet. Optionale Kategorien kannst du jederzeit unter Benachrichtigungen anpassen. Wichtige Vereins- und Systemmitteilungen bleiben immer aktiviert.",
+        gateButton: "PUSH-BENACHRICHTIGUNGEN AKTIVIEREN",
+        gateBlocked: "Benachrichtigungen sind auf diesem Gerät blockiert. Aktiviere sie in den Browser-/Geräteeinstellungen und öffne CENTER MMA danach erneut.",
+        gateIos: "Installiere CENTER MMA zuerst über Safari → Teilen → Zum Home-Bildschirm. Öffne anschließend die installierte App und aktiviere Push-Benachrichtigungen.",
+        gateUnsupported: "Dieses Gerät bzw. dieser Browser unterstützt Push-Benachrichtigungen nicht."
+      },
+      en: {
+        back: "← BACK",
+        sectionTitle: "Notifications",
+        preferencesTitle: "Notification Preferences",
+        preferencesIntro: "Choose which optional notifications you want to receive.",
+        mandatoryTitle: "🔒 Important club notifications",
+        mandatoryText: "Admin, group, payment, membership and account notifications. Always enabled.",
+        chatTitle: "💬 Chat messages",
+        chatText: "Notify me about new club chat messages.",
+        reminderTitle: "⏰ Training reminders (2 hours before)",
+        reminderText: "Reminders before upcoming training sessions.",
+        changesTitle: "🥋 Training changes",
+        changesText: "New, changed or cancelled training sessions.",
+        competitionsTitle: "🏆 Competitions",
+        competitionsText: "New competitions and competition updates.",
+        newsTitle: "📰 News",
+        newsText: "Notify me when new club news is published.",
+        documentsTitle: "📄 Documents",
+        documentsText: "Notify me when new club documents are added.",
+        birthdaysTitle: "🎂 Birthday reminders",
+        birthdaysText: "Birthday and club celebration reminders.",
+        deviceTitle: "📱 Device notifications",
+        deviceText: "Receive push notifications on this device, even when CENTER MMA is closed.",
+        enable: "ENABLE PUSH NOTIFICATIONS",
+        save: "SAVE PREFERENCES",
+        historyTitle: "Notification History",
+        historyText: "Your recent notifications.",
+        loading: "Loading notifications...",
+        saving: "Saving...",
+        saved: "Notification settings saved.",
+        saveError: "Could not save notification settings: ",
+        statusEnabling: "Enabling push notifications...",
+        statusActive: "Push notifications are active on this device.",
+        statusNotEnabled: "Push notifications are not enabled yet.",
+        statusBlocked: "Push notifications are blocked in browser/device settings.",
+        statusUnsupported: "Push notifications are not supported by this browser.",
+        statusNoSubscription: "Notification permission is granted, but this device is not subscribed yet.",
+        statusCheckError: "Could not check push notification status.",
+        permissionNotGranted: "Notification permission was not granted.",
+        mustLogin: "You must be logged in before enabling push notifications.",
+        httpsRequired: "Push requires a secure HTTPS connection.",
+        swInactive: "Service worker is not active yet. Please reopen CENTER MMA and try again.",
+        subscriptionFailed: "Could not enable push notifications: ",
+        iosInstall: "On iPhone, install CENTER MMA first: Safari → Share → Add to Home Screen. Then open the installed app and enable notifications there.",
+        gateTitle: "Enable Push Notifications",
+        gateText: "CENTER MMA uses push notifications for important club information, training changes, appointments, reminders and chat messages.\n\nWithout push notifications enabled, you may miss important information.",
+        gateNote: "When enabled, all notification categories are turned on initially. You can adjust optional categories at any time under Notifications. Important club and system messages always remain enabled.",
+        gateButton: "ENABLE PUSH NOTIFICATIONS",
+        gateBlocked: "Notifications are blocked on this device. Enable them in your browser/device settings and then reopen CENTER MMA.",
+        gateIos: "First install CENTER MMA using Safari → Share → Add to Home Screen. Then open the installed app and enable push notifications.",
+        gateUnsupported: "Push notifications are not supported by this device or browser."
+      },
+      uk: {
+        back: "← НАЗАД",
+        sectionTitle: "Сповіщення",
+        preferencesTitle: "Налаштування сповіщень",
+        preferencesIntro: "Оберіть, які додаткові сповіщення ви хочете отримувати.",
+        mandatoryTitle: "🔒 Важливі повідомлення клубу",
+        mandatoryText: "Повідомлення адміністрації, груп, оплати, членства та облікового запису. Завжди увімкнені.",
+        chatTitle: "💬 Повідомлення чату",
+        chatText: "Сповіщати мене про нові повідомлення в чаті клубу.",
+        reminderTitle: "⏰ Нагадування про тренування (за 2 години)",
+        reminderText: "Нагадування перед майбутніми тренуваннями.",
+        changesTitle: "🥋 Зміни тренувань",
+        changesText: "Нові, змінені або скасовані тренування.",
+        competitionsTitle: "🏆 Змагання",
+        competitionsText: "Нові змагання та оновлення щодо змагань.",
+        newsTitle: "📰 Новини",
+        newsText: "Сповіщати мене про нові новини клубу.",
+        documentsTitle: "📄 Документи",
+        documentsText: "Сповіщати мене, коли додаються нові документи клубу.",
+        birthdaysTitle: "🎂 Нагадування про дні народження",
+        birthdaysText: "Нагадування про дні народження та клубні події.",
+        deviceTitle: "📱 Сповіщення на пристрої",
+        deviceText: "Отримуйте Push-сповіщення на цьому пристрої, навіть коли CENTER MMA закрито.",
+        enable: "УВІМКНУТИ PUSH-СПОВІЩЕННЯ",
+        save: "ЗБЕРЕГТИ НАЛАШТУВАННЯ",
+        historyTitle: "Історія сповіщень",
+        historyText: "Ваші останні сповіщення.",
+        loading: "Завантаження сповіщень...",
+        saving: "Збереження...",
+        saved: "Налаштування сповіщень збережено.",
+        saveError: "Не вдалося зберегти налаштування сповіщень: ",
+        statusEnabling: "Увімкнення Push-сповіщень...",
+        statusActive: "Push-сповіщення активні на цьому пристрої.",
+        statusNotEnabled: "Push-сповіщення ще не увімкнені.",
+        statusBlocked: "Push-сповіщення заблоковані в налаштуваннях браузера або пристрою.",
+        statusUnsupported: "Цей браузер не підтримує Push-сповіщення.",
+        statusNoSubscription: "Дозвіл надано, але цей пристрій ще не підписаний на Push-сповіщення.",
+        statusCheckError: "Не вдалося перевірити стан Push-сповіщень.",
+        permissionNotGranted: "Дозвіл на сповіщення не було надано.",
+        mustLogin: "Потрібно увійти в систему перед увімкненням Push-сповіщень.",
+        httpsRequired: "Для Push потрібне безпечне HTTPS-з’єднання.",
+        swInactive: "Service Worker ще не активний. Відкрийте CENTER MMA повторно та спробуйте ще раз.",
+        subscriptionFailed: "Не вдалося увімкнути Push-сповіщення: ",
+        iosInstall: "На iPhone спочатку встановіть CENTER MMA: Safari → Поділитися → На початковий екран. Потім відкрийте встановлений застосунок і увімкніть сповіщення.",
+        gateTitle: "Увімкніть Push-сповіщення",
+        gateText: "CENTER MMA використовує Push-сповіщення для важливої інформації клубу, змін тренувань, подій, нагадувань і повідомлень чату.\n\nБез увімкнених Push-сповіщень ви можете пропустити важливу інформацію.",
+        gateNote: "Після активації всі категорії сповіщень спочатку будуть увімкнені. Додаткові категорії можна будь-коли налаштувати в розділі «Сповіщення». Важливі клубні та системні повідомлення завжди залишаються увімкненими.",
+        gateButton: "УВІМКНУТИ PUSH-СПОВІЩЕННЯ",
+        gateBlocked: "Сповіщення заблоковані на цьому пристрої. Увімкніть їх у налаштуваннях браузера/пристрою та знову відкрийте CENTER MMA.",
+        gateIos: "Спочатку встановіть CENTER MMA через Safari → Поділитися → На початковий екран. Потім відкрийте встановлений застосунок і увімкніть Push-сповіщення.",
+        gateUnsupported: "Цей пристрій або браузер не підтримує Push-сповіщення."
+      }
+    };
+
+    return translations[lang];
+  }
+
+
+  function updatePushNotificationLanguage(language) {
+    const t = getPushTranslations(language || getCurrentInterfaceLanguage());
+    const map = {
+      notificationsBackButton: t.back,
+      notificationsSectionTitle: t.sectionTitle,
+      notificationPreferencesTitle: t.preferencesTitle,
+      notificationPreferencesIntro: t.preferencesIntro,
+      notifMandatoryTitle: t.mandatoryTitle,
+      notifMandatoryText: t.mandatoryText,
+      notifChatTitle: t.chatTitle,
+      notifChatText: t.chatText,
+      notifTrainingReminderTitle: t.reminderTitle,
+      notifTrainingReminderText: t.reminderText,
+      notifTrainingChangesTitle: t.changesTitle,
+      notifTrainingChangesText: t.changesText,
+      notifCompetitionsTitle: t.competitionsTitle,
+      notifCompetitionsText: t.competitionsText,
+      notifNewsTitle: t.newsTitle,
+      notifNewsText: t.newsText,
+      notifDocumentsTitle: t.documentsTitle,
+      notifDocumentsText: t.documentsText,
+      notifBirthdaysTitle: t.birthdaysTitle,
+      notifBirthdaysText: t.birthdaysText,
+      notifDeviceTitle: t.deviceTitle,
+      notifDeviceText: t.deviceText,
+      enablePushButton: t.enable,
+      saveNotificationPreferencesButton: t.save,
+      notificationHistoryTitle: t.historyTitle,
+      notificationHistoryText: t.historyText,
+      notificationsLoadingText: t.loading,
+      mandatoryPushGateTitle: t.gateTitle,
+      mandatoryPushGateText: t.gateText,
+      mandatoryPushGateNote: t.gateNote,
+      mandatoryPushGateButton: t.gateButton
+    };
+
+    Object.entries(map).forEach(([id, text]) => {
+      const element = document.getElementById(id);
+      if (element) element.textContent = text;
+    });
+
+    updateDeviceAlertStatus();
+  }
+
+
+  async function enableAllOptionalNotificationPreferences() {
+    if (!currentUser) return;
+
+    const payload = {
+      user_id: currentUser.id,
+      chat_messages: true,
+      training_reminders: true,
+      training_changes: true,
+      competitions: true,
+      news: true,
+      documents: true,
+      birthdays: true,
+      updated_at: new Date().toISOString()
+    };
+
+    const { error } = await supabaseClient
+      .from("notification_preferences")
+      .upsert(payload, { onConflict: "user_id" });
+
+    if (error) {
+      console.error("Could not enable all notification preferences:", error);
+      return;
+    }
+
+    await loadNotificationPreferences();
+  }
+
+
+  async function devicePushIsActive() {
+    if (
+      !("Notification" in window) ||
+      !("serviceWorker" in navigator) ||
+      !("PushManager" in window) ||
+      Notification.permission !== "granted"
+    ) {
+      return false;
+    }
+
+    try {
+      const subscription = await getCurrentPushSubscription();
+      return Boolean(subscription);
+    } catch (error) {
+      console.error("Could not verify push subscription:", error);
+      return false;
+    }
+  }
+
+
+  async function checkMandatoryPushGate() {
+    const gate = document.getElementById("mandatoryPushGate");
+    const status = document.getElementById("mandatoryPushGateStatus");
+    if (!gate || !currentUser) return;
+
+    updatePushNotificationLanguage(getCurrentInterfaceLanguage());
+    if (status) status.textContent = "";
+
+    // If permission already exists, repair/sync a missing subscription first.
+    if (
+      "Notification" in window &&
+      Notification.permission === "granted"
+    ) {
+      await syncPushSubscriptionAfterLogin();
+    }
+
+    if (await devicePushIsActive()) {
+      gate.classList.add("hidden");
+      return;
+    }
+
+    const t = getPushTranslations(getCurrentInterfaceLanguage());
+
+    if (isIosDevice() && !isStandalonePwa()) {
+      if (status) status.textContent = t.gateIos;
+    } else if (
+      !("Notification" in window) ||
+      !("serviceWorker" in navigator) ||
+      !("PushManager" in window)
+    ) {
+      if (status) status.textContent = t.gateUnsupported;
+    } else if (Notification.permission === "denied") {
+      if (status) status.textContent = t.gateBlocked;
+    }
+
+    gate.classList.remove("hidden");
+  }
+
+
+  async function activateMandatoryPush() {
+    const button = document.getElementById("mandatoryPushGateButton");
+    const status = document.getElementById("mandatoryPushGateStatus");
+    const gate = document.getElementById("mandatoryPushGate");
+    const t = getPushTranslations(getCurrentInterfaceLanguage());
+
+    if (button) button.disabled = true;
+    if (status) status.textContent = "";
+
+    try {
+      if (isIosDevice() && !isStandalonePwa()) {
+        if (status) status.textContent = t.gateIos;
+        return;
+      }
+
+      if (
+        !("Notification" in window) ||
+        !("serviceWorker" in navigator) ||
+        !("PushManager" in window)
+      ) {
+        if (status) status.textContent = t.gateUnsupported;
+        return;
+      }
+
+      if (Notification.permission === "denied") {
+        if (status) status.textContent = t.gateBlocked;
+        return;
+      }
+
+      await enableDeviceAlerts();
+
+      if (await devicePushIsActive()) {
+        // New users already default to all optional categories ON. Existing
+        // saved choices are preserved, so re-enabling push never resets them.
+        await loadNotificationPreferences();
+        if (gate) gate.classList.add("hidden");
+        return;
+      }
+
+      if (Notification.permission === "denied") {
+        if (status) status.textContent = t.gateBlocked;
+      } else {
+        if (status) status.textContent = t.permissionNotGranted;
+      }
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+
   async function enableDeviceAlerts() {
+
+    const t = getPushTranslations(getCurrentInterfaceLanguage());
 
     const statusElement =
       document.getElementById("deviceAlertStatus");
 
     const enableButton =
-      document.querySelector(
-        'button[onclick="enableDeviceAlerts()"]'
+      document.getElementById(
+        "enablePushButton"
       );
 
     function setPushStatus(text) {
@@ -20738,7 +21129,7 @@
     try {
 
       setPushStatus(
-        "Enabling push notifications..."
+        t.statusEnabling
       );
 
       if (
@@ -20746,7 +21137,7 @@
         !isStandalonePwa()
       ) {
         const message =
-          "On iPhone, install CENTER MMA first: Safari → Share → Add to Home Screen. Then open the installed app and enable notifications there.";
+          t.iosInstall;
         setPushStatus(message);
         alert(message);
         return;
@@ -20758,7 +21149,7 @@
         !("PushManager" in window)
       ) {
         const message =
-          "Push notifications are not supported by this browser.";
+          t.statusUnsupported;
         setPushStatus(message);
         alert(message);
         return;
@@ -20766,13 +21157,13 @@
 
       if (!window.isSecureContext) {
         throw new Error(
-          "Push requires a secure HTTPS connection."
+          t.httpsRequired
         );
       }
 
       if (!currentUser) {
         throw new Error(
-          "You must be logged in before enabling push notifications."
+          t.mustLogin
         );
       }
 
@@ -20782,11 +21173,11 @@
       if (permission !== "granted") {
         if (permission === "denied") {
           setPushStatus(
-            "Push notifications are blocked in browser/device settings."
+            t.statusBlocked
           );
         } else {
           setPushStatus(
-            "Notification permission was not granted."
+            t.permissionNotGranted
           );
         }
         return;
@@ -20797,7 +21188,7 @@
 
       if (!registration.active) {
         throw new Error(
-          "Service worker is not active yet. Please reopen CENTER MMA and try again."
+          t.swInactive
         );
       }
 
@@ -20822,7 +21213,7 @@
       await savePushSubscription(subscription);
 
       setPushStatus(
-        "Push notifications are active on this device."
+        t.statusActive
       );
 
     } catch (error) {
@@ -20836,7 +21227,7 @@
         getPushErrorDetails(error);
 
       const message =
-        "Could not enable push notifications: " + details;
+        t.subscriptionFailed + details;
 
       setPushStatus(message);
       alert(message);
@@ -20850,73 +21241,14 @@
   }
 
 
-  async function disableDeviceAlerts() {
-
-    try {
-
-      const subscription =
-        await getCurrentPushSubscription();
-
-      if (subscription) {
-
-        if (currentUser) {
-
-          const {
-            error
-          } = await supabaseClient
-            .from("push_subscriptions")
-            .delete()
-            .eq(
-              "user_id",
-              currentUser.id
-            )
-            .eq(
-              "endpoint",
-              subscription.endpoint
-            );
-
-          if (error) {
-            console.error(error);
-          }
-        }
-
-        await subscription
-          .unsubscribe();
-      }
-
-      updateDeviceAlertStatus();
-
-    } catch (error) {
-
-      console.error(
-        "Could not disable push notifications:",
-        error
-      );
-
-      alert(
-        "Could not disable push notifications: " +
-        error.message
-      );
-    }
-  }
-
-
   async function updateDeviceAlertStatus() {
+    const element = document.getElementById("deviceAlertStatus");
+    if (!element) return;
 
-    const element =
-      document.getElementById(
-        "deviceAlertStatus"
-      );
-
-    if (!element) {
-      return;
-    }
+    const t = getPushTranslations(getCurrentInterfaceLanguage());
 
     if (isIosDevice() && !isStandalonePwa()) {
-
-      element.textContent =
-        "On iPhone, install CENTER MMA with Safari → Share → Add to Home Screen, then enable notifications in the installed app.";
-
+      element.textContent = t.iosInstall;
       return;
     }
 
@@ -20925,59 +21257,29 @@
       !("serviceWorker" in navigator) ||
       !("PushManager" in window)
     ) {
-
-      element.textContent =
-        "Push notifications are not supported by this browser.";
-
+      element.textContent = t.statusUnsupported;
       return;
     }
 
-    if (
-      Notification.permission ===
-      "denied"
-    ) {
-
-      element.textContent =
-        "Push notifications are blocked in browser/device settings.";
-
+    if (Notification.permission === "denied") {
+      element.textContent = t.statusBlocked;
       return;
     }
 
-    if (
-      Notification.permission !==
-      "granted"
-    ) {
-
-      element.textContent =
-        "Push notifications are not enabled yet.";
-
+    if (Notification.permission !== "granted") {
+      element.textContent = t.statusNotEnabled;
       return;
     }
 
     try {
-
-      const subscription =
-        await getCurrentPushSubscription();
-
-      if (subscription) {
-
-        element.textContent =
-          "Push notifications are active on this device.";
-
-      } else {
-
-        element.textContent =
-          "Notification permission is granted, but this device is not subscribed yet.";
-      }
-
+      const subscription = await getCurrentPushSubscription();
+      element.textContent = subscription ? t.statusActive : t.statusNoSubscription;
     } catch (error) {
-
       console.error(error);
-
-      element.textContent =
-        "Could not check push notification status.";
+      element.textContent = t.statusCheckError;
     }
   }
+
 
   function startNotificationRealtime() {
 
@@ -23533,10 +23835,26 @@
     };
   }
 
+  // Keep push/notification UI synchronized too.
+  if (typeof window.setAppLanguage === "function") {
+    const previousSetAppLanguageForPush = window.setAppLanguage;
+    window.setAppLanguage = function(language) {
+      const result = previousSetAppLanguageForPush.apply(this, arguments);
+      Promise.resolve(result).finally(() => {
+        updatePushNotificationLanguage(language);
+      });
+      return result;
+    };
+  }
+
   // Apply the saved/current interface language after the existing i18n script initializes.
   window.addEventListener("load", () => {
     syncClubChatLanguageFromInterface();
-    setTimeout(syncClubChatLanguageFromInterface, 250);
+    updatePushNotificationLanguage(getCurrentInterfaceLanguage());
+    setTimeout(() => {
+      syncClubChatLanguageFromInterface();
+      updatePushNotificationLanguage(getCurrentInterfaceLanguage());
+    }, 250);
   });
 </script>
 
