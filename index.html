@@ -1667,6 +1667,90 @@
       padding:20px;
     }
 
+
+    /* =========================
+       ADMIN CONTROL CENTER
+    ========================= */
+    .admin-tools-grid {
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+      margin-bottom:18px;
+    }
+
+    .admin-tool-card {
+      background:#111;
+      border:1px solid #2b2b2b;
+      border-radius:14px;
+      padding:15px;
+      min-width:0;
+    }
+
+    .admin-tool-open {
+      width:100%;
+      margin:0;
+      padding:15px 12px;
+      background:#181818;
+      color:#fff;
+      border:1px solid #333;
+      border-radius:12px;
+      text-align:left;
+    }
+
+    .admin-tool-open:hover {
+      border-color:#666;
+      background:#202020;
+    }
+
+    .admin-tool-icon {
+      font-size:25px;
+      margin-bottom:9px;
+    }
+
+    .admin-tool-title {
+      font-size:14px;
+      font-weight:900;
+      line-height:1.3;
+      word-break:break-word;
+    }
+
+    .admin-tool-url {
+      color:#777;
+      font-size:10px;
+      line-height:1.4;
+      margin-top:5px;
+      word-break:break-all;
+    }
+
+    .admin-tool-actions {
+      display:flex;
+      gap:7px;
+      margin-top:9px;
+    }
+
+    .admin-tool-actions button {
+      flex:1;
+      margin:0;
+      padding:8px 9px;
+      font-size:11px;
+    }
+
+    .admin-tool-form-grid {
+      display:grid;
+      grid-template-columns:1fr 110px;
+      gap:10px;
+    }
+
+    @media(max-width:560px) {
+      .admin-tools-grid {
+        grid-template-columns:1fr;
+      }
+
+      .admin-tool-form-grid {
+        grid-template-columns:1fr;
+      }
+    }
+
     /* =========================
        SHOP
     ========================= */
@@ -10959,6 +11043,21 @@
 
         <div
           class="feature"
+          onclick="openAdminSection('tools')"
+        >
+          <div class="feature-icon">🧰</div>
+          <div class="feature-title">
+            Control Center
+          </div>
+          <div class="feature-text">
+            External admin tools
+          </div>
+        </div>
+
+
+
+        <div
+          class="feature"
           onclick="openAdminSection('birthdays')"
         >
           <div class="feature-icon">🎂</div>
@@ -11038,6 +11137,8 @@
         "Groups",
       notifications:
         "Notifications",
+      tools:
+        "Control Center",
       birthdays:
         "Birthdays"
     };
@@ -11148,6 +11249,14 @@
       );
 
     } else if (
+      section === "tools"
+    ) {
+
+      await loadAdminTools(
+        content
+      );
+
+    } else if (
       section === "birthdays"
     ) {
 
@@ -11155,6 +11264,562 @@
         content
       );
     }
+  }
+
+
+  /* =========================
+     ADMIN CONTROL CENTER
+  ========================= */
+
+  let adminToolsCache = [];
+
+  function normalizeAdminToolUrl(value) {
+    const raw = String(value || "").trim();
+
+    if (!raw) {
+      throw new Error("URL is required.");
+    }
+
+    const parsed = new URL(raw);
+
+    if (
+      parsed.protocol !== "https:" &&
+      parsed.protocol !== "http:"
+    ) {
+      throw new Error("Only http:// and https:// links are allowed.");
+    }
+
+    return parsed.href;
+  }
+
+
+  function openAdminTool(toolId) {
+    if (
+      !isAdmin ||
+      currentAdminSection !== "tools"
+    ) {
+      return;
+    }
+
+    const tool =
+      adminToolsCache.find(
+        item => item.id === toolId
+      );
+
+    if (!tool) {
+      alert("Tool not found.");
+      return;
+    }
+
+    let safeUrl = "";
+
+    try {
+      safeUrl =
+        normalizeAdminToolUrl(
+          tool.url
+        );
+    } catch (error) {
+      alert(error.message);
+      return;
+    }
+
+    /*
+      This is the ONLY intentional external-link opener in the app.
+      It is limited to Admin > Control Center.
+    */
+    const externalWindow =
+      window.open(
+        safeUrl,
+        "_blank",
+        "noopener,noreferrer"
+      );
+
+    if (!externalWindow) {
+      window.location.href =
+        safeUrl;
+    }
+  }
+
+
+  async function loadAdminTools(
+    element
+  ) {
+    if (!isAdmin || !element) {
+      return;
+    }
+
+    element.innerHTML = `
+      <div class="card">
+        <h3>Control Center</h3>
+        <p class="muted small" style="line-height:1.6;">
+          External links are allowed only in this admin room.
+          Add the services you use and open them directly from here.
+        </p>
+      </div>
+
+      <div id="adminToolsList">
+        <div class="card">
+          <div class="empty">
+            Loading tools...
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Add new tool</h3>
+
+        <label>Name</label>
+        <input
+          id="adminToolTitle"
+          type="text"
+          placeholder="e.g. Google Analytics"
+        >
+
+        <div class="admin-tool-form-grid">
+          <div>
+            <label>URL</label>
+            <input
+              id="adminToolUrl"
+              type="url"
+              placeholder="https://..."
+            >
+          </div>
+
+          <div>
+            <label>Icon</label>
+            <input
+              id="adminToolIcon"
+              type="text"
+              maxlength="8"
+              placeholder="🔗"
+            >
+          </div>
+        </div>
+
+        <label>Order</label>
+        <input
+          id="adminToolSortOrder"
+          type="number"
+          min="0"
+          step="1"
+          value="100"
+        >
+
+        <button
+          onclick="createAdminTool()"
+        >
+          ADD TOOL
+        </button>
+
+        <div
+          id="adminToolCreateMessage"
+          class="message"
+        ></div>
+      </div>
+    `;
+
+    await refreshAdminToolsList();
+  }
+
+
+  async function refreshAdminToolsList() {
+    if (
+      !isAdmin ||
+      currentAdminSection !== "tools"
+    ) {
+      return;
+    }
+
+    const list =
+      document.getElementById(
+        "adminToolsList"
+      );
+
+    if (!list) {
+      return;
+    }
+
+    const {
+      data,
+      error
+    } = await supabaseClient
+      .from("admin_tools")
+      .select("*")
+      .order("sort_order", {
+        ascending: true
+      })
+      .order("title", {
+        ascending: true
+      });
+
+    if (error) {
+      console.error(error);
+      list.innerHTML = `
+        <div class="card">
+          <div class="message error">
+            Could not load Control Center:
+            ${escapeHtml(error.message)}
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    adminToolsCache =
+      data || [];
+
+    if (
+      adminToolsCache.length === 0
+    ) {
+      list.innerHTML = `
+        <div class="card">
+          <div class="empty">
+            No tools yet.
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML = `
+      <div class="admin-tools-grid">
+        ${
+          adminToolsCache.map(
+            function (tool) {
+              const icon =
+                tool.icon ||
+                "🔗";
+
+              return `
+                <div class="admin-tool-card">
+                  <button
+                    class="admin-tool-open"
+                    onclick="openAdminTool('${tool.id}')"
+                  >
+                    <div class="admin-tool-icon">
+                      ${escapeHtml(icon)}
+                    </div>
+                    <div class="admin-tool-title">
+                      ${escapeHtml(tool.title || "Tool")}
+                    </div>
+                    <div class="admin-tool-url">
+                      ${escapeHtml(tool.url || "")}
+                    </div>
+                  </button>
+
+                  <div class="admin-tool-actions">
+                    <button
+                      class="secondary"
+                      onclick="editAdminTool('${tool.id}')"
+                    >
+                      EDIT
+                    </button>
+                    <button
+                      class="danger"
+                      onclick="deleteAdminTool('${tool.id}')"
+                    >
+                      DELETE
+                    </button>
+                  </div>
+                </div>
+              `;
+            }
+          ).join("")
+        }
+      </div>
+    `;
+  }
+
+
+  async function createAdminTool() {
+    if (
+      !isAdmin ||
+      currentAdminSection !== "tools"
+    ) {
+      return;
+    }
+
+    const message =
+      document.getElementById(
+        "adminToolCreateMessage"
+      );
+
+    const title =
+      document
+        .getElementById(
+          "adminToolTitle"
+        )
+        .value
+        .trim();
+
+    const rawUrl =
+      document
+        .getElementById(
+          "adminToolUrl"
+        )
+        .value
+        .trim();
+
+    const icon =
+      document
+        .getElementById(
+          "adminToolIcon"
+        )
+        .value
+        .trim() ||
+      "🔗";
+
+    const sortOrderRaw =
+      document
+        .getElementById(
+          "adminToolSortOrder"
+        )
+        .value;
+
+    if (!title) {
+      message.textContent =
+        "Name is required.";
+      message.className =
+        "message error";
+      return;
+    }
+
+    let url = "";
+
+    try {
+      url =
+        normalizeAdminToolUrl(
+          rawUrl
+        );
+    } catch (error) {
+      message.textContent =
+        error.message;
+      message.className =
+        "message error";
+      return;
+    }
+
+    const sortOrder =
+      Number.isFinite(
+        Number(sortOrderRaw)
+      )
+        ? Number(sortOrderRaw)
+        : 100;
+
+    const {
+      error
+    } = await supabaseClient
+      .from("admin_tools")
+      .insert({
+        title: title,
+        url: url,
+        icon: icon,
+        sort_order: sortOrder,
+        is_active: true
+      });
+
+    if (error) {
+      console.error(error);
+      message.textContent =
+        "Could not add tool: " +
+        error.message;
+      message.className =
+        "message error";
+      return;
+    }
+
+    message.textContent =
+      "Tool added.";
+    message.className =
+      "message success-text";
+
+    document
+      .getElementById(
+        "adminToolTitle"
+      )
+      .value = "";
+
+    document
+      .getElementById(
+        "adminToolUrl"
+      )
+      .value = "";
+
+    document
+      .getElementById(
+        "adminToolIcon"
+      )
+      .value = "";
+
+    document
+      .getElementById(
+        "adminToolSortOrder"
+      )
+      .value = "100";
+
+    await refreshAdminToolsList();
+  }
+
+
+  async function editAdminTool(
+    toolId
+  ) {
+    if (
+      !isAdmin ||
+      currentAdminSection !== "tools"
+    ) {
+      return;
+    }
+
+    const tool =
+      adminToolsCache.find(
+        item => item.id === toolId
+      );
+
+    if (!tool) {
+      return;
+    }
+
+    const newTitle =
+      prompt(
+        "Tool name:",
+        tool.title || ""
+      );
+
+    if (newTitle === null) {
+      return;
+    }
+
+    const rawUrl =
+      prompt(
+        "Tool URL:",
+        tool.url || ""
+      );
+
+    if (rawUrl === null) {
+      return;
+    }
+
+    const newIcon =
+      prompt(
+        "Icon / emoji:",
+        tool.icon || "🔗"
+      );
+
+    if (newIcon === null) {
+      return;
+    }
+
+    const sortRaw =
+      prompt(
+        "Order:",
+        String(
+          tool.sort_order ?? 100
+        )
+      );
+
+    if (sortRaw === null) {
+      return;
+    }
+
+    const title =
+      newTitle.trim();
+
+    if (!title) {
+      alert("Name is required.");
+      return;
+    }
+
+    let url = "";
+
+    try {
+      url =
+        normalizeAdminToolUrl(
+          rawUrl
+        );
+    } catch (error) {
+      alert(error.message);
+      return;
+    }
+
+    const sortOrder =
+      Number.isFinite(
+        Number(sortRaw)
+      )
+        ? Number(sortRaw)
+        : 100;
+
+    const {
+      error
+    } = await supabaseClient
+      .from("admin_tools")
+      .update({
+        title: title,
+        url: url,
+        icon:
+          newIcon.trim() ||
+          "🔗",
+        sort_order: sortOrder
+      })
+      .eq("id", toolId);
+
+    if (error) {
+      console.error(error);
+      alert(
+        "Could not update tool: " +
+        error.message
+      );
+      return;
+    }
+
+    await refreshAdminToolsList();
+  }
+
+
+  async function deleteAdminTool(
+    toolId
+  ) {
+    if (
+      !isAdmin ||
+      currentAdminSection !== "tools"
+    ) {
+      return;
+    }
+
+    const tool =
+      adminToolsCache.find(
+        item => item.id === toolId
+      );
+
+    const confirmed =
+      confirm(
+        `Delete ${
+          tool?.title ||
+          "this tool"
+        }?`
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const {
+      error
+    } = await supabaseClient
+      .from("admin_tools")
+      .delete()
+      .eq("id", toolId);
+
+    if (error) {
+      console.error(error);
+      alert(
+        "Could not delete tool: " +
+        error.message
+      );
+      return;
+    }
+
+    await refreshAdminToolsList();
   }
 
 
