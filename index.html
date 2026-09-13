@@ -20684,6 +20684,87 @@
   }
 
 
+  function isPushSubscriptionOwnershipConflict(error) {
+    const code = String(error?.code || "");
+    const text = [
+      error?.message,
+      error?.details,
+      error?.hint
+    ].filter(Boolean).join(" ");
+
+    return (
+      code === "42501" ||
+      /row-level security policy|using expression/i.test(text)
+    );
+  }
+
+
+  async function savePushSubscriptionWithRecovery(
+    subscription,
+    registration
+  ) {
+    try {
+      await savePushSubscription(subscription);
+      return subscription;
+    } catch (error) {
+      if (
+        !isPushSubscriptionOwnershipConflict(error) ||
+        !registration ||
+        !subscription
+      ) {
+        throw error;
+      }
+
+      // The browser can keep an old Push endpoint that is still stored for
+      // another account. RLS correctly prevents this user from overwriting
+      // that row. Recreate the browser subscription so this account gets a
+      // fresh endpoint, without weakening any Supabase policy.
+      console.warn(
+        "Stale push endpoint belongs to another account. Recreating device subscription.",
+        error
+      );
+
+      const previousEndpoint = subscription.endpoint || "";
+
+      try {
+        await subscription.unsubscribe();
+      } catch (unsubscribeError) {
+        console.warn(
+          "Could not unsubscribe stale push endpoint:",
+          unsubscribeError
+        );
+      }
+
+      await new Promise(function (resolve) {
+        setTimeout(resolve, 300);
+      });
+
+      const freshSubscription =
+        await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey:
+            getValidatedVapidApplicationServerKey()
+        });
+
+      if (!freshSubscription) {
+        throw error;
+      }
+
+      if (
+        previousEndpoint &&
+        freshSubscription.endpoint === previousEndpoint
+      ) {
+        console.warn(
+          "Push service returned the same endpoint after recreation. Supabase may still reject it until the stale server row is cleaned up."
+        );
+      }
+
+      await savePushSubscription(freshSubscription);
+      return freshSubscription;
+    }
+  }
+
+
   async function syncPushSubscriptionAfterLogin() {
 
     if (
@@ -20693,7 +20774,7 @@
       !("PushManager" in window) ||
       Notification.permission !== "granted"
     ) {
-      return;
+      return false;
     }
 
     try {
@@ -20716,8 +20797,14 @@
           });
       }
 
-      await savePushSubscription(subscription);
+      subscription =
+        await savePushSubscriptionWithRecovery(
+          subscription,
+          registration
+        );
+
       await updateDeviceAlertStatus();
+      return Boolean(subscription);
 
     } catch (error) {
       const details = getPushErrorDetails(error);
@@ -20731,9 +20818,12 @@
         document.getElementById("deviceAlertStatus");
 
       if (statusElement) {
+        const t = getPushTranslations(getCurrentInterfaceLanguage());
         statusElement.textContent =
-          "Push subscription failed: " + details;
+          t.subscriptionFailed + details;
       }
+
+      return false;
     }
   }
 
@@ -21023,17 +21113,18 @@
     updatePushNotificationLanguage(getCurrentInterfaceLanguage());
     if (status) status.textContent = "";
 
-    // If permission already exists, repair/sync a missing subscription first.
+    // If permission already exists, require a successful server sync too.
+    // A local browser subscription alone is not enough: it must also be
+    // stored for the currently logged-in account in Supabase.
     if (
       "Notification" in window &&
       Notification.permission === "granted"
     ) {
-      await syncPushSubscriptionAfterLogin();
-    }
-
-    if (await devicePushIsActive()) {
-      gate.classList.add("hidden");
-      return;
+      const synced = await syncPushSubscriptionAfterLogin();
+      if (synced) {
+        gate.classList.add("hidden");
+        return;
+      }
     }
 
     const t = getPushTranslations(getCurrentInterfaceLanguage());
@@ -21083,9 +21174,9 @@
         return;
       }
 
-      await enableDeviceAlerts();
+      const enabled = await enableDeviceAlerts();
 
-      if (await devicePushIsActive()) {
+      if (enabled) {
         // New users already default to all optional categories ON. Existing
         // saved choices are preserved, so re-enabling push never resets them.
         await loadNotificationPreferences();
@@ -21140,7 +21231,7 @@
           t.iosInstall;
         setPushStatus(message);
         alert(message);
-        return;
+        return false;
       }
 
       if (
@@ -21152,7 +21243,7 @@
           t.statusUnsupported;
         setPushStatus(message);
         alert(message);
-        return;
+        return false;
       }
 
       if (!window.isSecureContext) {
@@ -21180,7 +21271,7 @@
             t.permissionNotGranted
           );
         }
-        return;
+        return false;
       }
 
       const registration =
@@ -21210,11 +21301,17 @@
         );
       }
 
-      await savePushSubscription(subscription);
+      subscription =
+        await savePushSubscriptionWithRecovery(
+          subscription,
+          registration
+        );
 
       setPushStatus(
         t.statusActive
       );
+
+      return true;
 
     } catch (error) {
 
@@ -21231,6 +21328,7 @@
 
       setPushStatus(message);
       alert(message);
+      return false;
 
     } finally {
 
