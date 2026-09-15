@@ -9219,6 +9219,7 @@
       "message";
 
     const {
+      data: insertedMessage,
       error
     } = await supabaseClient
       .from("chat_messages")
@@ -9227,7 +9228,9 @@
           currentUser.id,
         message:
           message
-      });
+      })
+      .select("id")
+      .single();
 
     if (error) {
 
@@ -9243,15 +9246,21 @@
       return;
     }
 
-    const senderName =
-      [
-        currentMember?.first_name,
-        currentMember?.last_name
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .trim() ||
-      "CENTER MMA member";
+    if (!insertedMessage?.id) {
+
+      console.error(
+        "Chat message was inserted but no message ID was returned."
+      );
+
+      status.textContent =
+        "Message sent, but push notification could not be triggered.";
+
+      status.className =
+        "message error";
+
+      await loadChatMessages();
+      return;
+    }
 
     const {
       error: chatPushError
@@ -9263,16 +9272,8 @@
           body: {
             type:
               "chat",
-            title:
-              "New chat message",
-            message:
-              senderName + ": " + message,
-            linkSection:
-              "chat",
-            broadcast:
-              true,
-            excludeCurrentUser:
-              true
+            chatMessageId:
+              insertedMessage.id
           }
         }
       );
