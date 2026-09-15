@@ -21081,7 +21081,11 @@
         gateButton: "PUSH-BENACHRICHTIGUNGEN AKTIVIEREN",
         gateBlocked: "Benachrichtigungen sind auf diesem Gerät blockiert. Aktiviere sie in den Browser-/Geräteeinstellungen und öffne CENTER MMA danach erneut.",
         gateIos: "Installiere CENTER MMA zuerst über Safari → Teilen → Zum Home-Bildschirm. Öffne anschließend die installierte App und aktiviere Push-Benachrichtigungen.",
-        gateUnsupported: "Dieses Gerät bzw. dieser Browser unterstützt Push-Benachrichtigungen nicht."
+        gateUnsupported: "Dieses Gerät bzw. dieser Browser unterstützt Push-Benachrichtigungen nicht.",
+        iosGateTitle: "CENTER MMA auf iPhone installieren",
+        iosGateText: "Damit Push-Benachrichtigungen auf dem iPhone funktionieren, muss CENTER MMA zuerst zum Home-Bildschirm hinzugefügt werden.\n\n1. Öffne diese Seite in Safari.\n2. Tippe unten auf Teilen.\n3. Wähle Zum Home-Bildschirm.\n4. Öffne danach CENTER MMA über das neue App-Symbol.",
+        iosGateNote: "Nach dem Öffnen der installierten App erscheint automatisch die Aktivierung für Push-Benachrichtigungen.",
+        iosGateButton: "INSTALLATION ANZEIGEN"
       },
       en: {
         back: "← BACK",
@@ -21133,7 +21137,11 @@
         gateButton: "ENABLE PUSH NOTIFICATIONS",
         gateBlocked: "Notifications are blocked on this device. Enable them in your browser/device settings and then reopen CENTER MMA.",
         gateIos: "First install CENTER MMA using Safari → Share → Add to Home Screen. Then open the installed app and enable push notifications.",
-        gateUnsupported: "Push notifications are not supported by this device or browser."
+        gateUnsupported: "Push notifications are not supported by this device or browser.",
+        iosGateTitle: "Install CENTER MMA on iPhone",
+        iosGateText: "For push notifications to work on iPhone, CENTER MMA must first be added to the Home Screen.\n\n1. Open this page in Safari.\n2. Tap Share.\n3. Choose Add to Home Screen.\n4. Then open CENTER MMA from the new app icon.",
+        iosGateNote: "After opening the installed app, the Push Notification activation will appear automatically.",
+        iosGateButton: "SHOW INSTALLATION STEPS"
       },
       uk: {
         back: "← НАЗАД",
@@ -21185,7 +21193,11 @@
         gateButton: "УВІМКНУТИ PUSH-СПОВІЩЕННЯ",
         gateBlocked: "Сповіщення заблоковані на цьому пристрої. Увімкніть їх у налаштуваннях браузера/пристрою та знову відкрийте CENTER MMA.",
         gateIos: "Спочатку встановіть CENTER MMA через Safari → Поділитися → На початковий екран. Потім відкрийте встановлений застосунок і увімкніть Push-сповіщення.",
-        gateUnsupported: "Цей пристрій або браузер не підтримує Push-сповіщення."
+        gateUnsupported: "Цей пристрій або браузер не підтримує Push-сповіщення.",
+        iosGateTitle: "Встановіть CENTER MMA на iPhone",
+        iosGateText: "Щоб Push-сповіщення працювали на iPhone, CENTER MMA спочатку потрібно додати на початковий екран.\n\n1. Відкрийте цю сторінку в Safari.\n2. Натисніть Поділитися.\n3. Виберіть На початковий екран.\n4. Потім відкрийте CENTER MMA через нову іконку застосунку.",
+        iosGateNote: "Після відкриття встановленого застосунку автоматично з’явиться активація Push-сповіщень.",
+        iosGateButton: "ПОКАЗАТИ ІНСТРУКЦІЮ"
       }
     };
 
@@ -21311,7 +21323,16 @@
     const t = getPushTranslations(getCurrentInterfaceLanguage());
 
     if (isIosDevice() && !isStandalonePwa()) {
-      if (status) status.textContent = t.gateIos;
+      const title = document.getElementById("mandatoryPushGateTitle");
+      const text = document.getElementById("mandatoryPushGateText");
+      const note = document.getElementById("mandatoryPushGateNote");
+      const button = document.getElementById("mandatoryPushGateButton");
+
+      if (title) title.textContent = t.iosGateTitle;
+      if (text) text.textContent = t.iosGateText;
+      if (note) note.textContent = t.iosGateNote;
+      if (button) button.textContent = t.iosGateButton;
+      if (status) status.textContent = "";
     } else if (
       !("Notification" in window) ||
       !("serviceWorker" in navigator) ||
@@ -21337,7 +21358,10 @@
 
     try {
       if (isIosDevice() && !isStandalonePwa()) {
+        // iOS does not allow a website to install a PWA programmatically.
+        // Keep the mandatory gate in installation mode and show the exact steps.
         if (status) status.textContent = t.gateIos;
+        alert(t.iosGateText);
         return;
       }
 
