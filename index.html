@@ -10462,97 +10462,137 @@
 
             return `
 
-              <div class="card">
+              <div class="card" style="padding:0;overflow:hidden;">
 
                 <div
+                  onclick="togglePublicCompetitionCard('${competition.id}')"
                   style="
-                    font-size:11px;
-                    color:#777;
-                    text-transform:uppercase;
-                    letter-spacing:1px;
-                    margin-bottom:7px;
+                    padding:16px;
+                    display:flex;
+                    align-items:center;
+                    justify-content:space-between;
+                    gap:12px;
+                    cursor:pointer;
+                    user-select:none;
                   "
                 >
-                  ${formatDate(
-                    competition.date
-                  )}
+                  <div style="min-width:0;flex:1;">
+                    <div
+                      style="
+                        font-size:11px;
+                        color:#777;
+                        text-transform:uppercase;
+                        letter-spacing:1px;
+                        margin-bottom:7px;
+                      "
+                    >
+                      ${formatDate(competition.date)}
+                    </div>
+
+                    <h3
+                      style="
+                        font-size:20px;
+                        margin:0 0 6px;
+                        white-space:nowrap;
+                        overflow:hidden;
+                        text-overflow:ellipsis;
+                      "
+                    >
+                      ${escapeHtml(competition.title)}
+                    </h3>
+
+                    ${
+                      competition.location
+                        ? `<div class="muted small">📍 ${escapeHtml(competition.location)}</div>`
+                        : ""
+                    }
+                  </div>
+
+                  <span
+                    id="publicCompetitionArrow-${competition.id}"
+                    style="
+                      flex:0 0 auto;
+                      font-size:26px;
+                      line-height:1;
+                      color:#aaa;
+                    "
+                  >›</span>
                 </div>
 
-
-                <h3
-                  style="
-                    font-size:20px;
-                    margin-bottom:8px;
-                  "
+                <div
+                  id="publicCompetitionDetails-${competition.id}"
+                  class="hidden"
+                  style="padding:0 16px 16px;"
                 >
-                  ${escapeHtml(
-                    competition.title
-                  )}
-                </h3>
 
+                  ${
+                    competition.description
+                      ? `
+                        <p
+                          class="muted small"
+                          style="
+                            margin-top:4px;
+                            line-height:1.6;
+                          "
+                        >
+                          ${escapeHtml(competition.description)}
+                        </p>
+                      `
+                      : ""
+                  }
 
-                ${
-                  competition.location
-                    ? `
-                      <div class="muted small">
-                        📍
-                        ${escapeHtml(
-                          competition.location
-                        )}
-                      </div>
-                    `
-                    : ""
-                }
+                  ${
+                    approvedParticipants.length
+                      ? `
+                        <div style="margin-top:16px;padding-top:14px;border-top:1px solid #292929;">
+                          <div style="font-weight:800;margin-bottom:8px;">Participants</div>
+                          ${approvedParticipants.map(function (participant) {
+                            const fullName = [participant.first_name, participant.last_name]
+                              .filter(Boolean)
+                              .join(" ");
+                            return `
+                              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #202020;">
+                                <div>✅ <strong>${escapeHtml(fullName || "Participant")}</strong></div>
+                                <div class="muted small">${String(participant.participation_role || "athlete").toLowerCase() === "trainer" ? "Trainer" : (participant.weight ? escapeHtml(participant.weight) + " kg" : "Weight —")}</div>
+                              </div>
+                            `;
+                          }).join("")}
+                        </div>
+                      `
+                      : ""
+                  }
 
+                  ${participationContent}
 
-                ${
-                  competition.description
-                    ? `
-                      <p
-                        class="muted small"
-                        style="
-                          margin-top:12px;
-                          line-height:1.6;
-                        "
-                      >
-                        ${escapeHtml(
-                          competition.description
-                        )}
-                      </p>
-                    `
-                    : ""
-                }
-
-
-                ${
-                  approvedParticipants.length
-                    ? `
-                      <div style="margin-top:16px;padding-top:14px;border-top:1px solid #292929;">
-                        <div style="font-weight:800;margin-bottom:8px;">Participants</div>
-                        ${approvedParticipants.map(function (participant) {
-                          const fullName = [participant.first_name, participant.last_name]
-                            .filter(Boolean)
-                            .join(" ");
-                          return `
-                            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #202020;">
-                              <div>✅ <strong>${escapeHtml(fullName || "Participant")}</strong></div>
-                              <div class="muted small">${String(participant.participation_role || "athlete").toLowerCase() === "trainer" ? "Trainer" : (participant.weight ? escapeHtml(participant.weight) + " kg" : "Weight —")}</div>
-                            </div>
-                          `;
-                        }).join("")}
-                      </div>
-                    `
-                    : ""
-                }
-
-
-                ${participationContent}
+                </div>
 
               </div>
 
             `;
 
           };
+
+
+    function togglePublicCompetitionCard(competitionId) {
+      const details = document.getElementById(
+        "publicCompetitionDetails-" + competitionId
+      );
+      const arrow = document.getElementById(
+        "publicCompetitionArrow-" + competitionId
+      );
+
+      if (!details) {
+        return;
+      }
+
+      const opening = details.classList.contains("hidden");
+      details.classList.toggle("hidden", !opening);
+
+      if (arrow) {
+        arrow.textContent = opening ? "⌄" : "›";
+      }
+    }
+
 
     const currentHtml = currentCompetitions.length
       ? currentCompetitions.map(renderCompetitionCard).join("")
