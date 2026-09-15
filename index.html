@@ -10234,6 +10234,27 @@
      EVENTS
   ========================= */
 
+  function togglePublicCompetitionCard(competitionId) {
+    const details = document.getElementById(
+      "publicCompetitionDetails-" + competitionId
+    );
+    const arrow = document.getElementById(
+      "publicCompetitionArrow-" + competitionId
+    );
+
+    if (!details) {
+      return;
+    }
+
+    const opening = details.classList.contains("hidden");
+    details.classList.toggle("hidden", !opening);
+
+    if (arrow) {
+      arrow.textContent = opening ? "⌄" : "›";
+    }
+  }
+
+
   async function loadEvents() {
 
     const element =
@@ -10571,27 +10592,6 @@
             `;
 
           };
-
-
-    function togglePublicCompetitionCard(competitionId) {
-      const details = document.getElementById(
-        "publicCompetitionDetails-" + competitionId
-      );
-      const arrow = document.getElementById(
-        "publicCompetitionArrow-" + competitionId
-      );
-
-      if (!details) {
-        return;
-      }
-
-      const opening = details.classList.contains("hidden");
-      details.classList.toggle("hidden", !opening);
-
-      if (arrow) {
-        arrow.textContent = opening ? "⌄" : "›";
-      }
-    }
 
 
     const currentHtml = currentCompetitions.length
