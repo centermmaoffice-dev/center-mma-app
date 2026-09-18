@@ -6,7 +6,7 @@
   <title>CENTER MMA</title>
 
   <meta name="theme-color" content="#0b0b0b">
-  <meta name="center-mma-release" content="push-gate-i18n-2026-09-13">
+  <meta name="center-mma-release" content="payment-auto-access-birthday-reminders-2026-09-18">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="CENTER MMA">
@@ -3155,6 +3155,8 @@
   let chatRealtimeChannel = null;
   let chatRefreshTimer = null;
   let notificationRealtimeChannel = null;
+  let membershipActivationTimer = null;
+  let membershipActivationCheckRunning = false;
   let deferredInstallPrompt = null;
   let pendingNotificationIdFromUrl = null;
   let currentDocumentBlobUrl = null;
@@ -3419,6 +3421,7 @@
 
     stopChatRealtime();
     stopNotificationRealtime();
+    stopMembershipActivationWatcher();
 
     showAuth();
   }
@@ -3561,6 +3564,90 @@
   }
 
 
+  function stopMembershipActivationWatcher() {
+    if (membershipActivationTimer) {
+      clearInterval(membershipActivationTimer);
+      membershipActivationTimer = null;
+    }
+  }
+
+
+  async function refreshMembershipAccess() {
+    if (
+      membershipActivationCheckRunning ||
+      !currentUser ||
+      !currentMember ||
+      isStaff
+    ) {
+      return false;
+    }
+
+    membershipActivationCheckRunning = true;
+
+    try {
+      const { data: membership, error } =
+        await loadMembershipWithRetry(currentMember.id);
+
+      if (error) {
+        console.error("Could not refresh membership access:", error);
+        return false;
+      }
+
+      const today = getLocalDateString();
+      const active =
+        membership?.status === "active" &&
+        membership?.end_date >= today;
+
+      if (!active) {
+        return false;
+      }
+
+      currentMembership = membership;
+      stopMembershipActivationWatcher();
+      showApp();
+      return true;
+    } finally {
+      membershipActivationCheckRunning = false;
+    }
+  }
+
+
+  function startMembershipActivationWatcher() {
+    stopMembershipActivationWatcher();
+
+    if (!currentUser || !currentMember || isStaff) {
+      return;
+    }
+
+    membershipActivationTimer = setInterval(
+      refreshMembershipAccess,
+      12000
+    );
+  }
+
+
+  document.addEventListener("visibilitychange", function () {
+    if (
+      document.visibilityState === "visible" &&
+      currentUser &&
+      currentMember &&
+      !membershipAccessAllowed
+    ) {
+      refreshMembershipAccess();
+    }
+  });
+
+  window.addEventListener("focus", function () {
+    if (
+      currentUser &&
+      currentMember &&
+      !membershipAccessAllowed
+    ) {
+      refreshMembershipAccess();
+    }
+  });
+
+
   function getLocalDateString() {
 
     const date =
@@ -3640,6 +3727,8 @@
 
     membershipAccessAllowed =
       true;
+
+    stopMembershipActivationWatcher();
 
     document
       .getElementById("authScreen")
@@ -3731,6 +3820,8 @@
 
 
     renderBirthdayBanner();
+
+    ensureTomorrowBirthdayNotifications();
 
     renderMembershipSummary();
 
@@ -3922,6 +4013,187 @@
         </div>
       </div>
     `;
+  }
+
+
+  async function ensureTomorrowBirthdayNotifications() {
+    // Only an administrator has permission to read the full member list and
+    // create notifications for other accounts. Running this on every admin
+    // app start is safe because the daily duplicate check makes it idempotent.
+    if (!isAdmin || !currentUser) {
+      return;
+    }
+
+    try {
+      const now = new Date();
+      const tomorrow = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + 1
+      );
+
+      const tomorrowMonth = tomorrow.getMonth() + 1;
+      const tomorrowDay = tomorrow.getDate();
+      const todayMonth = now.getMonth() + 1;
+      const todayDay = now.getDate();
+      const reminderDate =
+        String(tomorrowDay).padStart(2, "0") + "." +
+        String(tomorrowMonth).padStart(2, "0") + ".";
+
+      const { data: members, error: membersError } = await supabaseClient
+        .from("members")
+        .select("id,user_id,first_name,last_name,email,birth_date,is_active")
+        .not("birth_date", "is", null);
+
+      if (membersError) {
+        console.error("Could not check tomorrow birthdays:", membersError);
+        return;
+      }
+
+      const birthdayMembers = (members || []).filter(function (member) {
+        const dateParts = String(member.birth_date || "").split("-").map(Number);
+        return Boolean(
+          member.user_id &&
+          member.is_active !== false &&
+          dateParts.length === 3 &&
+          dateParts[1] === tomorrowMonth &&
+          dateParts[2] === tomorrowDay
+        );
+      });
+
+      const birthdayMembersToday = (members || []).filter(function (member) {
+        const dateParts = String(member.birth_date || "").split("-").map(Number);
+        return Boolean(
+          member.user_id &&
+          member.is_active !== false &&
+          dateParts.length === 3 &&
+          dateParts[1] === todayMonth &&
+          dateParts[2] === todayDay
+        );
+      });
+
+      if (!birthdayMembers.length && !birthdayMembersToday.length) {
+        return;
+      }
+
+      const recipients = (members || []).filter(function (member) {
+        return member.user_id && member.is_active !== false;
+      });
+
+      const startOfToday = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate()
+      ).toISOString();
+
+      const { data: existing, error: existingError } = await supabaseClient
+        .from("notifications")
+        .select("user_id,message")
+        .eq("type", "birthday")
+        .gte("created_at", startOfToday);
+
+      if (existingError) {
+        console.error("Could not check birthday reminders:", existingError);
+        return;
+      }
+
+      const existingKeys = new Set(
+        (existing || []).map(function (item) {
+          return item.user_id + "|" + item.message;
+        })
+      );
+
+      const rows = [];
+
+      birthdayMembers.forEach(function (birthdayMember) {
+        const birthdayName = [
+          birthdayMember.first_name,
+          birthdayMember.last_name
+        ].filter(Boolean).join(" ").trim() || birthdayMember.email || "a team member";
+
+        const message =
+          `Tomorrow (${reminderDate}) is ${birthdayName}'s birthday.`;
+
+        recipients.forEach(function (recipient) {
+          // The birthday person must never receive their own reminder.
+          if (recipient.user_id === birthdayMember.user_id) {
+            return;
+          }
+
+          const key = recipient.user_id + "|" + message;
+          if (existingKeys.has(key)) {
+            return;
+          }
+
+          existingKeys.add(key);
+          rows.push({
+            user_id: recipient.user_id,
+            title: "Birthday tomorrow",
+            message: message,
+            type: "birthday",
+            link_section: "home",
+            created_by: currentUser.id
+          });
+        });
+      });
+
+      // On the birthday itself the administrator gets a clear message naming
+      // the member. It is not sent to the birthday person themselves.
+      birthdayMembersToday.forEach(function (birthdayMember) {
+        if (currentUser.id === birthdayMember.user_id) {
+          return;
+        }
+
+        const birthdayName = [
+          birthdayMember.first_name,
+          birthdayMember.last_name
+        ].filter(Boolean).join(" ").trim() || birthdayMember.email || "a team member";
+
+        const message = `Today is ${birthdayName}'s birthday.`;
+        const key = currentUser.id + "|" + message;
+
+        if (existingKeys.has(key)) {
+          return;
+        }
+
+        existingKeys.add(key);
+        rows.push({
+          user_id: currentUser.id,
+          title: "Birthday today",
+          message: message,
+          type: "birthday",
+          link_section: "home",
+          created_by: currentUser.id
+        });
+      });
+
+      if (!rows.length) {
+        return;
+      }
+
+      const { data: created, error: createError } = await supabaseClient
+        .from("notifications")
+        .insert(rows)
+        .select("id");
+
+      if (createError) {
+        console.error("Could not create birthday reminders:", createError);
+        return;
+      }
+
+      for (const notification of created || []) {
+        const { error: pushError } = await supabaseClient.functions.invoke(
+          "send-push",
+          { body: { notificationId: notification.id } }
+        );
+
+        if (pushError) {
+          console.error("Could not send birthday reminder push:", pushError);
+        }
+      }
+    } catch (error) {
+      console.error("Birthday reminder check failed:", error);
+    }
   }
 
 
@@ -4973,8 +5245,8 @@
             </div>
           ` : ""}
 
-          <button onclick="requestPaymentConfirmation()">
-            REQUEST PAYMENT CONFIRMATION
+          <button id="paymentRequestButton" onclick="preparePaymentRequest()">
+            ENABLE NOTIFICATIONS & REQUEST PAYMENT
           </button>
 
           <div
@@ -4991,6 +5263,9 @@
 
         </div>
       `;
+
+    startMembershipActivationWatcher();
+    setTimeout(refreshMembershipAccess, 250);
 
 
     document
@@ -5031,10 +5306,47 @@
      PAYMENT REQUEST
   ========================= */
 
+  async function preparePaymentRequest() {
+    const button = document.getElementById("paymentRequestButton");
+    let requestSent = false;
+
+    if (button) {
+      button.disabled = true;
+      button.textContent = "PREPARING...";
+    }
+
+    try {
+      if (
+        "Notification" in window &&
+        "serviceWorker" in navigator &&
+        "PushManager" in window
+      ) {
+        if (Notification.permission === "granted") {
+          await syncPushSubscriptionAfterLogin();
+        } else if (Notification.permission !== "denied") {
+          await enableDeviceAlerts();
+        }
+      }
+
+      requestSent = await requestPaymentConfirmation();
+    } finally {
+      if (button && document.body.contains(button)) {
+        button.disabled = false;
+        if (requestSent) {
+          button.textContent = "CHECK ACTIVATION";
+          button.onclick = refreshMembershipAccess;
+        } else {
+          button.textContent = "ENABLE NOTIFICATIONS & REQUEST PAYMENT";
+          button.onclick = preparePaymentRequest;
+        }
+      }
+    }
+  }
+
   async function requestPaymentConfirmation() {
 
     if (!currentUser || !currentMember) {
-      return;
+      return false;
     }
 
 
@@ -5080,7 +5392,7 @@
         }
 
         membershipNumberInput?.focus();
-        return;
+        return false;
       }
 
       requestedMembershipNumber =
@@ -5123,7 +5435,9 @@
           "message";
       }
 
-      return;
+      startMembershipActivationWatcher();
+
+      return true;
     }
 
 
@@ -5188,7 +5502,7 @@
           "message error";
       }
 
-      return;
+      return false;
     }
 
 
@@ -5206,11 +5520,15 @@
     if (message) {
 
       message.textContent =
-        "Payment confirmation request sent successfully.";
+        "Request sent. Access will activate automatically after approval — no logout is needed.";
 
       message.className =
         "message success-text";
     }
+
+    startMembershipActivationWatcher();
+    setTimeout(refreshMembershipAccess, 1500);
+    return true;
   }
 
 
