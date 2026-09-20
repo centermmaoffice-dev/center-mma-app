@@ -6746,6 +6746,7 @@
           medal,
           fights_count,
           wins_count,
+          finishes_count,
           notes,
           created_at
         )
@@ -6803,6 +6804,7 @@
         medal: registration.medal,
         fights_count: registration.fights_count || 0,
         wins_count: registration.wins_count || 0,
+        finishes_count: 0,
         notes: registration.notes || null
       }];
     };
@@ -6811,6 +6813,7 @@
     const competitionsCount = data.length;
     const fightsCount = allEntries.reduce((total, item) => total + Number(item.fights_count || 0), 0);
     const winsCount = allEntries.reduce((total, item) => total + Number(item.wins_count || 0), 0);
+    const finishesCount = allEntries.reduce((total, item) => total + Number(item.finishes_count || 0), 0);
     const goldCount = allEntries.filter(item => medalName(item) === "gold").length;
     const silverCount = allEntries.filter(item => medalName(item) === "silver").length;
     const bronzeCount = allEntries.filter(item => medalName(item) === "bronze").length;
@@ -6832,6 +6835,7 @@
         <div class="record-summary-box"><div class="record-summary-number">${competitionsCount}</div><div class="record-summary-label">Competitions</div></div>
         <div class="record-summary-box"><div class="record-summary-number">${fightsCount}</div><div class="record-summary-label">Fights</div></div>
         <div class="record-summary-box"><div class="record-summary-number">${winsCount}</div><div class="record-summary-label">Wins</div></div>
+        <div class="record-summary-box"><div class="record-summary-number">${finishesCount}</div><div class="record-summary-label">Finishes</div></div>
         <div class="record-summary-box"><div class="record-summary-number">${medalsCount}</div><div class="record-summary-label">Medals</div></div>
         <div class="record-summary-box"><div class="record-summary-number">🥇 ${goldCount}</div><div class="record-summary-label">Gold</div></div>
         <div class="record-summary-box"><div class="record-summary-number">🥈 ${silverCount}</div><div class="record-summary-label">Silver</div></div>
@@ -6862,7 +6866,7 @@
                       <div class="record-detail-line">Discipline: <strong>${escapeHtml(entry.discipline || competition.discipline || "Competition")}</strong></div>
                       ${entry.category ? `<div class="record-detail-line">Category: <strong>${escapeHtml(entry.category)}</strong></div>` : ""}
                       ${entry.weight !== null && entry.weight !== undefined ? `<div class="record-detail-line">Weight: <strong>${escapeHtml(entry.weight)} kg</strong></div>` : ""}
-                      <div class="record-detail-line">Fights: <strong>${Number(entry.fights_count || 0)}</strong> • Wins: <strong>${Number(entry.wins_count || 0)}</strong></div>
+                      <div class="record-detail-line">Fights: <strong>${Number(entry.fights_count || 0)}</strong> • Wins: <strong>${Number(entry.wins_count || 0)}</strong> • Finishes: <strong>${Number(entry.finishes_count || 0)}</strong></div>
                       ${entry.notes ? `<div class="record-detail-line">Notes: <strong>${escapeHtml(entry.notes)}</strong></div>` : ""}
                     </div>`;
                 }).join("")}
@@ -18512,7 +18516,8 @@
           silver: 0,
           bronze: 0,
           fights: 0,
-          wins: 0
+          wins: 0,
+          finishes: 0
         });
       }
 
@@ -18524,6 +18529,7 @@
       if (entry.medal === "bronze") athlete.bronze += 1;
       athlete.fights += Number(entry.fights_count || 0);
       athlete.wins += Number(entry.wins_count || 0);
+      athlete.finishes += Number(entry.finishes_count || 0);
     });
 
     const rows = [...athletes.values()].sort((a, b) => a.name.localeCompare(b.name));
@@ -18539,7 +18545,7 @@
           <div style="min-width:0;flex:1;">
             <div style="font-size:16px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(athlete.name)}</div>
             <div class="muted" style="font-size:11px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              ${athlete.competitions.size} comp. · ${athlete.fights} fights · ${athlete.wins} wins
+              ${athlete.competitions.size} comp. · ${athlete.fights} fights · ${athlete.wins} wins · ${athlete.finishes} finishes
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:7px;flex-shrink:0;font-size:13px;font-weight:800;">
@@ -18621,6 +18627,7 @@
     const bronze = rows.filter(x => x.entry.medal === "bronze").length;
     const fights = rows.reduce((sum, x) => sum + Number(x.entry.fights_count || 0), 0);
     const wins = rows.reduce((sum, x) => sum + Number(x.entry.wins_count || 0), 0);
+    const finishes = rows.reduce((sum, x) => sum + Number(x.entry.finishes_count || 0), 0);
 
     const grouped = new Map();
     rows.forEach(row => {
@@ -18636,10 +18643,11 @@
         <div style="font-size:21px;font-weight:900;">${escapeHtml(athleteName)}</div>
         ${member?.membership_number ? `<div class="muted small" style="margin-top:3px;">${escapeHtml(member.membership_number)}</div>` : ""}
 
-        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:12px;">
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:12px;">
           <div class="detail-box" style="padding:8px;"><div class="detail-label">Competitions</div><div class="detail-value">${uniqueCompetitions.size}</div></div>
           <div class="detail-box" style="padding:8px;"><div class="detail-label">Fights</div><div class="detail-value">${fights}</div></div>
           <div class="detail-box" style="padding:8px;"><div class="detail-label">Wins</div><div class="detail-value">${wins}</div></div>
+          <div class="detail-box" style="padding:8px;"><div class="detail-label">Finishes</div><div class="detail-value">${finishes}</div></div>
         </div>
 
         <div style="display:flex;gap:12px;margin-top:10px;font-weight:900;font-size:16px;">
@@ -18708,7 +18716,7 @@
         <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
           <div>
             <div style="font-weight:900;">${escapeHtml(entry.discipline || "-")}${entry.category ? ` · ${escapeHtml(entry.category)}` : ""}</div>
-            <div class="muted small" style="margin-top:3px;">${medalText} · ${Number(entry.fights_count || 0)} fights · ${Number(entry.wins_count || 0)} wins</div>
+            <div class="muted small" style="margin-top:3px;">${medalText} · ${Number(entry.fights_count || 0)} fights · ${Number(entry.wins_count || 0)} wins · ${Number(entry.finishes_count || 0)} finishes</div>
           </div>
           <button class="secondary" style="width:auto;padding:7px 10px;margin:0;" onclick="toggleAdminAthleteResultEdit('${entry.id}')">EDIT</button>
         </div>
@@ -18740,6 +18748,9 @@
           <label>Wins</label>
           <input id="dashboardEntryWins-${entry.id}" type="number" min="0" value="${escapeHtml(entry.wins_count ?? 0)}">
 
+          <label>Finishes (KO / Submission)</label>
+          <input id="dashboardEntryFinishes-${entry.id}" type="number" min="0" value="${escapeHtml(entry.finishes_count ?? 0)}">
+
           <label>Notes</label>
           <textarea id="dashboardEntryNotes-${entry.id}">${escapeHtml(entry.notes || "")}</textarea>
 
@@ -18768,12 +18779,14 @@
     const resultRaw = document.getElementById("dashboardEntryResult-" + entryId).value.trim();
     const fightsRaw = document.getElementById("dashboardEntryFights-" + entryId).value.trim();
     const winsRaw = document.getElementById("dashboardEntryWins-" + entryId).value.trim();
+    const finishesRaw = document.getElementById("dashboardEntryFinishes-" + entryId).value.trim();
     const notes = document.getElementById("dashboardEntryNotes-" + entryId).value.trim();
 
     const weight = weightRaw === "" ? null : Math.abs(Number(weightRaw));
     const resultPlace = resultRaw === "" ? null : Number(resultRaw);
     const fightsCount = fightsRaw === "" ? 0 : Number(fightsRaw);
     const winsCount = winsRaw === "" ? 0 : Number(winsRaw);
+    const finishesCount = finishesRaw === "" ? 0 : Number(finishesRaw);
 
     if (!discipline) return alert("Discipline is required.");
     if (weight !== null && Number.isNaN(weight)) return alert("Invalid weight.");
@@ -18781,10 +18794,12 @@
     if (Number.isNaN(fightsCount) || fightsCount < 0) return alert("Fights count cannot be negative.");
     if (Number.isNaN(winsCount) || winsCount < 0) return alert("Wins count cannot be negative.");
     if (winsCount > fightsCount) return alert("Wins count cannot be higher than fights count.");
+    if (Number.isNaN(finishesCount) || finishesCount < 0) return alert("Finishes count cannot be negative.");
+    if (finishesCount > winsCount) return alert("Finishes count cannot be higher than wins count.");
 
     const { error } = await supabaseClient
       .from("competition_entries")
-      .update({ discipline, category: category || null, weight, medal: medal || null, result_place: resultPlace, fights_count: fightsCount, wins_count: winsCount, notes: notes || null, updated_at: new Date().toISOString() })
+      .update({ discipline, category: category || null, weight, medal: medal || null, result_place: resultPlace, fights_count: fightsCount, wins_count: winsCount, finishes_count: finishesCount, notes: notes || null, updated_at: new Date().toISOString() })
       .eq("id", entryId);
 
     if (error) {
@@ -19284,7 +19299,7 @@
                 return `
                   <div style="border:1px solid #292929; border-radius:12px; padding:12px;">
                     <div style="font-weight:800; margin-bottom:8px;">${escapeHtml(entry.discipline || "Discipline")} ${entry.category ? `• ${escapeHtml(entry.category)}` : ""}</div>
-                    <div class="muted small" style="margin-bottom:10px;">${entryResultText(entry)} • ${Number(entry.fights_count || 0)} fights • ${Number(entry.wins_count || 0)} wins</div>
+                    <div class="muted small" style="margin-bottom:10px;">${entryResultText(entry)} • ${Number(entry.fights_count || 0)} fights • ${Number(entry.wins_count || 0)} wins • ${Number(entry.finishes_count || 0)} finishes</div>
 
                     <label>Discipline</label>
                     <input id="entryDiscipline-${entry.id}" value="${escapeHtml(entry.discipline || "")}" placeholder="e.g. Grappling, MMA, Kickboxing">
@@ -19311,6 +19326,9 @@
 
                     <label>Wins</label>
                     <input id="entryWins-${entry.id}" type="number" min="0" value="${escapeHtml(entry.wins_count ?? 0)}">
+
+                    <label>Finishes (KO / Submission)</label>
+                    <input id="entryFinishes-${entry.id}" type="number" min="0" value="${escapeHtml(entry.finishes_count ?? 0)}">
 
                     <label>Notes</label>
                     <textarea id="entryNotes-${entry.id}">${escapeHtml(entry.notes || "")}</textarea>
@@ -19353,6 +19371,9 @@
 
               <label>Wins</label>
               <input id="newEntryWins-${registration.id}" type="number" min="0" value="0">
+
+              <label>Finishes (KO / Submission)</label>
+              <input id="newEntryFinishes-${registration.id}" type="number" min="0" value="0">
 
               <label>Notes</label>
               <textarea id="newEntryNotes-${registration.id}"></textarea>
@@ -20061,12 +20082,14 @@
     const resultRaw = document.getElementById("newEntryResult-" + registrationId).value.trim();
     const fightsRaw = document.getElementById("newEntryFights-" + registrationId).value.trim();
     const winsRaw = document.getElementById("newEntryWins-" + registrationId).value.trim();
+    const finishesRaw = document.getElementById("newEntryFinishes-" + registrationId).value.trim();
     const notes = document.getElementById("newEntryNotes-" + registrationId).value.trim();
 
     const weight = weightRaw === "" ? null : Number(weightRaw);
     const resultPlace = resultRaw === "" ? null : Number(resultRaw);
     const fightsCount = fightsRaw === "" ? 0 : Number(fightsRaw);
     const winsCount = winsRaw === "" ? 0 : Number(winsRaw);
+    const finishesCount = finishesRaw === "" ? 0 : Number(finishesRaw);
 
     const fail = function (text) {
       if (message) {
@@ -20081,6 +20104,8 @@
     if (Number.isNaN(fightsCount) || fightsCount < 0) return fail("Fights count cannot be negative.");
     if (Number.isNaN(winsCount) || winsCount < 0) return fail("Wins count cannot be negative.");
     if (winsCount > fightsCount) return fail("Wins count cannot be higher than fights count.");
+    if (Number.isNaN(finishesCount) || finishesCount < 0) return fail("Finishes count cannot be negative.");
+    if (finishesCount > winsCount) return fail("Finishes count cannot be higher than wins count.");
 
     if (message) {
       message.textContent = "Adding category...";
@@ -20098,6 +20123,7 @@
         result_place: resultPlace,
         fights_count: fightsCount,
         wins_count: winsCount,
+        finishes_count: finishesCount,
         notes: notes || null
       });
 
@@ -20121,12 +20147,14 @@
     const resultRaw = document.getElementById("entryResult-" + entryId).value.trim();
     const fightsRaw = document.getElementById("entryFights-" + entryId).value.trim();
     const winsRaw = document.getElementById("entryWins-" + entryId).value.trim();
+    const finishesRaw = document.getElementById("entryFinishes-" + entryId).value.trim();
     const notes = document.getElementById("entryNotes-" + entryId).value.trim();
 
     const weight = weightRaw === "" ? null : Number(weightRaw);
     const resultPlace = resultRaw === "" ? null : Number(resultRaw);
     const fightsCount = fightsRaw === "" ? 0 : Number(fightsRaw);
     const winsCount = winsRaw === "" ? 0 : Number(winsRaw);
+    const finishesCount = finishesRaw === "" ? 0 : Number(finishesRaw);
 
     if (!discipline) return alert("Discipline is required.");
     if (weight !== null && (Number.isNaN(weight) || weight < 0)) return alert("Invalid weight.");
@@ -20134,6 +20162,8 @@
     if (Number.isNaN(fightsCount) || fightsCount < 0) return alert("Fights count cannot be negative.");
     if (Number.isNaN(winsCount) || winsCount < 0) return alert("Wins count cannot be negative.");
     if (winsCount > fightsCount) return alert("Wins count cannot be higher than fights count.");
+    if (Number.isNaN(finishesCount) || finishesCount < 0) return alert("Finishes count cannot be negative.");
+    if (finishesCount > winsCount) return alert("Finishes count cannot be higher than wins count.");
 
     const { error } = await supabaseClient
       .from("competition_entries")
@@ -20145,6 +20175,7 @@
         result_place: resultPlace,
         fights_count: fightsCount,
         wins_count: winsCount,
+        finishes_count: finishesCount,
         notes: notes || null,
         updated_at: new Date().toISOString()
       })
