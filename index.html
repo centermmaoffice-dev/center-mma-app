@@ -647,7 +647,7 @@
 
     .record-summary {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 10px;
       margin-bottom: 15px;
     }
@@ -670,6 +670,24 @@
       font-size: 11px;
       margin-top: 4px;
       text-transform: uppercase;
+    }
+
+    @media (max-width: 420px) {
+      .record-summary {
+        gap: 7px;
+      }
+
+      .record-summary-box {
+        padding: 11px 5px;
+      }
+
+      .record-summary-number {
+        font-size: 20px;
+      }
+
+      .record-summary-label {
+        font-size: 9px;
+      }
     }
 
     .record-details {
@@ -6817,7 +6835,12 @@
     const goldCount = allEntries.filter(item => medalName(item) === "gold").length;
     const silverCount = allEntries.filter(item => medalName(item) === "silver").length;
     const bronzeCount = allEntries.filter(item => medalName(item) === "bronze").length;
-    const medalsCount = goldCount + silverCount + bronzeCount;
+    const finishRate = winsCount > 0
+      ? Math.round((finishesCount / winsCount) * 100)
+      : 0;
+    const winRate = fightsCount > 0
+      ? Math.round((winsCount / fightsCount) * 100)
+      : 0;
 
     const renderEntryResult = function (entry) {
       const medal = medalName(entry);
@@ -6835,11 +6858,12 @@
         <div class="record-summary-box"><div class="record-summary-number">${competitionsCount}</div><div class="record-summary-label">Competitions</div></div>
         <div class="record-summary-box"><div class="record-summary-number">${fightsCount}</div><div class="record-summary-label">Fights</div></div>
         <div class="record-summary-box"><div class="record-summary-number">${winsCount}</div><div class="record-summary-label">Wins</div></div>
-        <div class="record-summary-box"><div class="record-summary-number">${finishesCount}</div><div class="record-summary-label">Finishes</div></div>
-        <div class="record-summary-box"><div class="record-summary-number">${medalsCount}</div><div class="record-summary-label">Medals</div></div>
         <div class="record-summary-box"><div class="record-summary-number">🥇 ${goldCount}</div><div class="record-summary-label">Gold</div></div>
         <div class="record-summary-box"><div class="record-summary-number">🥈 ${silverCount}</div><div class="record-summary-label">Silver</div></div>
         <div class="record-summary-box"><div class="record-summary-number">🥉 ${bronzeCount}</div><div class="record-summary-label">Bronze</div></div>
+        <div class="record-summary-box"><div class="record-summary-number">${finishesCount}</div><div class="record-summary-label">Finishes</div></div>
+        <div class="record-summary-box"><div class="record-summary-number">${winRate}%</div><div class="record-summary-label">Win Rate</div></div>
+        <div class="record-summary-box"><div class="record-summary-number">${finishRate}%</div><div class="record-summary-label">Finish Rate</div></div>
       </div>
 
       ${data.map(function (registration) {
@@ -11426,6 +11450,26 @@
         "Admin Panel";
     }
 
+    const [
+      pendingPaymentsResult,
+      pendingCompetitionsResult
+    ] = await Promise.all([
+      supabaseClient
+        .from("payments")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending"),
+      supabaseClient
+        .from("competition_registrations")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "requested"),
+    ]);
+
+    const pendingPaymentsCount = Number(pendingPaymentsResult.count || 0);
+    const pendingCompetitionsCount = Number(pendingCompetitionsResult.count || 0);
+    const pendingActionsCount =
+      pendingPaymentsCount +
+      pendingCompetitionsCount;
+
     element.innerHTML = `
 
       <div class="card">
@@ -11597,6 +11641,20 @@
           </div>
         </div>
 
+
+        <div
+          class="feature"
+          onclick="openAdminSection('pending')"
+        >
+          <div class="feature-icon">⏳</div>
+          <div class="feature-title">
+            Pending Actions
+          </div>
+          <div class="feature-text">
+            ${pendingActionsCount} open · ${pendingPaymentsCount} payments · ${pendingCompetitionsCount} competitions
+          </div>
+        </div>
+
       </div>
 
     `;
@@ -11668,7 +11726,9 @@
       tools:
         "Control Center",
       birthdays:
-        "Birthdays"
+        "Birthdays",
+      pending:
+        "Pending Actions"
     };
 
     const title =
@@ -11791,7 +11851,71 @@
       await loadAdminBirthdays(
         content
       );
+    } else if (
+      section === "pending"
+    ) {
+
+      await loadAdminPendingActions(
+        content
+      );
     }
+  }
+
+
+  async function loadAdminPendingActions(element) {
+    if (!isAdmin || !element) return;
+
+    element.innerHTML = `
+      <div class="card">
+        <h3>Pending Actions</h3>
+        <p class="muted small">Requests that still need your confirmation.</p>
+        <div class="empty">Loading pending actions...</div>
+      </div>
+    `;
+
+    const [paymentsResult, competitionsResult] = await Promise.all([
+      supabaseClient
+        .from("payments")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending"),
+      supabaseClient
+        .from("competition_registrations")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "requested")
+    ]);
+
+    const paymentsCount = Number(paymentsResult.count || 0);
+    const competitionsCount = Number(competitionsResult.count || 0);
+    const totalCount = paymentsCount + competitionsCount;
+
+    element.innerHTML = `
+      <div class="card">
+        <h3>Pending Actions</h3>
+        <p class="muted small">Requests that still need your confirmation.</p>
+        <div style="font-size:34px;font-weight:900;margin-top:12px;">${totalCount}</div>
+        <div class="muted small">Open actions</div>
+      </div>
+
+      <div class="feature-grid">
+        <div class="feature" onclick="openAdminSection('payments')">
+          <div class="feature-icon">💳</div>
+          <div class="feature-title">${paymentsCount}</div>
+          <div class="feature-text">Pending payment confirmations</div>
+        </div>
+
+        <div class="feature" onclick="openAdminSection('competitions')">
+          <div class="feature-icon">🏆</div>
+          <div class="feature-title">${competitionsCount}</div>
+          <div class="feature-text">Competition participation requests</div>
+        </div>
+      </div>
+
+      ${totalCount === 0 ? `
+        <div class="card">
+          <div class="empty">No pending actions. Everything is up to date.</div>
+        </div>
+      ` : ""}
+    `;
   }
 
 
