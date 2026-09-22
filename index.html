@@ -3841,6 +3841,8 @@
 
     ensureTomorrowBirthdayNotifications();
 
+    ensureTomorrowCompetitionDeadlineNotifications();
+
     renderMembershipSummary();
 
     renderMembershipDetails();
@@ -4211,6 +4213,178 @@
       }
     } catch (error) {
       console.error("Birthday reminder check failed:", error);
+    }
+  }
+
+
+  function getCompetitionDeadlineTypeLabel(type) {
+    const labels = {
+      registration: "Registration",
+      payment: "Payment",
+      early_bird: "Early Bird",
+      custom: "Other"
+    };
+
+    return labels[String(type || "").toLowerCase()] || "Deadline";
+  }
+
+
+  function normalizeCompetitionDeadlines(value) {
+    let deadlines = value;
+
+    if (typeof deadlines === "string") {
+      try {
+        deadlines = JSON.parse(deadlines);
+      } catch (error) {
+        deadlines = [];
+      }
+    }
+
+    if (!Array.isArray(deadlines)) {
+      return [];
+    }
+
+    return deadlines
+      .map(function (deadline) {
+        return {
+          type: ["registration", "payment", "early_bird", "custom"].includes(deadline?.type)
+            ? deadline.type
+            : "custom",
+          date: String(deadline?.date || ""),
+          time: String(deadline?.time || "")
+        };
+      })
+      .filter(function (deadline) {
+        return /^\d{4}-\d{2}-\d{2}$/.test(deadline.date);
+      })
+      .sort(function (a, b) {
+        return (a.date + "T" + (a.time || "23:59"))
+          .localeCompare(b.date + "T" + (b.time || "23:59"));
+      });
+  }
+
+
+  async function ensureTomorrowCompetitionDeadlineNotifications() {
+    // This app-side check is idempotent and is limited to the administrator.
+    if (!isAdmin || !currentUser) {
+      return;
+    }
+
+    try {
+      const now = new Date();
+      const tomorrow = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + 1
+      );
+      const tomorrowKey = [
+        tomorrow.getFullYear(),
+        String(tomorrow.getMonth() + 1).padStart(2, "0"),
+        String(tomorrow.getDate()).padStart(2, "0")
+      ].join("-");
+
+      const { data: competitions, error: competitionsError } =
+        await supabaseClient
+          .from("competitions")
+          .select("id,title,deadlines");
+
+      if (competitionsError) {
+        // Keep older deployments usable until the deadlines migration is run.
+        console.error("Could not check competition deadlines:", competitionsError);
+        return;
+      }
+
+      const dueTomorrow = [];
+
+      (competitions || []).forEach(function (competition) {
+        normalizeCompetitionDeadlines(competition.deadlines)
+          .filter(function (deadline) {
+            return deadline.date === tomorrowKey;
+          })
+          .forEach(function (deadline) {
+            dueTomorrow.push({ competition, deadline });
+          });
+      });
+
+      if (!dueTomorrow.length) {
+        return;
+      }
+
+      const startOfToday = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate()
+      ).toISOString();
+
+      const { data: existing, error: existingError } = await supabaseClient
+        .from("notifications")
+        .select("message")
+        .eq("user_id", currentUser.id)
+        .eq("type", "competition_deadline")
+        .gte("created_at", startOfToday);
+
+      if (existingError) {
+        console.error("Could not check existing deadline reminders:", existingError);
+        return;
+      }
+
+      const existingMessages = new Set(
+        (existing || []).map(function (item) {
+          return item.message;
+        })
+      );
+
+      const rows = dueTomorrow
+        .map(function (item) {
+          const typeLabel = getCompetitionDeadlineTypeLabel(item.deadline.type);
+          const timeText = item.deadline.time ? ` at ${item.deadline.time}` : "";
+          const message = `${item.competition.title || "Competition"}: ${typeLabel} deadline is tomorrow${timeText}.`;
+
+          return {
+            message,
+            row: {
+              user_id: currentUser.id,
+              title: "Competition deadline tomorrow",
+              message,
+              type: "competition_deadline",
+              link_section: "events",
+              created_by: currentUser.id
+            }
+          };
+        })
+        .filter(function (item) {
+          return !existingMessages.has(item.message);
+        })
+        .map(function (item) {
+          return item.row;
+        });
+
+      if (!rows.length) {
+        return;
+      }
+
+      const { data: created, error: createError } = await supabaseClient
+        .from("notifications")
+        .insert(rows)
+        .select("id");
+
+      if (createError) {
+        console.error("Could not create deadline reminders:", createError);
+        return;
+      }
+
+      for (const notification of created || []) {
+        const { error: pushError } = await supabaseClient.functions.invoke(
+          "send-push",
+          { body: { notificationId: notification.id } }
+        );
+
+        if (pushError) {
+          console.error("Could not send deadline reminder push:", pushError);
+        }
+      }
+    } catch (error) {
+      console.error("Competition deadline reminder check failed:", error);
     }
   }
 
@@ -18350,6 +18524,97 @@
      ADMIN COMPETITIONS
   ========================= */
 
+  function competitionDeadlineRowHtml(deadline, context, competitionId) {
+    const value = deadline || {};
+    const suffix = context === "edit" ? `edit-${competitionId}` : "create";
+
+    return `
+      <div class="competition-deadline-row" style="border:1px solid #292929;border-radius:12px;padding:12px;margin-top:10px;">
+        <label>Type</label>
+        <select class="competition-deadline-type" data-deadline-context="${escapeHtml(suffix)}">
+          <option value="registration" ${value.type === "registration" ? "selected" : ""}>Registration</option>
+          <option value="payment" ${value.type === "payment" ? "selected" : ""}>Payment</option>
+          <option value="early_bird" ${value.type === "early_bird" ? "selected" : ""}>Early Bird</option>
+          <option value="custom" ${value.type === "custom" ? "selected" : ""}>Other</option>
+        </select>
+
+        <label>Date</label>
+        <input class="competition-deadline-date" type="date" value="${escapeHtml(value.date || "")}">
+
+        <label>Time (optional)</label>
+        <input class="competition-deadline-time" type="time" value="${escapeHtml(value.time || "")}">
+
+        <button type="button" class="danger" onclick="removeCompetitionDeadlineRow(this)">REMOVE DEADLINE</button>
+      </div>`;
+  }
+
+
+  function addCompetitionDeadlineRow(context, competitionId) {
+    const containerId = context === "edit"
+      ? "editCompetitionDeadlines-" + competitionId
+      : "adminCompetitionDeadlines";
+    const container = document.getElementById(containerId);
+
+    if (!container) {
+      return;
+    }
+
+    container.insertAdjacentHTML(
+      "beforeend",
+      competitionDeadlineRowHtml({ type: "registration", date: "", time: "" }, context, competitionId)
+    );
+  }
+
+
+  function removeCompetitionDeadlineRow(button) {
+    button?.closest(".competition-deadline-row")?.remove();
+  }
+
+
+  function collectCompetitionDeadlines(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) {
+      return [];
+    }
+
+    const rows = Array.from(container.querySelectorAll(".competition-deadline-row"));
+    const deadlines = [];
+
+    for (const row of rows) {
+      const type = row.querySelector(".competition-deadline-type")?.value || "custom";
+      const date = row.querySelector(".competition-deadline-date")?.value || "";
+      const time = row.querySelector(".competition-deadline-time")?.value || "";
+
+      if (!date) {
+        throw new Error("Choose a date for every deadline or remove the empty row.");
+      }
+
+      deadlines.push({ type, date, time });
+    }
+
+    return normalizeCompetitionDeadlines(deadlines);
+  }
+
+
+  function competitionDeadlinesEditorHtml(deadlines, context, competitionId) {
+    const normalized = normalizeCompetitionDeadlines(deadlines);
+    const containerId = context === "edit"
+      ? `editCompetitionDeadlines-${competitionId}`
+      : "adminCompetitionDeadlines";
+
+    return `
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid #292929;">
+        <h3 style="margin-bottom:5px;">Deadlines</h3>
+        <p class="muted small">The administrator receives a push reminder one day before each deadline.</p>
+        <div id="${escapeHtml(containerId)}">
+          ${normalized.map(function (deadline) {
+            return competitionDeadlineRowHtml(deadline, context, competitionId);
+          }).join("")}
+        </div>
+        <button type="button" class="secondary" onclick="addCompetitionDeadlineRow('${context}','${escapeHtml(competitionId || "")}')">+ ADD DEADLINE</button>
+      </div>`;
+  }
+
   async function loadAdminCompetitions(
     element
   ) {
@@ -18464,6 +18729,9 @@
           id="adminCompetitionDescription"
           placeholder="Competition information..."
         ></textarea>
+
+
+        ${competitionDeadlinesEditorHtml([], "create", "")}
 
 
         <button
@@ -19047,6 +19315,19 @@
         }
 
 
+        ${
+          normalizeCompetitionDeadlines(competition.deadlines).length
+            ? `
+              <div class="muted small" style="margin-top:6px;">
+                ⏰ ${normalizeCompetitionDeadlines(competition.deadlines).map(function (deadline) {
+                  return `${escapeHtml(getCompetitionDeadlineTypeLabel(deadline.type))}: ${formatDate(deadline.date)}${deadline.time ? ` ${escapeHtml(deadline.time)}` : ""}`;
+                }).join(" · ")}
+              </div>
+            `
+            : ""
+        }
+
+
         <div class="admin-actions">
 
           <button
@@ -19131,6 +19412,13 @@
             >${escapeHtml(
               competition.description || ""
             )}</textarea>
+
+
+            ${competitionDeadlinesEditorHtml(
+              competition.deadlines,
+              "edit",
+              competition.id
+            )}
 
 
             <button
@@ -19571,6 +19859,19 @@
         .trim();
 
 
+    let deadlines = [];
+
+    try {
+      deadlines = collectCompetitionDeadlines(
+        "adminCompetitionDeadlines"
+      );
+    } catch (deadlineError) {
+      message.textContent = deadlineError.message;
+      message.className = "message error";
+      return;
+    }
+
+
     if (!title || !date) {
 
       message.textContent =
@@ -19611,6 +19912,9 @@
         description:
           description || null,
 
+        deadlines:
+          deadlines,
+
         created_by:
           currentUser.id
 
@@ -19623,7 +19927,9 @@
 
       message.textContent =
         "Could not create competition: " +
-        error.message;
+        (String(error.message || "").includes("deadlines")
+          ? "The database field for deadlines is missing. Run the supplied Supabase migration first."
+          : error.message);
 
       message.className =
         "message error";
@@ -19679,6 +19985,15 @@
         "adminCompetitionDescription"
       )
       .value = "";
+
+
+    const createDeadlines = document.getElementById(
+      "adminCompetitionDeadlines"
+    );
+
+    if (createDeadlines) {
+      createDeadlines.innerHTML = "";
+    }
 
 
     await loadAdminPanel();
@@ -19754,6 +20069,19 @@
         .trim();
 
 
+    let deadlines = [];
+
+    try {
+      deadlines = collectCompetitionDeadlines(
+        "editCompetitionDeadlines-" + competitionId
+      );
+    } catch (deadlineError) {
+      message.textContent = deadlineError.message;
+      message.className = "message error";
+      return;
+    }
+
+
     if (!title || !date) {
 
       message.textContent =
@@ -19792,7 +20120,10 @@
           location || null,
 
         description:
-          description || null
+          description || null,
+
+        deadlines:
+          deadlines
 
       })
       .eq(
@@ -19807,7 +20138,9 @@
 
       message.textContent =
         "Could not save competition: " +
-        error.message;
+        (String(error.message || "").includes("deadlines")
+          ? "The database field for deadlines is missing. Run the supplied Supabase migration first."
+          : error.message);
 
       message.className =
         "message error";
