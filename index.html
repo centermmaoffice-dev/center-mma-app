@@ -4265,7 +4265,8 @@
 
 
   async function ensureTomorrowCompetitionDeadlineNotifications() {
-    // This app-side check is idempotent and is limited to the administrator.
+    // An administrator starts the idempotent check; reminders are sent to all
+    // active members.
     if (!isAdmin || !currentUser) {
       return;
     }
@@ -4316,48 +4317,68 @@
         now.getDate()
       ).toISOString();
 
-      const { data: existing, error: existingError } = await supabaseClient
-        .from("notifications")
-        .select("message")
-        .eq("user_id", currentUser.id)
-        .eq("type", "competition_deadline")
-        .gte("created_at", startOfToday);
+      const [membersResult, existingResult] = await Promise.all([
+        supabaseClient
+          .from("members")
+          .select("user_id,is_active")
+          .not("user_id", "is", null),
+        supabaseClient
+          .from("notifications")
+          .select("user_id,message")
+          .eq("type", "competition_deadline")
+          .gte("created_at", startOfToday)
+      ]);
 
-      if (existingError) {
-        console.error("Could not check existing deadline reminders:", existingError);
+      const membersError = membersResult.error;
+      const existingError = existingResult.error;
+
+      if (membersError || existingError) {
+        console.error(
+          "Could not prepare deadline reminders:",
+          membersError || existingError
+        );
         return;
       }
 
-      const existingMessages = new Set(
-        (existing || []).map(function (item) {
-          return item.message;
+      const recipients = (membersResult.data || []).filter(function (member) {
+        return member.user_id && member.is_active !== false;
+      });
+
+      if (!recipients.length) {
+        return;
+      }
+
+      const existingKeys = new Set(
+        (existingResult.data || []).map(function (item) {
+          return item.user_id + "|" + item.message;
         })
       );
 
-      const rows = dueTomorrow
-        .map(function (item) {
+      const rows = [];
+
+      dueTomorrow.forEach(function (item) {
           const typeLabel = getCompetitionDeadlineTypeLabel(item.deadline.type);
           const timeText = item.deadline.time ? ` at ${item.deadline.time}` : "";
           const message = `${item.competition.title || "Competition"}: ${typeLabel} deadline is tomorrow${timeText}.`;
 
-          return {
-            message,
-            row: {
-              user_id: currentUser.id,
+          recipients.forEach(function (recipient) {
+            const key = recipient.user_id + "|" + message;
+
+            if (existingKeys.has(key)) {
+              return;
+            }
+
+            existingKeys.add(key);
+            rows.push({
+              user_id: recipient.user_id,
               title: "Competition deadline tomorrow",
               message,
               type: "competition_deadline",
               link_section: "events",
               created_by: currentUser.id
-            }
-          };
-        })
-        .filter(function (item) {
-          return !existingMessages.has(item.message);
-        })
-        .map(function (item) {
-          return item.row;
-        });
+            });
+          });
+      });
 
       if (!rows.length) {
         return;
@@ -18605,7 +18626,7 @@
     return `
       <div style="margin-top:16px;padding-top:14px;border-top:1px solid #292929;">
         <h3 style="margin-bottom:5px;">Deadlines</h3>
-        <p class="muted small">The administrator receives a push reminder one day before each deadline.</p>
+        <p class="muted small">All active members receive a push reminder one day before each deadline.</p>
         <div id="${escapeHtml(containerId)}">
           ${normalized.map(function (deadline) {
             return competitionDeadlineRowHtml(deadline, context, competitionId);
