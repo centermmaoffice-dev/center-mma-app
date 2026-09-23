@@ -10199,6 +10199,7 @@
       (notifications || [])
         .filter(
           item =>
+            (!item.user_id || item.user_id === currentUser.id) &&
             notificationAllowedByPreferences(
               item,
               preferences
@@ -10335,6 +10336,7 @@
       (notifications || [])
         .filter(
           item =>
+            (!item.user_id || item.user_id === currentUser.id) &&
             notificationAllowedByPreferences(
               item,
               preferences
@@ -10403,6 +10405,8 @@
                 ? "💳"
               : item.type === "competition"
                 ? "🏆"
+                : item.type === "competition_deadline"
+                  ? "⏰"
                 : item.type === "training"
                   ? "🥋"
                   : item.type === "document"
@@ -10532,6 +10536,10 @@
       normalized === "competition_update"
     ) {
       return "Competition";
+    }
+
+    if (normalized === "competition_deadline") {
+      return "Competition deadline";
     }
 
     if (normalized === "payment") {
@@ -13723,7 +13731,14 @@
       groupsResult.data || [];
 
     const history =
-      historyResult.data || [];
+      (historyResult.data || []).filter(function (item) {
+        // Deadline reminders are stored once per recipient. In the admin
+        // history show only the administrator's own copy instead of one
+        // visually identical card for every active member.
+        return item.type !== "competition_deadline" ||
+          !item.user_id ||
+          item.user_id === currentUser.id;
+      });
 
     element.innerHTML += `
 
