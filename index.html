@@ -10701,11 +10701,69 @@
             : ""
         }
 
+        <div id="notificationPoll-${item.id}" style="margin-top:16px;"></div>
+
       </div>
 
     `;
 
+    await renderNotificationPoll(item.id);
     await loadNotificationBadge();
+  }
+
+  async function renderNotificationPoll(notificationId) {
+    const element = document.getElementById("notificationPoll-" + notificationId);
+    if (!element) return;
+    const { data: poll, error } = await supabaseClient.from("notification_polls")
+      .select("id").eq("notification_id", notificationId).maybeSingle();
+    if (error || !poll) return;
+    const { data: ownVote } = await supabaseClient.from("notification_poll_votes")
+      .select("choice").eq("poll_id", poll.id).eq("user_id", currentUser.id).maybeSingle();
+    const choices = [["yes", "Yes"], ["no", "No"], ["unsure", "Unsure"]];
+    element.innerHTML = `
+      <h3>Will you attend?</h3>
+      <div class="admin-actions">
+        ${choices.map(([value,label]) => `
+          <button type="button" class="${ownVote?.choice === value ? "" : "secondary"}"
+            onclick="voteOnNotificationPoll('${poll.id}','${notificationId}','${value}')">
+            ${label}</button>`).join("")}
+      </div>
+      <div class="muted small" style="margin-top:8px;">
+        ${ownVote ? "Your answer: " + (choices.find(c => c[0] === ownVote.choice)?.[1] || ownVote.choice) + ". You can change it." : "Only admins can see the results."}
+      </div>
+      ${isAdmin ? '<div id="notificationPollResults-' + poll.id + '"></div>' : ""}
+    `;
+    if (isAdmin) await renderNotificationPollResults(poll.id);
+  }
+
+  async function voteOnNotificationPoll(pollId, notificationId, choice) {
+    if (!["yes","no","unsure"].includes(choice)) return;
+    const { error } = await supabaseClient.from("notification_poll_votes")
+      .upsert({ poll_id: pollId, user_id: currentUser.id, choice },
+        { onConflict: "poll_id,user_id" });
+    if (error) return alert("Could not save your vote: " + error.message);
+    await renderNotificationPoll(notificationId);
+  }
+
+  async function renderNotificationPollResults(pollId) {
+    const element = document.getElementById("notificationPollResults-" + pollId);
+    if (!element || !isAdmin) return;
+    const { data, error } = await supabaseClient.from("notification_poll_votes")
+      .select("choice,user_id").eq("poll_id", pollId);
+    if (error) return;
+    const votes = data || [];
+    const ids = votes.map(v => v.user_id);
+    const members = ids.length ? await supabaseClient.from("members")
+      .select("user_id,first_name,last_name").in("user_id", ids) : { data: [] };
+    const names = new Map((members.data || []).map(m =>
+      [m.user_id, [m.first_name,m.last_name].filter(Boolean).join(" ")]));
+    element.innerHTML = `
+      <p><strong>Yes: ${votes.filter(v => v.choice === "yes").length} ·
+      No: ${votes.filter(v => v.choice === "no").length} ·
+      Unsure: ${votes.filter(v => v.choice === "unsure").length}</strong></p>
+      ${votes.map(v => `<div class="muted small">${escapeHtml(names.get(v.user_id) || v.user_id)}:
+      ${escapeHtml(v.choice)}</div>`).join("")}
+    `;
   }
 
 
@@ -10772,10 +10830,65 @@
 
     await loadNotificationBadge();
 
-    if (linkSection) {
-      openSection(
-        linkSection
-      );
+    if (isAdmin && linkSection === "events") {
+      const { data: notification } = await supabaseClient
+        .from("notifications").select("type,title,message")
+        .eq("id", notificationId).maybeSingle();
+      if (notification && /competition request/i.test(notification.title || "")) {
+        await openCompetitionRequestFromNotification(notification);
+        return;
+      }
+    }
+    if (isAdmin && /^(admin|members)$/.test(linkSection || "")) {
+      openSection("admin");
+      await openAdminSection("members");
+      return;
+    }
+    if (linkSection) openSection(linkSection);
+  }
+
+  async function openCompetitionRequestFromNotification(notification) {
+    // Legacy notifications only contain the athlete and event names in text.
+    const match = String(notification.message || "").match(/^(.+?) wants to participate in (.+?)\.?$/i);
+    if (!match) {
+      openSection("admin");
+      await openAdminSection("competitions");
+      return;
+    }
+    const athleteName = match[1].trim().toLocaleLowerCase();
+    const eventName = match[2].trim().replace(/\.$/, "").toLocaleLowerCase();
+    const { data: competitions, error } = await supabaseClient
+      .from("competitions").select("id,title");
+    if (error) {
+      alert("Could not find competition: " + error.message);
+      return;
+    }
+    const candidates = (competitions || []).filter(c =>
+      String(c.title || "").trim().toLocaleLowerCase() === eventName);
+    if (candidates.length !== 1) {
+      openSection("admin");
+      await openAdminSection("competitions");
+      alert("Could not identify the exact competition. Please select it in Admin → Competitions.");
+      return;
+    }
+    const competitionId = candidates[0].id;
+    openSection("admin");
+    await openAdminSection("competitions");
+    const details = document.getElementById("adminCompetitionDetails-" + competitionId);
+    if (!details) return;
+    await toggleAdminCompetition(competitionId);
+    const { data: registrations } = await supabaseClient
+      .from("competition_registrations")
+      .select("id,members(first_name,last_name)")
+      .eq("competition_id", competitionId);
+    const matches = (registrations || []).filter(r =>
+      [r.members?.first_name, r.members?.last_name].filter(Boolean)
+        .join(" ").trim().toLocaleLowerCase() === athleteName);
+    const target = matches.length === 1
+      ? document.getElementById("participant-" + matches[0].id) : details;
+    target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (matches.length !== 1) {
+      alert("Competition opened, but the athlete could not be identified uniquely.");
     }
   }
 
@@ -13808,6 +13921,12 @@
           placeholder="Write notification..."
         ></textarea>
 
+        <label style="display:block;margin-top:14px;">
+          <input type="checkbox" id="adminNotificationPollEnabled">
+          Add private attendance poll (Yes / No / Unsure)
+        </label>
+        <p class="muted small">Only admins can see who voted and the totals.</p>
+
 
         <label>
           Open section
@@ -14181,6 +14300,13 @@
         .value ||
       null;
 
+    const pollEnabled = document.getElementById("adminNotificationPollEnabled")?.checked;
+    if (pollEnabled && !recipient.startsWith("group:")) {
+      status.textContent = "Choose a group for this poll.";
+      status.className = "message error";
+      return;
+    }
+
     if (!title || !message) {
 
       status.textContent =
@@ -14354,6 +14480,17 @@
     }
 
     if (insertedNotification?.id) {
+
+      if (pollEnabled) {
+        const { error: pollError } = await supabaseClient
+          .from("notification_polls")
+          .insert({ notification_id: insertedNotification.id });
+        if (pollError) {
+          status.textContent = "Notification saved, but the poll could not be created: " + pollError.message;
+          status.className = "message error";
+          return;
+        }
+      }
 
       const pushResult =
         await supabaseClient
