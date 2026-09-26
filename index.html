@@ -3187,6 +3187,25 @@
 
   let membershipAccessAllowed =
     false;
+  let membershipCheckGeneration = 0;
+
+  function hasCurrentMembershipAccess() {
+    if (!currentUser || !currentMember || currentMember.user_id !== currentUser.id || currentMember.is_active === false) return false;
+    if (isStaff) return true;
+    const today = getLocalDateString();
+    return currentMembership?.status === "active" &&
+      currentMembership?.start_date <= today &&
+      currentMembership?.end_date >= today;
+  }
+
+  function hideMemberOnlySections() {
+    document.getElementById("bottomNav")?.classList.add("hidden");
+    document.querySelector("#appScreen .top-bar")?.classList.add("hidden");
+    ["membership", "payments", "news", "shop", "profile", "calendar", "attendance", "documents", "documentViewer", "chat", "notifications", "events", "admin"]
+      .forEach(name => document.getElementById(name + "Section")?.classList.add("hidden"));
+    stopChatRealtime();
+    stopNotificationRealtime();
+  }
   let adminAttendanceSessions = [];
   let adminAttendanceMembers = [];
   let adminAttendanceExisting = {};
@@ -3424,6 +3443,8 @@
 
   async function logout() {
 
+    membershipCheckGeneration++;
+
     membershipAccessAllowed =
       false;
 
@@ -3509,6 +3530,15 @@
 
 
   async function checkMembership() {
+    const generation = ++membershipCheckGeneration;
+    membershipAccessAllowed = false;
+    stopMembershipActivationWatcher();
+    currentMember = null;
+    currentMembership = null;
+    isAdmin = false;
+    isTrainer = false;
+    isStaff = false;
+    hideMemberOnlySections();
     if (!currentUser) {
       showAuth();
       return;
@@ -3523,6 +3553,7 @@
       data: member,
       error: memberError
     } = await loadMemberWithRetry();
+    if (generation !== membershipCheckGeneration) return;
 
     if (memberError) {
       console.error(memberError);
@@ -3550,6 +3581,7 @@
       data: membership,
       error: membershipError
     } = await loadMembershipWithRetry(member.id);
+    if (generation !== membershipCheckGeneration) return;
 
     if (membershipError) {
       console.error(membershipError);
@@ -3569,9 +3601,7 @@
 
     const today = getLocalDateString();
 
-    const membershipActive =
-      currentMembership.status === "active" &&
-      currentMembership.end_date >= today;
+    const membershipActive = hasCurrentMembershipAccess();
 
     if (!membershipActive) {
       showInactive("Your membership is not active.");
@@ -3612,8 +3642,10 @@
       }
 
       const today = getLocalDateString();
-      const active =
+      const active = currentMember.is_active !== false &&
+        currentMember.user_id === currentUser.id &&
         membership?.status === "active" &&
+        membership?.start_date <= today &&
         membership?.end_date >= today;
 
       if (!active) {
@@ -3742,6 +3774,11 @@
   ========================= */
 
   function showApp() {
+
+    if (!hasCurrentMembershipAccess()) {
+      showInactive("Your membership is not active.");
+      return;
+    }
 
     membershipAccessAllowed =
       true;
@@ -5373,6 +5410,7 @@
 
     membershipAccessAllowed =
       false;
+    hideMemberOnlySections();
 
     currentSectionName =
       "home";
@@ -5752,8 +5790,8 @@
   function openSection(section, options = {}) {
 
     if (
-      !membershipAccessAllowed &&
-      !isStaff
+      !membershipAccessAllowed ||
+      !hasCurrentMembershipAccess()
     ) {
 
       document
@@ -9544,6 +9582,7 @@
   async function loadChatMessages(
     preserveScroll = false
   ) {
+    if (!membershipAccessAllowed || !hasCurrentMembershipAccess()) return;
 
     const element =
       document.getElementById(
@@ -9727,6 +9766,7 @@
 
 
   async function sendChatMessage() {
+    if (!membershipAccessAllowed || !hasCurrentMembershipAccess()) return;
 
     if (!currentUser) {
       return;
@@ -9899,7 +9939,7 @@
 
   function startChatRealtime() {
 
-    if (!currentUser) {
+    if (!currentUser || !membershipAccessAllowed || !hasCurrentMembershipAccess()) {
       return;
     }
 
@@ -15364,7 +15404,7 @@
       <div class="card">
         <h3>Members</h3>
         <p class="muted small">
-          Manage profiles, roles and memberships.
+          Manage accounts and profiles. Payments and memberships are managed in Zahlungen.
         </p>
 
         <input
@@ -15594,7 +15634,7 @@
                             true
                           )"
                         >
-                          REACTIVATE MEMBER
+                          REACTIVATE ACCOUNT
                         </button>
                       `
                       : `
@@ -15605,7 +15645,7 @@
                             false
                           )"
                         >
-                          DEACTIVATE MEMBER
+                          DEACTIVATE ACCOUNT
                         </button>
                       `
                   }
@@ -15638,124 +15678,13 @@
                 </div>
 
                 <div class="admin-edit-box">
-
-                  <h3>
-                    Membership
-                  </h3>
-
-                  <label>Type</label>
-                  <select
-                    id="adminMembershipType-${member.id}"
-                    style="
-                      width:100%;
-                      background:#0d0d0d;
-                      border:1px solid #333;
-                      border-radius:9px;
-                      color:white;
-                      padding:13px;
-                      font-size:15px;
-                    "
-                  >
-                    <option
-                      value="monthly"
-                      ${(membership?.type || "monthly") === "monthly" ? "selected" : ""}
-                    >
-                      Monthly
-                    </option>
-
-                    <option
-                      value="half_year"
-                      ${membership?.type === "half_year" ? "selected" : ""}
-                    >
-                      Half year
-                    </option>
-
-                    <option
-                      value="yearly"
-                      ${membership?.type === "yearly" ? "selected" : ""}
-                    >
-                      Yearly
-                    </option>
-
-                    <option
-                      value="other"
-                      ${membership?.type === "other" ? "selected" : ""}
-                    >
-                      Other
-                    </option>
-                  </select>
-
-                  <label>Start date</label>
-                  <input
-                    id="adminMembershipStart-${member.id}"
-                    type="date"
-                    value="${escapeHtml(
-                      membership?.start_date || ""
-                    )}"
-                  >
-
-                  <label>End date</label>
-                  <input
-                    id="adminMembershipEnd-${member.id}"
-                    type="date"
-                    value="${escapeHtml(
-                      membership?.end_date || ""
-                    )}"
-                  >
-
-                  <label>Price (€)</label>
-                  <input
-                    id="adminMembershipPrice-${member.id}"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value="${escapeHtml(
-                      membership?.price ?? ""
-                    )}"
-                  >
-
-                  <label>Status</label>
-                  <select
-                    id="adminMembershipStatus-${member.id}"
-                    style="
-                      width:100%;
-                      background:#0d0d0d;
-                      border:1px solid #333;
-                      border-radius:9px;
-                      color:white;
-                      padding:13px;
-                      font-size:15px;
-                    "
-                  >
-                    <option
-                      value="active"
-                      ${membershipStatus === "active" ? "selected" : ""}
-                    >
-                      Active
-                    </option>
-
-                    <option
-                      value="inactive"
-                      ${membershipStatus !== "active" ? "selected" : ""}
-                    >
-                      Inactive
-                    </option>
-                  </select>
-
-                  <button
-                    onclick="saveAdminMembership(
-                      '${member.id}',
-                      '${membership?.id || ""}'
-                    )"
-                  >
-                    SAVE MEMBERSHIP
+                  <h3>Membership (read only)</h3>
+                  <div class="muted small">
+                    ${membership ? `${escapeHtml(membership.type || "-")} · ${formatDate(membership.start_date)} – ${formatDate(membership.end_date)} · ${escapeHtml(membership.status || "inactive")}` : "No membership yet"}
+                  </div>
+                  <button class="secondary" onclick="openAdminPaymentHistory('${member.id}')">
+                    PAYMENT HISTORY
                   </button>
-
-                  <div
-                    id="adminMembershipMessage-${member.id}"
-                    class="message"
-                  ></div>
-
                 </div>
 
               </div>
@@ -15950,173 +15879,6 @@
   }
 
 
-  async function saveAdminMembership(
-    memberId,
-    membershipId
-  ) {
-
-    if (!isAdmin) {
-      return;
-    }
-
-    const message =
-      document.getElementById(
-        "adminMembershipMessage-" +
-        memberId
-      );
-
-    const type =
-      document
-        .getElementById(
-          "adminMembershipType-" +
-          memberId
-        )
-        .value;
-
-    const startDate =
-      document
-        .getElementById(
-          "adminMembershipStart-" +
-          memberId
-        )
-        .value;
-
-    const endDate =
-      document
-        .getElementById(
-          "adminMembershipEnd-" +
-          memberId
-        )
-        .value;
-
-    const priceValue =
-      document
-        .getElementById(
-          "adminMembershipPrice-" +
-          memberId
-        )
-        .value
-        .trim();
-
-    const status =
-      document
-        .getElementById(
-          "adminMembershipStatus-" +
-          memberId
-        )
-        .value;
-
-    const price =
-      priceValue === ""
-        ? 0
-        : Number(priceValue);
-
-    if (!startDate || !endDate) {
-
-      message.textContent =
-        "Start date and end date are required.";
-
-      message.className =
-        "message error";
-
-      return;
-    }
-
-    if (
-      Number.isNaN(price) ||
-      price < 0
-    ) {
-
-      message.textContent =
-        "Please enter a valid price.";
-
-      message.className =
-        "message error";
-
-      return;
-    }
-
-    if (endDate < startDate) {
-
-      message.textContent =
-        "End date cannot be before start date.";
-
-      message.className =
-        "message error";
-
-      return;
-    }
-
-    message.textContent =
-      "Saving membership...";
-
-    message.className =
-      "message";
-
-    const payload = {
-      member_id:
-        memberId,
-      type:
-        type,
-      start_date:
-        startDate,
-      end_date:
-        endDate,
-      price:
-        price,
-      status:
-        status
-    };
-
-    let error = null;
-
-    if (membershipId) {
-
-      const result =
-        await supabaseClient
-          .from("memberships")
-          .update(payload)
-          .eq(
-            "id",
-            membershipId
-          );
-
-      error = result.error;
-
-    } else {
-
-      const result =
-        await supabaseClient
-          .from("memberships")
-          .insert(payload);
-
-      error = result.error;
-    }
-
-    if (error) {
-
-      console.error(error);
-
-      message.textContent =
-        "Could not save membership: " +
-        error.message;
-
-      message.className =
-        "message error";
-
-      return;
-    }
-
-    message.textContent =
-      "Membership saved successfully.";
-
-    message.className =
-      "message success-text";
-
-    await loadAdminPanel();
-  }
-
-
   /* =========================
      ADMIN PAYMENTS
   ========================= */
@@ -16167,12 +15929,11 @@
           <div class="empty">No pending payment requests.</div>
         </div>
       `;
-      return;
     }
 
     const today = getLocalDateString();
 
-    element.innerHTML += payments.map(function(payment) {
+    element.innerHTML += (payments || []).map(function(payment) {
       const member = payment.members || {};
       const amountKnown = Number(payment.amount || 0) > 0;
       const name = (
@@ -16294,6 +16055,130 @@
         </div>
       `;
     }).join("");
+
+    await loadAdminPaymentHistory(element);
+  }
+
+  async function openAdminPaymentHistory(memberId) {
+    await openAdminSection("payments");
+    const card = Array.from(document.querySelectorAll(".admin-payment-member"))
+      .find(item => item.dataset.memberId === memberId);
+    if (card) {
+      card.open = true;
+      card.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  async function loadAdminPaymentHistory(element) {
+    const [membersResult, paymentsResult, correctionsResult] = await Promise.all([
+      supabaseClient.from("members").select("id, first_name, last_name, email, membership_number").order("first_name"),
+      supabaseClient.from("payments").select("*").order("created_at", { ascending: false }),
+      supabaseClient.from("payment_corrections").select("payment_id, changed_at, reason, before_value, after_value").order("changed_at", { ascending: false })
+    ]);
+
+    if (membersResult.error || paymentsResult.error) {
+      element.innerHTML += `<div class="card message error">Could not load payment history: ${escapeHtml((membersResult.error || paymentsResult.error).message)}</div>`;
+      return;
+    }
+
+    const paymentsByMember = new Map();
+    for (const payment of paymentsResult.data || []) {
+      if (!paymentsByMember.has(payment.member_id)) paymentsByMember.set(payment.member_id, []);
+      paymentsByMember.get(payment.member_id).push(payment);
+    }
+    const correctionsByPayment = new Map();
+    if (!correctionsResult.error) {
+      for (const correction of correctionsResult.data || []) {
+        if (!correctionsByPayment.has(correction.payment_id)) correctionsByPayment.set(correction.payment_id, []);
+        correctionsByPayment.get(correction.payment_id).push(correction);
+      }
+    }
+
+    element.innerHTML += `
+      <div class="card">
+        <h3>Payment history</h3>
+        <p class="muted small">Open a person, then a payment to view its details. Only recorded payments appear here.</p>
+        <input type="search" id="adminPaymentHistorySearch" class="member-search"
+          placeholder="Search name, email or member number..." oninput="filterAdminPaymentHistory()">
+      </div>
+      <div id="adminPaymentHistoryList">
+        ${(membersResult.data || []).map(member => {
+          const name = [member.first_name, member.last_name].filter(Boolean).join(" ") || member.email || "Member";
+          const records = paymentsByMember.get(member.id) || [];
+          const search = [name, member.email, member.membership_number].filter(Boolean).join(" ").toLowerCase();
+          return `<details class="card admin-payment-member" data-member-id="${escapeHtml(member.id)}" data-search="${escapeHtml(search)}">
+            <summary style="cursor:pointer;font-weight:800;">${escapeHtml(name)} <span class="muted small">· ${records.length} records</span></summary>
+            <div class="muted small" style="margin:8px 0 12px;">${escapeHtml(member.email || "")} · ${escapeHtml(member.membership_number || "-")}</div>
+            ${records.length ? records.map(payment => `<details class="payment-item" style="margin:8px 0;">
+              <summary style="cursor:pointer;display:flex;justify-content:space-between;gap:12px;">
+                <span>${formatDate(payment.payment_date || payment.created_at)} · ${escapeHtml(payment.payment_type || "Membership")}</span>
+                <span>€${Number(payment.amount || 0).toFixed(2)} · ${escapeHtml(payment.status || "pending")}</span>
+              </summary>
+              <div class="payment-description" style="margin-top:12px;">
+                ${escapeHtml(payment.description || "Membership payment")}<br>
+                Requested: ${formatDate(payment.requested_at || payment.created_at)}<br>
+                Recorded: ${formatDate(payment.payment_date || payment.created_at)}<br>
+                Status: ${escapeHtml(payment.status || "pending")}
+              </div>
+              ${(correctionsByPayment.get(payment.id) || []).map(change => `
+                <div class="muted small" style="margin-top:8px;">
+                  Correction ${formatDate(change.changed_at)}: ${escapeHtml(change.reason)}<br>
+                  €${Number(change.before_value?.amount || 0).toFixed(2)} → €${Number(change.after_value?.amount || 0).toFixed(2)}
+                </div>`).join("")}
+              ${!["pending", "rejected"].includes(payment.status || "pending") ? `
+                <div class="admin-payment-editor">
+                  <div class="muted small">Correct this payment record. Membership dates remain unchanged.</div>
+                  <label>Amount (€)</label>
+                  <input id="historyAmount-${payment.id}" type="number" min="0.01" step="0.01" value="${Number(payment.amount || 0).toFixed(2)}">
+                  <label>Payment date</label>
+                  <input id="historyDate-${payment.id}" type="date" value="${escapeHtml((payment.payment_date || "").slice(0, 10))}">
+                  <label>Description</label>
+                  <input id="historyDescription-${payment.id}" value="${escapeHtml(payment.description || "")}">
+                  <label>Reason for correction</label>
+                  <input id="historyReason-${payment.id}" placeholder="Required for audit history">
+                  <button onclick="correctAdminPayment('${payment.id}','${member.id}')">SAVE CORRECTION</button>
+                  <div id="historyMessage-${payment.id}" class="message"></div>
+                </div>` : ""}
+            </details>`).join("") : `<div class="muted small">No recorded payments.</div>`}
+          </details>`;
+        }).join("")}
+      </div>`;
+  }
+
+  function filterAdminPaymentHistory() {
+    const query = document.getElementById("adminPaymentHistorySearch")?.value.trim().toLowerCase() || "";
+    document.querySelectorAll(".admin-payment-member").forEach(card => {
+      card.classList.toggle("hidden", !!query && !card.dataset.search.includes(query));
+    });
+  }
+
+  async function correctAdminPayment(paymentId, memberId) {
+    if (!isAdmin) return;
+    const message = document.getElementById("historyMessage-" + paymentId);
+    const amount = Number(document.getElementById("historyAmount-" + paymentId)?.value);
+    const date = document.getElementById("historyDate-" + paymentId)?.value;
+    const description = document.getElementById("historyDescription-" + paymentId)?.value.trim();
+    const reason = document.getElementById("historyReason-" + paymentId)?.value.trim();
+    if (!Number.isFinite(amount) || amount <= 0 || !date || !reason) {
+      message.textContent = "Enter a valid amount, payment date and correction reason.";
+      message.className = "message error";
+      return;
+    }
+    message.textContent = "Saving correction...";
+    message.className = "message";
+    const { error } = await supabaseClient.rpc("admin_correct_payment_record", {
+      target_payment_id: paymentId,
+      corrected_amount: amount,
+      corrected_payment_date: date,
+      corrected_description: description,
+      correction_reason: reason
+    });
+    if (error) {
+      message.textContent = "Could not save correction: " + error.message;
+      message.className = "message error";
+      return;
+    }
+    await openAdminPaymentHistory(memberId);
   }
 
 
