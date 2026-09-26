@@ -21106,6 +21106,18 @@
       return;
     }
 
+    // Delegate clicks from the stable container: translations may replace
+    // the button markup after a card is rendered.
+    if (!root.dataset.adminAccordionDelegated) {
+      root.addEventListener("click", function (event) {
+        const toggle = event.target.closest(".admin-accordion-toggle");
+        if (!toggle || !root.contains(toggle)) return;
+        const card = toggle.closest(".admin-accordion-card");
+        if (card) toggleAdminAccordionCard(card);
+      });
+      root.dataset.adminAccordionDelegated = "true";
+    }
+
     enhanceAdminAccordionCards(root);
 
     if (adminAccordionObserver) {
@@ -21303,13 +21315,6 @@
         </div>
         <div class="admin-accordion-chevron">⌄</div>
       `;
-
-      toggle.addEventListener(
-        "click",
-        function () {
-          toggleAdminAccordionCard(card);
-        }
-      );
 
       card.classList.add(
         "admin-accordion-card"
