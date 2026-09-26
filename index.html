@@ -3190,7 +3190,7 @@
   let membershipCheckGeneration = 0;
 
   function hasCurrentMembershipAccess() {
-    if (!currentUser || !currentMember || currentMember.user_id !== currentUser.id || currentMember.is_active === false) return false;
+    if (!currentUser || !currentMember || currentMember.user_id !== currentUser.id || currentMember.is_active === false || currentMember.approval_status !== "approved") return false;
     if (isStaff) return true;
     const today = getLocalDateString();
     return currentMembership?.status === "active" &&
@@ -3504,15 +3504,19 @@
     let lastError = null;
 
     for (let attempt = 0; attempt < 4; attempt++) {
+      const today = getLocalDateString();
       const { data, error } = await supabaseClient
         .from("memberships")
         .select("*")
         .eq("member_id", memberId)
+        .eq("status", "active")
+        .lte("start_date", today)
+        .gte("end_date", today)
         .order("end_date", { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (!error && data) {
+      if (!error) {
         return { data, error: null };
       }
 
@@ -3568,7 +3572,7 @@
 
     currentMember = member;
 
-    if (member.is_active === false) {
+    if (member.is_active === false || member.approval_status !== "approved") {
       showInactive("Your member account has been deactivated by CENTER MMA.");
       return;
     }
@@ -6302,6 +6306,7 @@
       .from("payments")
       .select("*")
       .eq("member_id", currentMember.id)
+      .is("voided_at", null)
       .order("created_at", {
         ascending: false
       });
@@ -15898,6 +15903,7 @@
         )
       `)
       .eq("status", "pending")
+      .is("voided_at", null)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -16070,114 +16076,144 @@
   }
 
   async function loadAdminPaymentHistory(element) {
-    const [membersResult, paymentsResult, correctionsResult] = await Promise.all([
+    const [membersResult, paymentsResult, membershipsResult, auditResult] = await Promise.all([
       supabaseClient.from("members").select("id, first_name, last_name, email, membership_number").order("first_name"),
       supabaseClient.from("payments").select("*").order("created_at", { ascending: false }),
-      supabaseClient.from("payment_corrections").select("payment_id, changed_at, reason, before_value, after_value").order("changed_at", { ascending: false })
+      supabaseClient.from("memberships").select("id, member_id, type, start_date, end_date, status").order("end_date", { ascending: false }),
+      supabaseClient.from("payment_audit").select("payment_id, changed_at, action, reason").order("changed_at", { ascending: false })
     ]);
-
-    if (membersResult.error || paymentsResult.error) {
-      element.innerHTML += `<div class="card message error">Could not load payment history: ${escapeHtml((membersResult.error || paymentsResult.error).message)}</div>`;
+    const failure = membersResult.error || paymentsResult.error || membershipsResult.error || auditResult.error;
+    if (failure) {
+      element.innerHTML += `<div class="card message error">Could not load payment history: ${escapeHtml(failure.message)}. Install center-mma-payments-v2.sql first.</div>`;
       return;
     }
-
-    const paymentsByMember = new Map();
+    const byMember = new Map(), membershipByMember = new Map(), auditByPayment = new Map();
     for (const payment of paymentsResult.data || []) {
-      if (!paymentsByMember.has(payment.member_id)) paymentsByMember.set(payment.member_id, []);
-      paymentsByMember.get(payment.member_id).push(payment);
+      if (!byMember.has(payment.member_id)) byMember.set(payment.member_id, []);
+      byMember.get(payment.member_id).push(payment);
     }
-    const correctionsByPayment = new Map();
-    if (!correctionsResult.error) {
-      for (const correction of correctionsResult.data || []) {
-        if (!correctionsByPayment.has(correction.payment_id)) correctionsByPayment.set(correction.payment_id, []);
-        correctionsByPayment.get(correction.payment_id).push(correction);
-      }
+    for (const membership of membershipsResult.data || []) {
+      if (!membershipByMember.has(membership.member_id)) membershipByMember.set(membership.member_id, []);
+      membershipByMember.get(membership.member_id).push(membership);
     }
-
-    element.innerHTML += `
-      <div class="card">
-        <h3>Payment history</h3>
-        <p class="muted small">Open a person, then a payment to view its details. Only recorded payments appear here.</p>
-        <input type="search" id="adminPaymentHistorySearch" class="member-search"
-          placeholder="Search name, email or member number..." oninput="filterAdminPaymentHistory()">
-      </div>
-      <div id="adminPaymentHistoryList">
-        ${(membersResult.data || []).map(member => {
-          const name = [member.first_name, member.last_name].filter(Boolean).join(" ") || member.email || "Member";
-          const records = paymentsByMember.get(member.id) || [];
-          const search = [name, member.email, member.membership_number].filter(Boolean).join(" ").toLowerCase();
-          return `<details class="card admin-payment-member" data-member-id="${escapeHtml(member.id)}" data-search="${escapeHtml(search)}">
-            <summary style="cursor:pointer;font-weight:800;">${escapeHtml(name)} <span class="muted small">· ${records.length} records</span></summary>
-            <div class="muted small" style="margin:8px 0 12px;">${escapeHtml(member.email || "")} · ${escapeHtml(member.membership_number || "-")}</div>
-            ${records.length ? records.map(payment => `<details class="payment-item" style="margin:8px 0;">
+    for (const entry of auditResult.data || []) {
+      if (!auditByPayment.has(entry.payment_id)) auditByPayment.set(entry.payment_id, []);
+      auditByPayment.get(entry.payment_id).push(entry);
+    }
+    element.innerHTML += `<div class="card"><h3>Payment history</h3>
+      <p class="muted small">One card per recorded payment. Set its covered period and link old records to the matching membership. Voided records stay visible in the audit history.</p>
+      <input type="search" id="adminPaymentHistorySearch" class="member-search"
+        placeholder="Search name, email or member number..." oninput="filterAdminPaymentHistory()"></div>
+      <div id="adminPaymentHistoryList">${(membersResult.data || []).map(member => {
+        const name = [member.first_name, member.last_name].filter(Boolean).join(" ") || member.email || "Member";
+        const records = byMember.get(member.id) || [];
+        const memberships = membershipByMember.get(member.id) || [];
+        const live = records.filter(payment => !payment.voided_at);
+        const search = [name, member.email, member.membership_number].filter(Boolean).join(" ").toLowerCase();
+        const options = memberships.map(m => `<option value="${m.id}">${escapeHtml(m.type)} · ${formatDate(m.start_date)} – ${formatDate(m.end_date)} · ${escapeHtml(m.status)}</option>`).join("");
+        const newId = `new-${member.id}`;
+        return `<details class="card admin-payment-member" data-member-id="${member.id}" data-search="${escapeHtml(search)}">
+          <summary style="cursor:pointer;font-weight:800;">${escapeHtml(name)} <span class="muted small">· ${live.length} payments</span></summary>
+          <div class="muted small" style="margin:8px 0 12px;">${escapeHtml(member.email || "")} · ${escapeHtml(member.membership_number || "-")}</div>
+          <details class="payment-item" style="margin:8px 0;"><summary style="cursor:pointer;font-weight:800;">+ ADD PAYMENT / PERIOD</summary>
+            ${paymentPeriodEditor(newId, member.id, null, options)}
+          </details>
+          ${records.length ? records.map(payment => {
+            const period = payment.period_start && payment.period_end
+              ? `${formatDate(payment.period_start)} – ${formatDate(payment.period_end)}` : "Period not assigned";
+            const audits = (auditByPayment.get(payment.id) || []).map(entry =>
+              `<div class="muted small">${formatDate(entry.changed_at)} · ${escapeHtml(entry.action)} · ${escapeHtml(entry.reason)}</div>`).join("");
+            return `<details class="payment-item" style="margin:8px 0;">
               <summary style="cursor:pointer;display:flex;justify-content:space-between;gap:12px;">
-                <span>${formatDate(payment.payment_date || payment.created_at)} · ${escapeHtml(payment.payment_type || "Membership")}</span>
-                <span>€${Number(payment.amount || 0).toFixed(2)} · ${escapeHtml(payment.status || "pending")}</span>
+                <span>${period}</span><span>€${Number(payment.amount || 0).toFixed(2)} · ${payment.voided_at ? "VOIDED" : escapeHtml(payment.status)}</span>
               </summary>
-              <div class="payment-description" style="margin-top:12px;">
-                ${escapeHtml(payment.description || "Membership payment")}<br>
-                Requested: ${formatDate(payment.requested_at || payment.created_at)}<br>
-                Recorded: ${formatDate(payment.payment_date || payment.created_at)}<br>
-                Status: ${escapeHtml(payment.status || "pending")}
+              <div class="payment-description">Payment date: ${formatDate(payment.payment_date || payment.created_at)}<br>
+                ${escapeHtml(payment.description || "")}<br>
+                ${payment.membership_id ? "Linked to membership" : "No membership linked — select one when correcting this old record"}
+                ${payment.void_reason ? `<br>Void reason: ${escapeHtml(payment.void_reason)}` : ""}
               </div>
-              ${(correctionsByPayment.get(payment.id) || []).map(change => `
-                <div class="muted small" style="margin-top:8px;">
-                  Correction ${formatDate(change.changed_at)}: ${escapeHtml(change.reason)}<br>
-                  €${Number(change.before_value?.amount || 0).toFixed(2)} → €${Number(change.after_value?.amount || 0).toFixed(2)}
-                </div>`).join("")}
-              ${!["pending", "rejected"].includes(payment.status || "pending") ? `
-                <div class="admin-payment-editor">
-                  <div class="muted small">Correct this payment record. Membership dates remain unchanged.</div>
-                  <label>Amount (€)</label>
-                  <input id="historyAmount-${payment.id}" type="number" min="0.01" step="0.01" value="${Number(payment.amount || 0).toFixed(2)}">
-                  <label>Payment date</label>
-                  <input id="historyDate-${payment.id}" type="date" value="${escapeHtml((payment.payment_date || "").slice(0, 10))}">
-                  <label>Description</label>
-                  <input id="historyDescription-${payment.id}" value="${escapeHtml(payment.description || "")}">
-                  <label>Reason for correction</label>
-                  <input id="historyReason-${payment.id}" placeholder="Required for audit history">
-                  <button onclick="correctAdminPayment('${payment.id}','${member.id}')">SAVE CORRECTION</button>
-                  <div id="historyMessage-${payment.id}" class="message"></div>
-                </div>` : ""}
-            </details>`).join("") : `<div class="muted small">No recorded payments.</div>`}
-          </details>`;
-        }).join("")}
-      </div>`;
+              ${audits ? `<div style="margin:12px 0;">${audits}</div>` : ""}
+              ${payment.status === "approved" && !payment.voided_at ? paymentPeriodEditor(payment.id, member.id, payment, options) : ""}
+            </details>`;
+          }).join("") : `<div class="muted small">No recorded payments. An existing membership can be linked when adding its payment.</div>`}
+        </details>`;
+      }).join("")}</div>`;
+  }
+
+  function paymentPeriodEditor(id, memberId, payment, membershipOptions) {
+    const type = payment?.payment_type || "monthly";
+    return `<div class="admin-payment-editor">
+      <label>Covered period</label>
+      <div class="admin-payment-editor-grid">
+        <div><label>From</label><input type="date" id="periodStart-${id}" value="${escapeHtml(payment?.period_start || "")}"></div>
+        <div><label>Until</label><input type="date" id="periodEnd-${id}" value="${escapeHtml(payment?.period_end || "")}"></div>
+      </div>
+      <label>Membership type</label><select id="periodType-${id}">
+        ${["monthly", "halfyear", "year", "half_year", "yearly", "custom", "other"].map(value =>
+          `<option value="${value}" ${value === type ? "selected" : ""}>${value}</option>`).join("")}
+      </select>
+      <label>Existing membership (for old records; leave blank to create a new one)</label>
+      <select id="periodMembership-${id}" ${payment?.membership_id ? "disabled" : ""}>
+        <option value="">Create new membership</option>${membershipOptions.replace(`value="${payment?.membership_id || "__none__"}"`, `value="${payment?.membership_id || "__none__"}" selected`)}
+      </select>
+      <div class="admin-payment-editor-grid">
+        <div><label>Amount (€)</label><input type="number" min="0.01" step="0.01" id="periodAmount-${id}" value="${payment ? Number(payment.amount).toFixed(2) : "60.00"}"></div>
+        <div><label>Payment date</label><input type="date" id="periodPaidOn-${id}" value="${escapeHtml(payment?.payment_date || getLocalDateString())}"></div>
+      </div>
+      <label>Note</label><input id="periodNote-${id}" value="${escapeHtml(payment?.description || "")}">
+      <label>Reason for change</label><input id="periodReason-${id}" placeholder="Required for audit history">
+      <button onclick="saveAdminPaymentPeriod('${id}','${memberId}','${payment?.id || ""}')">SAVE PAYMENT</button>
+      ${payment ? `<button class="danger" onclick="voidAdminPaymentPeriod('${payment.id}','${memberId}')">VOID PAYMENT</button>` : ""}
+      <div id="periodMessage-${id}" class="message"></div>
+    </div>`;
   }
 
   function filterAdminPaymentHistory() {
     const query = document.getElementById("adminPaymentHistorySearch")?.value.trim().toLowerCase() || "";
-    document.querySelectorAll(".admin-payment-member").forEach(card => {
-      card.classList.toggle("hidden", !!query && !card.dataset.search.includes(query));
-    });
+    document.querySelectorAll(".admin-payment-member").forEach(card =>
+      card.classList.toggle("hidden", !!query && !card.dataset.search.includes(query)));
   }
 
-  async function correctAdminPayment(paymentId, memberId) {
+  async function saveAdminPaymentPeriod(id, memberId, paymentId) {
     if (!isAdmin) return;
-    const message = document.getElementById("historyMessage-" + paymentId);
-    const amount = Number(document.getElementById("historyAmount-" + paymentId)?.value);
-    const date = document.getElementById("historyDate-" + paymentId)?.value;
-    const description = document.getElementById("historyDescription-" + paymentId)?.value.trim();
-    const reason = document.getElementById("historyReason-" + paymentId)?.value.trim();
-    if (!Number.isFinite(amount) || amount <= 0 || !date || !reason) {
-      message.textContent = "Enter a valid amount, payment date and correction reason.";
+    const field = name => document.getElementById(name + "-" + id)?.value;
+    const message = document.getElementById("periodMessage-" + id);
+    const start = field("periodStart"), end = field("periodEnd"), paidOn = field("periodPaidOn");
+    const amount = Number(field("periodAmount"));
+    const reason = (field("periodReason") || "").trim();
+    if (!start || !end || end < start || !paidOn || !Number.isFinite(amount) || amount <= 0 || reason.length < 3) {
+      message.textContent = "Enter a valid period, payment amount, date and reason (at least 3 characters).";
       message.className = "message error";
       return;
     }
-    message.textContent = "Saving correction...";
+    message.textContent = "Saving...";
     message.className = "message";
-    const { error } = await supabaseClient.rpc("admin_correct_payment_record", {
-      target_payment_id: paymentId,
-      corrected_amount: amount,
-      corrected_payment_date: date,
-      corrected_description: description,
-      correction_reason: reason
+    const { error } = await supabaseClient.rpc("admin_save_payment_period", {
+      target_member_id: memberId,
+      target_payment_id: paymentId || null,
+      target_membership_id: field("periodMembership") || null,
+      period_type: field("periodType"), valid_from: start, valid_until: end,
+      paid_amount: amount, paid_on: paidOn,
+      payment_note: field("periodNote") || "", change_reason: reason
     });
     if (error) {
-      message.textContent = "Could not save correction: " + error.message;
+      message.textContent = "Could not save payment: " + error.message;
       message.className = "message error";
       return;
     }
+    await openAdminPaymentHistory(memberId);
+  }
+
+  async function voidAdminPaymentPeriod(paymentId, memberId) {
+    if (!isAdmin) return;
+    const reason = prompt("Reason for voiding this payment (required):");
+    if (reason === null) return;
+    if (reason.trim().length < 3) return alert("Please enter a reason of at least 3 characters.");
+    if (!confirm("Void this payment? Any linked membership will be cancelled. The audit record remains.")) return;
+    const { error } = await supabaseClient.rpc("admin_void_payment_period", {
+      target_payment_id: paymentId, change_reason: reason.trim()
+    });
+    if (error) return alert("Could not void payment: " + error.message);
     await openAdminPaymentHistory(memberId);
   }
 
