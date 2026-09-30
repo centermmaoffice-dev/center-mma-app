@@ -2523,12 +2523,14 @@
 
         <label>Phone</label>
         <input id="profilePhone" type="tel">
+        <div id="cmContacts-self" translate="no"></div>
 
         <label>Emergency contact name</label>
         <input id="profileEmergencyName" type="text">
 
         <label>Emergency contact phone</label>
         <input id="profileEmergencyPhone" type="tel">
+        <div id="cmEmergencyEmail-self" translate="no"></div>
 
         <label>Birth date</label>
         <input id="profileBirthDate" type="date" lang="de-AT">
@@ -2551,7 +2553,7 @@
           Loading groups...
         </div>
 
-        <button onclick="saveProfile()">SAVE PROFILE</button>
+        <button onclick="cmSaveProfileWithContacts()">SAVE PROFILE</button>
 
         <div id="profileMessage" class="message"></div>
 
@@ -2563,11 +2565,6 @@
         <button class="secondary" onclick="openMemberDocuments(currentMember.id)">📄 Vertrag / Documents</button>
       </div>
 
-      <div class="card" translate="no">
-        <h3>Kontakt-E-Mails / Contact emails</h3>
-        <button class="secondary" onclick="cmLoadContacts(currentMember.id)">Kontakt-E-Mails / Contact emails</button>
-        <div id="cmContacts-self"></div>
-      </div>
       <!-- NOTIFICATION SETTINGS -->
       <div class="card">
 
@@ -6452,6 +6449,8 @@
       currentMember.membership_number ||
       "";
 
+
+    await cmLoadContacts(currentMember.id);
 
     await loadProfilePhoto();
 
@@ -25380,7 +25379,7 @@ document.getElementById('cmDocDialog').addEventListener('cancel',e=>{if(cmDocBus
 
 </script>
 <script>
-const cmContactTexts={de:{title:'Kontakt-E-Mails',email:'Kontakt-E-Mail des Mitglieds',parent:'Kontakt-E-Mail der Eltern / gesetzlichen Vertretung',save:'Kontakt-E-Mails speichern',saved:'Gespeichert. Der Benutzername bleibt unverändert.',load:'Kontakt-E-Mails öffnen',note:'Kontaktadressen; ändern den Login nicht. Die E-Mail-Bestätigung ist noch nicht eingerichtet.',error:'Bitte eine gültige E-Mail-Adresse eingeben.'},en:{title:'Contact emails',email:'Member contact email',parent:'Parent / guardian contact email',save:'Save contact emails',saved:'Saved. Login unchanged.',load:'Open contact emails',note:'Contact addresses do not change your login. Email verification is not configured yet.',error:'Please enter a valid email address.'},uk:{title:'Контактні email',email:'Контактний email учасника',parent:'Email батьків / законного представника',save:'Зберегти email',saved:'Збережено. Логін не змінено.',load:'Відкрити контактні email',note:'Контактні адреси не змінюють логін. Підтвердження email ще не налаштовано.',error:'Введіть правильну email-адресу.'}};
+const cmContactTexts={de:{title:'Kontakt-E-Mails',email:'Kontakt-E-Mail des Mitglieds',parent:'Notfallkontakt – E-Mail',save:'Kontakt-E-Mails speichern',saved:'Gespeichert. Der Benutzername bleibt unverändert.',load:'Kontakt-E-Mails öffnen',note:'Kontaktadressen; ändern den Login nicht. Die E-Mail-Bestätigung ist noch nicht eingerichtet.',error:'Bitte eine gültige E-Mail-Adresse eingeben.'},en:{title:'Contact emails',email:'Member contact email',parent:'Emergency contact email',save:'Save contact emails',saved:'Saved. Login unchanged.',load:'Open contact emails',note:'Contact addresses do not change your login. Email verification is not configured yet.',error:'Please enter a valid email address.'},uk:{title:'Контактні email',email:'Контактний email учасника',parent:'Email екстреного контакту',save:'Зберегти email',saved:'Збережено. Логін не змінено.',load:'Відкрити контактні email',note:'Контактні адреси не змінюють логін. Підтвердження email ще не налаштовано.',error:'Введіть правильну email-адресу.'}};
 function cmCT(){return cmContactTexts[getCurrentInterfaceLanguage()]||cmContactTexts.de;}
 async function cmLoadContacts(memberId,admin=false){
  if(!cmDocOwnOrAdmin(memberId))return;
@@ -25390,17 +25389,31 @@ async function cmLoadContacts(memberId,admin=false){
  if(error){box.textContent=error.message;return;}
  if(!cmDocOwnOrAdmin(memberId))return;
  box.innerHTML=`<p class="muted small">${t.note}</p><label for="cmEmail-${key}">${t.email}</label><input id="cmEmail-${key}" type="email" maxlength="254" autocomplete="email" value="${escapeHtml(data?.contact_email||'')}"><label for="cmParentEmail-${key}">${t.parent}</label><input id="cmParentEmail-${key}" type="email" maxlength="254" value="${escapeHtml(data?.parent_email||'')}"><button id="cmContactSave-${key}" onclick="cmSaveContacts('${memberId}',${admin})">${t.save}</button><div id="cmContactMsg-${key}" role="status"></div>`;
+ if(!admin){
+   const parentInput=document.getElementById('cmParentEmail-'+key);
+   const parentLabel=box.querySelector('label[for="cmParentEmail-'+key+'"]');
+   const target=document.getElementById('cmEmergencyEmail-self');
+   target.replaceChildren(parentLabel,parentInput);
+   box.querySelector('p')?.remove();
+   document.getElementById('cmContactSave-'+key)?.remove();
+ }
+
 }
 async function cmSaveContacts(memberId,admin=false){
- if(!cmDocOwnOrAdmin(memberId))return;
+ if(!cmDocOwnOrAdmin(memberId))return false;
  const key=admin?memberId:'self',msg=document.getElementById('cmContactMsg-'+key),btn=document.getElementById('cmContactSave-'+key);
  const e=document.getElementById('cmEmail-'+key),p=document.getElementById('cmParentEmail-'+key);
- if(!e.checkValidity()||!p.checkValidity()){msg.textContent=cmCT().error;return;}
- btn.disabled=true;
- try{const {error}=await supabaseClient.rpc('cm_save_contact_emails',{p_member:memberId,p_email:e.value.trim(),p_parent:p.value.trim()});msg.textContent=error?error.message:cmCT().saved;}
- catch(err){msg.textContent=err.message;}finally{btn.disabled=false;}
+ if(!e.checkValidity()||!p.checkValidity()){msg.textContent=cmCT().error;return false;}
+ if(btn)btn.disabled=true;
+ try{const {error}=await supabaseClient.rpc('cm_save_contact_emails',{p_member:memberId,p_email:e.value.trim(),p_parent:p.value.trim()});msg.textContent=error?error.message:cmCT().saved;return !error;}
+ catch(err){msg.textContent=err.message;return false;}finally{if(btn)btn.disabled=false;}
 }
 
+
+async function cmSaveProfileWithContacts(){
+ if(!currentMember)return;
+ if(await cmSaveContacts(currentMember.id))await saveProfile();
+}
 </script>
 </body>
 </html>
