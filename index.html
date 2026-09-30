@@ -2053,8 +2053,8 @@
       <h1>Welcome back</h1>
       <p class="muted small">Login to your CENTER MMA account.</p>
 
-      <label>Email</label>
-      <input id="loginEmail" type="email" placeholder="your@email.com">
+      <label translate="no">Benutzername / Login</label>
+      <input id="loginEmail" type="text" autocomplete="username" placeholder="Login">
 
       <label>Password</label>
       <input id="loginPassword" type="password" placeholder="Password">
@@ -2518,7 +2518,7 @@
         <label>Last name</label>
         <input id="profileLastName">
 
-        <label>Email</label>
+        <label translate="no">Benutzername / Login</label>
         <input id="profileEmail" disabled>
 
         <label>Phone</label>
@@ -2563,6 +2563,11 @@
         <button class="secondary" onclick="openMemberDocuments(currentMember.id)">📄 Vertrag / Documents</button>
       </div>
 
+      <div class="card" translate="no">
+        <h3>Kontakt-E-Mails / Contact emails</h3>
+        <button class="secondary" onclick="cmLoadContacts(currentMember.id)">Kontakt-E-Mails / Contact emails</button>
+        <div id="cmContacts-self"></div>
+      </div>
       <!-- NOTIFICATION SETTINGS -->
       <div class="card">
 
@@ -15469,7 +15474,7 @@
                 </div>
 
                 <div class="muted small">
-                  ${escapeHtml(member.email || "")}
+                  Login: ${escapeHtml(member.email || "")}
                 </div>
 
                 <div
@@ -15636,6 +15641,10 @@
 
                   <button class="secondary" onclick="openMemberDocuments('${member.id}')">📄 Vertrag / Documents</button>
 
+                  <div translate="no">
+                    <button class="secondary" onclick="cmLoadContacts('${member.id}',true)">Kontakt-E-Mails / Contact emails</button>
+                    <div id="cmContacts-${member.id}"></div>
+                  </div>
                   <div class="permanent-delete-box">
                     <button
                       class="danger"
@@ -25368,6 +25377,29 @@ async function cmReviewDocument(index,status) {
 }
 function cmCloseDocuments(){if(!cmDocBusy){document.getElementById('cmDocDialog').close();cmDocRows=[];cmDocMemberId=null;}}
 document.getElementById('cmDocDialog').addEventListener('cancel',e=>{if(cmDocBusy)e.preventDefault();else{cmDocRows=[];cmDocMemberId=null;}});
+
+</script>
+<script>
+const cmContactTexts={de:{title:'Kontakt-E-Mails',email:'Kontakt-E-Mail des Mitglieds',parent:'Kontakt-E-Mail der Eltern / gesetzlichen Vertretung',save:'Kontakt-E-Mails speichern',saved:'Gespeichert. Der Benutzername bleibt unverändert.',load:'Kontakt-E-Mails öffnen',note:'Kontaktadressen; ändern den Login nicht. Die E-Mail-Bestätigung ist noch nicht eingerichtet.',error:'Bitte eine gültige E-Mail-Adresse eingeben.'},en:{title:'Contact emails',email:'Member contact email',parent:'Parent / guardian contact email',save:'Save contact emails',saved:'Saved. Login unchanged.',load:'Open contact emails',note:'Contact addresses do not change your login. Email verification is not configured yet.',error:'Please enter a valid email address.'},uk:{title:'Контактні email',email:'Контактний email учасника',parent:'Email батьків / законного представника',save:'Зберегти email',saved:'Збережено. Логін не змінено.',load:'Відкрити контактні email',note:'Контактні адреси не змінюють логін. Підтвердження email ще не налаштовано.',error:'Введіть правильну email-адресу.'}};
+function cmCT(){return cmContactTexts[getCurrentInterfaceLanguage()]||cmContactTexts.de;}
+async function cmLoadContacts(memberId,admin=false){
+ if(!cmDocOwnOrAdmin(memberId))return;
+ const key=admin?memberId:'self',box=document.getElementById('cmContacts-'+key);if(!box)return;
+ const t=cmCT();box.textContent='…';
+ const {data,error}=await supabaseClient.from('member_contacts').select('contact_email,parent_email').eq('member_id',memberId).maybeSingle();
+ if(error){box.textContent=error.message;return;}
+ if(!cmDocOwnOrAdmin(memberId))return;
+ box.innerHTML=`<p class="muted small">${t.note}</p><label for="cmEmail-${key}">${t.email}</label><input id="cmEmail-${key}" type="email" maxlength="254" autocomplete="email" value="${escapeHtml(data?.contact_email||'')}"><label for="cmParentEmail-${key}">${t.parent}</label><input id="cmParentEmail-${key}" type="email" maxlength="254" value="${escapeHtml(data?.parent_email||'')}"><button id="cmContactSave-${key}" onclick="cmSaveContacts('${memberId}',${admin})">${t.save}</button><div id="cmContactMsg-${key}" role="status"></div>`;
+}
+async function cmSaveContacts(memberId,admin=false){
+ if(!cmDocOwnOrAdmin(memberId))return;
+ const key=admin?memberId:'self',msg=document.getElementById('cmContactMsg-'+key),btn=document.getElementById('cmContactSave-'+key);
+ const e=document.getElementById('cmEmail-'+key),p=document.getElementById('cmParentEmail-'+key);
+ if(!e.checkValidity()||!p.checkValidity()){msg.textContent=cmCT().error;return;}
+ btn.disabled=true;
+ try{const {error}=await supabaseClient.rpc('cm_save_contact_emails',{p_member:memberId,p_email:e.value.trim(),p_parent:p.value.trim()});msg.textContent=error?error.message:cmCT().saved;}
+ catch(err){msg.textContent=err.message;}finally{btn.disabled=false;}
+}
 
 </script>
 </body>
