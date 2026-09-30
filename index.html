@@ -2530,6 +2530,7 @@
 
         <label>Emergency contact phone</label>
         <input id="profileEmergencyPhone" type="tel">
+        <div id="cmEmergencyContactEmail-self" translate="no"></div>
 
         <label>Birth date</label>
         <input id="profileBirthDate" type="date" lang="de-AT">
@@ -7450,6 +7451,16 @@
         .value
         .trim();
 
+    const contactEmail = document.getElementById("cmEmail-self");
+    const parentPhone = document.getElementById("cmParentPhone-self");
+    const parentEmail = document.getElementById("cmParentEmail-self");
+    const emergencyEmail = document.getElementById("cmEmergencyEmailInput-self");
+    if (!contactEmail || !parentPhone || !parentEmail || !emergencyEmail ||
+        !contactEmail.checkValidity() || !parentEmail.checkValidity() || !emergencyEmail.checkValidity()) {
+      message.textContent = cmCT().error;
+      message.className = "message error";
+      return;
+    }
 
     const birthDate =
       document
@@ -7512,6 +7523,18 @@
     currentMember =
       data;
 
+    const { error: contactError } = await supabaseClient.rpc("cm_save_contact_emails", {
+      p_member: currentMember.id,
+      p_email: contactEmail.value.trim(),
+      p_parent_phone: parentPhone.value.trim(),
+      p_parent_email: parentEmail.value.trim(),
+      p_emergency_email: emergencyEmail.value.trim()
+    });
+    if (contactError) {
+      message.textContent = "Profile saved, but contact details could not be saved: " + contactError.message;
+      message.className = "message error";
+      return;
+    }
 
     document
       .getElementById(
@@ -7523,7 +7546,7 @@
 
 
     message.textContent =
-      "Profile saved successfully.";
+      "Profile and contact details saved successfully.";
 
     message.className =
       "message success-text";
@@ -8751,6 +8774,10 @@
      DOCUMENTS
   ========================= */
 
+  function cmIsStatute(documentItem) {
+    return /statut/i.test(`${documentItem?.title || ""} ${documentItem?.file_name || ""} ${documentItem?.description || ""}`);
+  }
+
   async function loadDocuments() {
 
     const element =
@@ -8798,7 +8825,7 @@
     }
 
     const documents =
-      (data || []).filter(documentItem => !documentItem.is_private);
+      (data || []).filter(documentItem => !cmIsStatute(documentItem));
 
     if (documents.length === 0) {
 
@@ -8979,7 +9006,7 @@
     if (
       error ||
       !documentItem ||
-      (documentItem.is_private && documentItem.private_owner_user_id !== currentUser?.id)
+      cmIsStatute(documentItem)
     ) {
 
       console.error(error);
@@ -13358,11 +13385,6 @@
           accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,image/*"
         >
 
-        <label style="display:flex;align-items:center;gap:10px;margin-top:14px;">
-          <input id="adminDocumentPrivate" type="checkbox" style="width:auto;">
-          Private — only my account; share on request
-        </label>
-
         <button
           onclick="uploadAdminDocument()"
         >
@@ -13390,18 +13412,8 @@
       return;
     }
 
-    const privacyCheckbox = document.getElementById("adminDocumentPrivate");
-    const titleInput = document.getElementById("adminDocumentTitle");
-    const fileInput = document.getElementById("adminDocumentFile");
-    const syncStatutePrivacy = () => {
-      const name = `${titleInput?.value || ""} ${fileInput?.files?.[0]?.name || ""}`;
-      if (/statut/i.test(name)) privacyCheckbox.checked = true;
-    };
-    titleInput?.addEventListener("input", syncStatutePrivacy);
-    fileInput?.addEventListener("change", syncStatutePrivacy);
-
     const items =
-      documents || [];
+      (documents || []).filter(documentItem => !cmIsStatute(documentItem));
 
     if (items.length === 0) {
 
@@ -13460,8 +13472,6 @@
                   documentItem.file_name || ""
                 )}
               </div>
-
-              ${documentItem.is_private ? `<div class="status inactive" style="display:inline-block;margin-top:8px;">PRIVATE · only the uploader can access</div>` : ""}
 
               <div class="admin-actions">
 
@@ -13529,8 +13539,6 @@
 
     const file =
       fileInput?.files?.[0];
-    const privateCheckbox = document.getElementById("adminDocumentPrivate");
-    const isPrivate = !!privateCheckbox?.checked || /statut/i.test(`${title} ${file?.name || ""}`);
 
     if (!title) {
 
@@ -13540,6 +13548,12 @@
       message.className =
         "message error";
 
+      return;
+    }
+
+    if (cmIsStatute({title, file_name: file?.name})) {
+      message.textContent = "Statut documents are no longer available.";
+      message.className = "message error";
       return;
     }
 
@@ -13694,8 +13708,6 @@
           file.name,
         file_type:
           file.type || null,
-        is_private: isPrivate,
-        private_owner_user_id: isPrivate ? currentUser.id : null,
         created_by:
           currentUser.id
       });
@@ -13729,14 +13741,12 @@
     message.className =
       "message success-text";
 
-    if (!isPrivate) {
-      await createNotification(
-        "New document",
-        title,
-        "document",
-        "documents"
-      );
-    }
+    await createNotification(
+      "New document",
+      title,
+      "document",
+      "documents"
+    );
 
     await loadAdminPanel();
 
@@ -15573,6 +15583,7 @@
                     id="adminMemberEmergencyPhone-${member.id}"
                     value="${escapeHtml(member.emergency_contact_phone || "")}"
                   >
+                  <div id="cmEmergencyContactEmail-${member.id}" translate="no"></div>
 
                   <label>Geburtsdatum</label>
                   <input
@@ -15898,8 +15909,11 @@
         .value;
 
     const contactEmail = document.getElementById("cmEmail-" + memberId);
+    const parentPhone = document.getElementById("cmParentPhone-" + memberId);
     const parentEmail = document.getElementById("cmParentEmail-" + memberId);
-    if (!contactEmail || !parentEmail || !contactEmail.checkValidity() || !parentEmail.checkValidity()) {
+    const emergencyEmail = document.getElementById("cmEmergencyEmailInput-" + memberId);
+    if (!contactEmail || !parentPhone || !parentEmail || !emergencyEmail ||
+        !contactEmail.checkValidity() || !parentEmail.checkValidity() || !emergencyEmail.checkValidity()) {
       message.textContent = cmCT().error;
       message.className = "message error";
       return;
@@ -15953,7 +15967,9 @@
     const { error: contactError } = await supabaseClient.rpc("cm_save_contact_emails", {
       p_member: memberId,
       p_email: contactEmail.value.trim(),
-      p_parent: parentEmail.value.trim()
+      p_parent_phone: parentPhone.value.trim(),
+      p_parent_email: parentEmail.value.trim(),
+      p_emergency_email: emergencyEmail.value.trim()
     });
 
     if (contactError) {
@@ -25350,7 +25366,7 @@ async function cmLoadDocuments(memberId=cmDocMemberId) {
  const {data,error}=await supabaseClient.from('member_documents').select('*').eq('member_id',memberId).neq('status','uploading').order('created_at',{ascending:false});
  if(memberId!==cmDocMemberId) return;
  if(error) {list.textContent=cmDT().setup; return;}
- cmDocRows=data||[]; cmRenderDocuments();
+ cmDocRows=(data||[]).filter(d=>!/statut/i.test(d.file_name||'')); cmRenderDocuments();
 }
 function cmRenderDocuments() {
  const t=cmDT();
@@ -25396,6 +25412,7 @@ async function cmUploadDocument() {
  if(cmDocBusy||!cmDocOwnOrAdmin(cmDocMemberId))return;
  const file=document.getElementById('cmDocFile').files[0], memberId=cmDocMemberId;
  if(!file||file.size<1||file.size>15*1024*1024){cmDocMessage(cmDT().limit,true);return;}
+ if(/statut/i.test(file.name)){cmDocMessage('Statut documents are no longer available.',true);return;}
  if(!confirm(cmDT().confirm))return;
  cmDocBusy=true;document.getElementById('cmDocUpload').disabled=true;cmDocMessage(cmDT().busy);
  try {
@@ -25424,25 +25441,18 @@ document.getElementById('cmDocDialog').addEventListener('cancel',e=>{if(cmDocBus
 
 </script>
 <script>
-const cmContactTexts={de:{title:'Kontakt-E-Mails',email:'Kontakt-E-Mail des Mitglieds',parent:'Kontakt-E-Mail der Eltern / gesetzlichen Vertretung',save:'Kontakt-E-Mails speichern',saved:'Gespeichert. Der Benutzername bleibt unverändert.',load:'Kontakt-E-Mails öffnen',note:'Kontaktadressen; ändern den Login nicht. Die E-Mail-Bestätigung ist noch nicht eingerichtet.',error:'Bitte eine gültige E-Mail-Adresse eingeben.'},en:{title:'Contact emails',email:'Member contact email',parent:'Parent / guardian contact email',save:'Save contact emails',saved:'Saved. Login unchanged.',load:'Open contact emails',note:'Contact addresses do not change your login. Email verification is not configured yet.',error:'Please enter a valid email address.'},uk:{title:'Контактні email',email:'Контактний email учасника',parent:'Email батьків / законного представника',save:'Зберегти email',saved:'Збережено. Логін не змінено.',load:'Відкрити контактні email',note:'Контактні адреси не змінюють логін. Підтвердження email ще не налаштовано.',error:'Введіть правильну email-адресу.'}};
+const cmContactTexts={de:{email:'E-Mail des Mitglieds',parentPhone:'Telefon der Eltern / gesetzlichen Vertretung',parentEmail:'E-Mail der Eltern / gesetzlichen Vertretung',emergencyEmail:'Notfallkontakt – E-Mail',error:'Bitte gültige E-Mail-Adressen eingeben.'},en:{email:'Member email',parentPhone:'Parent / guardian phone',parentEmail:'Parent / guardian email',emergencyEmail:'Emergency contact email',error:'Please enter valid email addresses.'},uk:{email:'Email учасника',parentPhone:'Телефон батьків / законного представника',parentEmail:'Email батьків / законного представника',emergencyEmail:'Email екстреного контакту',error:'Введіть коректні email-адреси.'}};
 function cmCT(){return cmContactTexts[getCurrentInterfaceLanguage()]||cmContactTexts.de;}
 async function cmLoadContacts(memberId,admin=false){
  if(!cmDocOwnOrAdmin(memberId))return;
  const key=admin?memberId:'self',box=document.getElementById('cmContacts-'+key);if(!box)return;
- const t=cmCT();box.textContent='…';
- const {data,error}=await supabaseClient.from('member_contacts').select('contact_email,parent_email').eq('member_id',memberId).maybeSingle();
+ box.textContent='…';
+ const {data,error}=await supabaseClient.from('member_contacts').select('contact_email,parent_phone,parent_email,emergency_contact_email').eq('member_id',memberId).maybeSingle();
  if(error){box.textContent=error.message;return;}
  if(!cmDocOwnOrAdmin(memberId))return;
- box.innerHTML=`${admin?'':`<p class="muted small">${t.note}</p>`}<label for="cmEmail-${key}">${t.email}</label><input id="cmEmail-${key}" type="email" maxlength="254" autocomplete="email" value="${escapeHtml(data?.contact_email||'')}"><label for="cmParentEmail-${key}">${t.parent}</label><input id="cmParentEmail-${key}" type="email" maxlength="254" value="${escapeHtml(data?.parent_email||'')}">${admin?'':`<button id="cmContactSave-${key}" onclick="cmSaveContacts('${memberId}',false)">${t.save}</button>`}<div id="cmContactMsg-${key}" role="status"></div>`;
-}
-async function cmSaveContacts(memberId,admin=false){
- if(!cmDocOwnOrAdmin(memberId))return;
- const key=admin?memberId:'self',msg=document.getElementById('cmContactMsg-'+key),btn=document.getElementById('cmContactSave-'+key);
- const e=document.getElementById('cmEmail-'+key),p=document.getElementById('cmParentEmail-'+key);
- if(!e.checkValidity()||!p.checkValidity()){msg.textContent=cmCT().error;return;}
- btn.disabled=true;
- try{const {error}=await supabaseClient.rpc('cm_save_contact_emails',{p_member:memberId,p_email:e.value.trim(),p_parent:p.value.trim()});msg.textContent=error?error.message:cmCT().saved;}
- catch(err){msg.textContent=err.message;}finally{btn.disabled=false;}
+ const t=cmCT(),emergencyBox=document.getElementById('cmEmergencyContactEmail-'+key);
+ box.innerHTML=`<label for="cmEmail-${key}">${t.email}</label><input id="cmEmail-${key}" type="email" maxlength="254" autocomplete="email" value="${escapeHtml(data?.contact_email||'')}"><label for="cmParentPhone-${key}">${t.parentPhone}</label><input id="cmParentPhone-${key}" type="tel" maxlength="40" value="${escapeHtml(data?.parent_phone||'')}"><label for="cmParentEmail-${key}">${t.parentEmail}</label><input id="cmParentEmail-${key}" type="email" maxlength="254" value="${escapeHtml(data?.parent_email||'')}">`;
+ if(emergencyBox) emergencyBox.innerHTML=`<label for="cmEmergencyEmailInput-${key}">${t.emergencyEmail}</label><input id="cmEmergencyEmailInput-${key}" type="email" maxlength="254" value="${escapeHtml(data?.emergency_contact_email||'')}">`;
 }
 
 </script>
