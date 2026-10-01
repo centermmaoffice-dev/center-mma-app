@@ -3659,12 +3659,13 @@
         membership?.end_date >= today;
 
       if (!active) {
+        currentMembership = membership || null;
+        if (membershipAccessAllowed) showInactive("Your membership is not active.");
         return false;
       }
 
       currentMembership = membership;
-      stopMembershipActivationWatcher();
-      showApp();
+      if (!membershipAccessAllowed) showApp();
       return true;
     } finally {
       membershipActivationCheckRunning = false;
@@ -3691,7 +3692,7 @@
       document.visibilityState === "visible" &&
       currentUser &&
       currentMember &&
-      !membershipAccessAllowed
+      !isStaff
     ) {
       refreshMembershipAccess();
     }
@@ -3701,7 +3702,7 @@
     if (
       currentUser &&
       currentMember &&
-      !membershipAccessAllowed
+      !isStaff
     ) {
       refreshMembershipAccess();
     }
@@ -3788,7 +3789,7 @@
     membershipAccessAllowed =
       true;
 
-    stopMembershipActivationWatcher();
+    if (!isStaff) startMembershipActivationWatcher();
 
     document
       .getElementById("authScreen")
@@ -15497,8 +15498,10 @@
               ] || null;
 
             const membershipStatus =
-              membership?.status ||
-              "inactive";
+              membership?.status === "active" &&
+              membership?.end_date >= getLocalDateString()
+                ? "active"
+                : "inactive";
 
             return `
               <div
