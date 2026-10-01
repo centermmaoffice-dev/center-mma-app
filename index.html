@@ -25469,7 +25469,7 @@ async function cmLoadContacts(memberId,admin=false){
 <script>
 /* Calendar-based, member-specific payment history */
 function cmPaymentPrice(type) {
-  return ({ monthly: 60, halfyear: 330, year: 600 })[type] || 60;
+  return ({ monthly: 60, halfyear: 330, year: 600 })[type] || null;
 }
 
 function cmCalendarPaymentPeriod(type, paidDate) {
@@ -25488,25 +25488,51 @@ function cmCalendarPaymentPeriod(type, paidDate) {
 }
 
 function cmPaymentLabel(type) {
-  return ({ monthly: "Monat", halfyear: "Halbjahr", year: "Jahr" })[type] || "Mitgliedschaft";
+  return ({ monthly: "Monat", halfyear: "Halbjahr", year: "Jahr", other: "Other – Sonderfall" })[type] || "Mitgliedschaft";
 }
 
-function cmPaymentTypeOptions(type, id, dateId, amountId, periodId) {
+function cmStoredPaymentType(payment) {
+  if (String(payment?.period_end || "").startsWith("3000-")) return "other";
+  return ["monthly","halfyear","year","other"].includes(payment?.payment_type) ? payment.payment_type : "monthly";
+}
+
+function cmPaymentPeriod(type, paidDate, savedStart, savedEnd) {
+  if (type !== "other") return cmCalendarPaymentPeriod(type, paidDate);
+  const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
+  return { start: validDate(savedStart) ? savedStart : paidDate, end: validDate(savedEnd) ? savedEnd : paidDate };
+}
+
+function cmPaymentTypeOptions(type, id, dateId, amountId, periodId, includeOther, startId, endId) {
   const values = [["monthly","Monat – 60 €"],["halfyear","Halbjahr – 330 €"],["year","Jahr – 600 €"]];
-  return "<select id=\"" + id + "\" onchange=\"cmRefreshPaymentPeriod('" + id + "','" + dateId + "','" + amountId + "','" + periodId + "')\">" +
+  if (includeOther) values.push(["other","Other – Sonderfall"]);
+  return "<select id=\"" + id + "\" onchange=\"cmRefreshPaymentPeriod('" + id + "','" + dateId + "','" + amountId + "','" + periodId + "','" + (startId || "") + "','" + (endId || "") + "')\">" +
     values.map(item => "<option value=\"" + item[0] + "\" " + (type === item[0] ? "selected" : "") + ">" + item[1] + "</option>").join("") +
     "</select>";
 }
 
-function cmRefreshPaymentPeriod(typeId, dateId, amountId, periodId) {
+function cmRefreshPaymentPeriod(typeId, dateId, amountId, periodId, startId, endId) {
   const type = document.getElementById(typeId)?.value || "monthly";
   const paidDate = document.getElementById(dateId)?.value || getLocalDateString();
-  const period = cmCalendarPaymentPeriod(type, paidDate);
+  const startInput = startId ? document.getElementById(startId) : null;
+  const endInput = endId ? document.getElementById(endId) : null;
+  const customRange = startInput?.closest(".cm-payment-custom-range");
+  if (customRange) customRange.style.display = type === "other" ? "contents" : "none";
   const amount = document.getElementById(amountId);
-  if (amount) amount.value = cmPaymentPrice(type).toFixed(2);
+  if (amount) {
+    amount.readOnly = type !== "other";
+    if (type !== "other") amount.value = cmPaymentPrice(type).toFixed(2);
+  }
+  const period = type === "other" ? {start:startInput?.value || paidDate,end:endInput?.value || paidDate} : cmCalendarPaymentPeriod(type, paidDate);
   const label = document.getElementById(periodId);
   if (label) label.textContent = formatDate(period.start) + " – " + formatDate(period.end);
   return period;
+}
+
+function cmUpdateCustomPaymentPeriod(startId, endId, periodId) {
+  const start = document.getElementById(startId)?.value || "";
+  const end = document.getElementById(endId)?.value || "";
+  const label = document.getElementById(periodId);
+  if (label) label.textContent = start && end ? formatDate(start) + " – " + formatDate(end) : "Zeitraum auswählen";
 }
 
 async function loadAdminPayments(element) {
@@ -25574,11 +25600,12 @@ function cmAdminPaymentMember(member, payments) {
 
 function cmAdminPaymentRecord(memberId,payment) {
   const date = payment.payment_date || (payment.created_at || "").slice(0,10) || getLocalDateString();
-  const type = ["monthly","halfyear","year"].includes(payment.payment_type) ? payment.payment_type : "monthly";
-  const period = payment.period_start && payment.period_end ? {start:payment.period_start,end:payment.period_end} : cmCalendarPaymentPeriod(type,date);
+  const type = cmStoredPaymentType(payment);
+  const period = cmPaymentPeriod(type,date,payment.period_start,payment.period_end);
+  const amount = Number(payment.amount ?? cmPaymentPrice(type) ?? 0);
   const key = "edit-" + payment.id;
   window.cmAdminPaymentRowsById[payment.id] = payment;
-  return "<details class=\"card cm-payment-record\"><summary><span>" + cmPaymentLabel(type) + " · €" + Number(payment.amount || cmPaymentPrice(type)).toFixed(2) +
+  return "<details class=\"card cm-payment-record\"><summary><span>" + cmPaymentLabel(type) + " · €" + amount.toFixed(2) +
     "</span><span class=\"muted small\">" + escapeHtml(formatDate(date)) + "</span></summary><div class=\"cm-payment-record-body\"><div class=\"cm-payment-period\">Bezahlt: " +
     escapeHtml(formatDate(date)) + " · Zeitraum: " + escapeHtml(formatDate(period.start)) + " – " + escapeHtml(formatDate(period.end)) + "</div>" +
     cmPaymentForm(memberId,payment,key) + "<button class=\"danger\" style=\"margin-top:8px;width:100%\" onclick=\"cmDeletePaymentHistory('" + memberId + "','" +
@@ -25586,16 +25613,18 @@ function cmAdminPaymentRecord(memberId,payment) {
 }
 
 function cmPaymentForm(memberId,payment,key) {
-  const type = ["monthly","halfyear","year"].includes(payment?.payment_type) ? payment.payment_type : "monthly";
+  const type = cmStoredPaymentType(payment);
   const date = payment?.payment_date || (payment?.created_at || "").slice(0,10) || getLocalDateString();
-  const period = payment?.period_start && payment?.period_end ? {start:payment.period_start,end:payment.period_end} : cmCalendarPaymentPeriod(type,date);
+  const period = cmPaymentPeriod(type,date,payment?.period_start,payment?.period_end);
+  const amount = Number(payment?.amount ?? cmPaymentPrice(type) ?? 0);
   const prefix = "cmHist-" + key;
   const dateId = prefix + "-date", typeId = prefix + "-type", amountId = prefix + "-amount", periodId = prefix + "-period";
+  const startId = prefix + "-start", endId = prefix + "-end";
   return "<div class=\"cm-payment-grid\"><div><label>Zahlungsdatum</label><input id=\"" + dateId + "\" type=\"date\" value=\"" + escapeHtml(date) +
-    "\" onchange=\"cmRefreshPaymentPeriod('" + typeId + "','" + dateId + "','" + amountId + "','" + periodId + "')\"></div><div><label>Zeitraum</label>" +
-    cmPaymentTypeOptions(type,typeId,dateId,amountId,periodId) + "</div><div><label>Betrag</label><input id=\"" + amountId + "\" readonly type=\"number\" value=\"" +
-    cmPaymentPrice(type).toFixed(2) + "\"></div><div><label>Mitgliedschaftszeitraum</label><div id=\"" + periodId + "\" class=\"cm-payment-period\">" +
-    formatDate(period.start) + " – " + formatDate(period.end) + "</div></div></div><button class=\"success\" style=\"width:100%;margin-top:10px\" onclick=\"cmSavePaymentHistory('" +
+    "\" onchange=\"cmRefreshPaymentPeriod('" + typeId + "','" + dateId + "','" + amountId + "','" + periodId + "','" + startId + "','" + endId + "')\"></div><div><label>Zeitraum</label>" +
+    cmPaymentTypeOptions(type,typeId,dateId,amountId,periodId,true,startId,endId) + "</div><div><label>Betrag (€)</label><input id=\"" + amountId + "\" " + (type === "other" ? "" : "readonly ") + "type=\"number\" min=\"0.01\" step=\"0.01\" value=\"" +
+    amount.toFixed(2) + "\"></div><div><label>Mitgliedschaftszeitraum</label><div id=\"" + periodId + "\" class=\"cm-payment-period\">" +
+    formatDate(period.start) + " – " + formatDate(period.end) + "</div></div><div class=\"cm-payment-custom-range\" style=\"display:" + (type === "other" ? "contents" : "none") + "\"><div><label>Von</label><input id=\"" + startId + "\" type=\"date\" value=\"" + escapeHtml(period.start) + "\" onchange=\"cmUpdateCustomPaymentPeriod('" + startId + "','" + endId + "','" + periodId + "')\"></div><div><label>Bis</label><input id=\"" + endId + "\" type=\"date\" value=\"" + escapeHtml(period.end) + "\" onchange=\"cmUpdateCustomPaymentPeriod('" + startId + "','" + endId + "','" + periodId + "')\"></div></div></div><button class=\"success\" style=\"width:100%;margin-top:10px\" onclick=\"cmSavePaymentHistory('" +
     memberId + "','" + (payment ? payment.id : "") + "','" + key + "')\">" + (payment ? "ÄNDERUNGEN SPEICHERN" : "ZAHLUNG EINTRAGEN") +
     "</button><div id=\"" + prefix + "-message\" class=\"message\"></div>";
 }
@@ -25614,8 +25643,12 @@ async function cmSavePaymentHistory(memberId,paymentId,key) {
   const paidDate = document.getElementById(prefix + "-date")?.value;
   const message = document.getElementById(prefix + "-message");
   if (!paidDate) { if (message) { message.textContent = "Zahlungsdatum eingeben."; message.className = "message error"; } return; }
-  const period = cmCalendarPaymentPeriod(type,paidDate);
-  const amount = cmPaymentPrice(type);
+  const amount = type === "other" ? Number(document.getElementById(prefix + "-amount")?.value) : cmPaymentPrice(type);
+  const period = type === "other"
+    ? {start:document.getElementById(prefix + "-start")?.value || "",end:document.getElementById(prefix + "-end")?.value || ""}
+    : cmCalendarPaymentPeriod(type,paidDate);
+  if (!Number.isFinite(amount) || amount <= 0) { if (message) { message.textContent = "Einen gültigen Betrag über 0 € eingeben."; message.className = "message error"; } return; }
+  if (!period.start || !period.end || period.end < period.start) { if (message) { message.textContent = "Gültigen Mitgliedschaftszeitraum eingeben."; message.className = "message error"; } return; }
   const payload = { member_id:memberId, amount:amount, payment_date:paidDate, payment_type:type,
     description:cmPaymentLabel(type) + " " + period.start + " bis " + period.end, status:"approved",
     period_start:period.start, period_end:period.end };
@@ -25637,8 +25670,8 @@ async function cmSavePaymentHistory(memberId,paymentId,key) {
   } else {
     const old = window.cmAdminPaymentRowsById?.[paymentId] || {};
     const oldDate = old.payment_date || (old.created_at || "").slice(0,10) || paidDate;
-    const oldType = ["monthly","halfyear","year"].includes(old.payment_type) ? old.payment_type : type;
-    const oldPeriod = old.period_start && old.period_end ? {start:old.period_start,end:old.period_end} : cmCalendarPaymentPeriod(oldType,oldDate);
+    const oldType = cmStoredPaymentType(old);
+    const oldPeriod = cmPaymentPeriod(oldType,oldDate,old.period_start,old.period_end);
     let membershipId = old.membership_id || null;
     if (!membershipId) {
       const match = await supabaseClient.from("memberships").select("id").eq("member_id",memberId).eq("start_date",oldPeriod.start).eq("end_date",oldPeriod.end).limit(1).maybeSingle();
@@ -25672,8 +25705,8 @@ async function cmDeletePaymentHistory(memberId,paymentId) {
   let membershipId = payment.membership_id || null;
   if (!membershipId) {
     const date = payment.payment_date || (payment.created_at || "").slice(0,10) || getLocalDateString();
-    const type = ["monthly","halfyear","year"].includes(payment.payment_type) ? payment.payment_type : "monthly";
-    const period = payment.period_start && payment.period_end ? {start:payment.period_start,end:payment.period_end} : cmCalendarPaymentPeriod(type,date);
+    const type = cmStoredPaymentType(payment);
+    const period = cmPaymentPeriod(type,date,payment.period_start,payment.period_end);
     const match = await supabaseClient.from("memberships").select("id").eq("member_id",memberId).eq("start_date",period.start).eq("end_date",period.end).limit(1).maybeSingle();
     if (!match.error && match.data) membershipId = match.data.id;
   }
@@ -25736,8 +25769,8 @@ async function loadPayments() {
   if (!rows.length) { element.innerHTML = "<div class=\"card\"><div class=\"empty\">Noch keine Zahlungen vorhanden.</div></div>"; return; }
   element.innerHTML = rows.map(payment => {
     const paidDate = payment.payment_date || (payment.created_at || "").slice(0,10) || getLocalDateString();
-    const type = ["monthly","halfyear","year"].includes(payment.payment_type) ? payment.payment_type : "monthly";
-    const period = payment.period_start && payment.period_end ? {start:payment.period_start,end:payment.period_end} : cmCalendarPaymentPeriod(type,paidDate);
+    const type = cmStoredPaymentType(payment);
+    const period = cmPaymentPeriod(type,paidDate,payment.period_start,payment.period_end);
     return "<div class=\"payment-item\"><div class=\"payment-top\"><div class=\"payment-amount\">€" + Number(payment.amount || 0).toFixed(2) +
       "</div><span class=\"status " + escapeHtml(payment.status || "pending") + "\">" + escapeHtml(payment.status || "pending") +
       "</span></div><div class=\"payment-description\"><div>" + escapeHtml(cmPaymentLabel(type)) + "</div><div style=\"margin-top:5px\">Bezahlt: " +
