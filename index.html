@@ -25519,6 +25519,12 @@ function cmDateAfter(dateString) {
   return next.toISOString().slice(0,10);
 }
 
+function cmMembershipTypesForPayment(type) {
+  if (type === "halfyear") return ["halfyear","half_year"];
+  if (type === "year") return ["year","yearly"];
+  return [type];
+}
+
 function cmPaymentTypeOptions(type, id, dateId, amountId, periodId, includeOther, startId, endId) {
   const values = [["monthly","Monat – 60 €"],["halfyear","Halbjahr – 330 €"],["year","Jahr – 600 €"]];
   if (includeOther) values.push(["other","Other – Sonderfall"]);
@@ -25660,8 +25666,17 @@ async function cmFindMembershipForPayment(memberId,payment,period) {
     .order("created_at",{ascending:false}).limit(1).maybeSingle();
   if (!exact.error && exact.data) return exact.data.id;
 
-  // Legacy membership rows may have an off-by-one end date. Match the same
-  // member and period start, then correct its end date from the payment.
+  // Older monthly memberships often ran from the payment day (for example
+  // 13.09–13.10). Reuse the same-type membership that overlaps the calendar
+  // period instead of creating a second row beside it.
+  const types = cmMembershipTypesForPayment(payment?.payment_type || "monthly");
+  const overlapping = await supabaseClient.from("memberships").select("id")
+    .eq("member_id",memberId).in("type",types)
+    .lte("start_date",period.end).gte("end_date",period.start).lt("end_date","3000-01-01")
+    .order("created_at",{ascending:false}).limit(1).maybeSingle();
+  if (!overlapping.error && overlapping.data) return overlapping.data.id;
+
+  // Legacy membership rows may have a missing start or a shifted period.
   const sameStart = await supabaseClient.from("memberships").select("id")
     .eq("member_id",memberId).eq("start_date",period.start)
     .order("created_at",{ascending:false}).limit(1).maybeSingle();
@@ -25731,19 +25746,20 @@ async function cmSavePaymentHistory(memberId,paymentId,key) {
     const paymentResult = await supabaseClient.from("payments").update(payload).eq("id",paymentId);
     if (paymentResult.error) { if (message) { message.textContent = "Zahlung konnte nicht aktualisiert werden: " + paymentResult.error.message; message.className = "message error"; } return; }
 
-    // Repair a legacy duplicate whose end date was stored as the first day of
-    // the next month instead of the payment period's inclusive last day.
-    const nextDay = cmDateAfter(period.end);
-    if (nextDay) {
-      const membershipTypes = type === "halfyear" ? ["halfyear","half_year"]
-        : type === "year" ? ["year","yearly"] : [type];
-      const stale = await supabaseClient.from("memberships").select("id")
-        .eq("member_id",memberId).eq("start_date",period.start).eq("end_date",nextDay).in("type",membershipTypes);
-      for (const row of (stale.data || [])) {
-        await supabaseClient.from("memberships").update({
-          end_date:period.end,
+    // Normalize overlapping legacy rows of this standard term as well, so an
+    // older 13.09–13.10 row cannot continue granting access past 30.09.
+    if (type !== "other") {
+      const membershipTypes = cmMembershipTypesForPayment(type);
+      const overlaps = await supabaseClient.from("memberships").select("id")
+        .eq("member_id",memberId).in("type",membershipTypes)
+        .lte("start_date",period.end).gte("end_date",period.start).lt("end_date","3000-01-01");
+      if (overlaps.error) { if (message) { message.textContent = "Überlappende Mitgliedschaft konnte nicht geprüft werden: " + overlaps.error.message; message.className = "message error"; } return; }
+      for (const row of (overlaps.data || [])) {
+        const correction = await supabaseClient.from("memberships").update({
+          start_date:period.start,end_date:period.end,
           status:period.start <= getLocalDateString() && period.end >= getLocalDateString() ? "active" : "inactive"
         }).eq("id",row.id);
+        if (correction.error) { if (message) { message.textContent = "Mitgliedschaftsdatum konnte nicht korrigiert werden: " + correction.error.message; message.className = "message error"; } return; }
       }
     }
   }
