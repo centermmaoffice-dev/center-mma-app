@@ -3529,7 +3529,7 @@
         .from("memberships")
         .select("*")
         .eq("member_id", memberId)
-        .order("end_date", { ascending: false })
+        .order("end_date", { ascending: false, nullsFirst: false })
         .limit(1)
         .maybeSingle();
 
@@ -15413,7 +15413,8 @@
       .order(
         "end_date",
         {
-          ascending: false
+          ascending: false,
+          nullsFirst: false
         }
       );
 
@@ -15567,6 +15568,12 @@
                         : "ACCOUNT ACTIVE"
                     }
                   </span>
+                </div>
+
+                <div class="muted small" style="margin-top:6px">
+                  Membership valid until: ${escapeHtml(
+                    membership?.end_date ? formatDate(membership.end_date) : "not set"
+                  )}
                 </div>
 
                 <div class="admin-edit-box">
@@ -25639,6 +25646,28 @@ function cmFilterPaymentMembers(query) {
   });
 }
 
+async function cmFindMembershipForPayment(memberId,payment,period) {
+  if (payment?.membership_id) return payment.membership_id;
+  const exact = await supabaseClient.from("memberships").select("id")
+    .eq("member_id",memberId).eq("start_date",period.start).eq("end_date",period.end)
+    .order("created_at",{ascending:false}).limit(1).maybeSingle();
+  if (!exact.error && exact.data) return exact.data.id;
+
+  // Older payment rows may not have a membership_id and the membership row
+  // may have no end date yet. Reuse the undated row that starts with this period.
+  const sameStart = await supabaseClient.from("memberships").select("id")
+    .eq("member_id",memberId).eq("start_date",period.start).is("end_date",null)
+    .order("created_at",{ascending:false}).limit(1).maybeSingle();
+  if (!sameStart.error && sameStart.data) return sameStart.data.id;
+
+  // Last-resort repair for legacy profiles whose membership has neither a
+  // payment link nor a usable start date. Do not replace any dated membership.
+  const undated = await supabaseClient.from("memberships").select("id")
+    .eq("member_id",memberId).is("end_date",null)
+    .order("created_at",{ascending:false}).limit(1).maybeSingle();
+  return !undated.error && undated.data ? undated.data.id : null;
+}
+
 async function cmSavePaymentHistory(memberId,paymentId,key) {
   if (!isAdmin) return;
   const prefix = "cmHist-" + key;
@@ -25675,11 +25704,7 @@ async function cmSavePaymentHistory(memberId,paymentId,key) {
     const oldDate = old.payment_date || (old.created_at || "").slice(0,10) || paidDate;
     const oldType = cmStoredPaymentType(old);
     const oldPeriod = cmPaymentPeriod(oldType,oldDate,old.period_start,old.period_end);
-    let membershipId = old.membership_id || null;
-    if (!membershipId) {
-      const match = await supabaseClient.from("memberships").select("id").eq("member_id",memberId).eq("start_date",oldPeriod.start).eq("end_date",oldPeriod.end).limit(1).maybeSingle();
-      if (!match.error && match.data) membershipId = match.data.id;
-    }
+    let membershipId = await cmFindMembershipForPayment(memberId,old,oldPeriod);
     let membershipError = null;
     if (membershipId) {
       const result = await supabaseClient.from("memberships").update({
