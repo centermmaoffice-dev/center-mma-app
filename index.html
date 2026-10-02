@@ -1654,6 +1654,28 @@
       display: none !important;
     }
 
+    .cm-payment-member { padding:0; overflow:hidden; }
+    .cm-payment-member > summary,
+    .cm-payment-record > summary {
+      cursor:pointer; list-style:none; display:flex; align-items:center;
+      justify-content:space-between; gap:12px; padding:14px 16px;
+      font-weight:800;
+    }
+    .cm-payment-member > summary::-webkit-details-marker,
+    .cm-payment-record > summary::-webkit-details-marker { display:none; }
+    .cm-payment-member > summary::after,
+    .cm-payment-record > summary::after { content:'⌄'; color:#aaa; font-size:18px; }
+    .cm-payment-member[open] > summary::after,
+    .cm-payment-record[open] > summary::after { content:'⌃'; }
+    .cm-payment-member-body { border-top:1px solid #292929; padding:12px; }
+    .cm-payment-record { margin:8px 0; padding:0; overflow:hidden; }
+    .cm-payment-record > summary { padding:11px 12px; font-size:14px; }
+    .cm-payment-record-body { padding:12px; border-top:1px solid #292929; }
+    .cm-payment-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+    .cm-payment-period { color:#aaa; font-size:12px; margin:8px 0 12px; }
+    .cm-payment-add { border-top:1px solid #292929; margin-top:14px; padding-top:12px; }
+    @media (max-width:520px) { .cm-payment-grid { grid-template-columns:1fr; } }
+
     .permanent-delete-box {
       margin-top: 18px;
       padding-top: 16px;
@@ -1926,67 +1948,18 @@
       margin-top:6px;
     }
     .shop-admin-product{
-      border:1px solid #2b2b2b;
-      border-radius:12px;
-      margin-top:10px;
-      overflow:hidden;
-      background:#101010;
-    }
-    .shop-admin-product-summary{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding:10px;
-      cursor:pointer;
-      list-style:none;
-      user-select:none;
-    }
-    .shop-admin-product-summary::-webkit-details-marker{
-      display:none;
+      border-top:1px solid #2b2b2b;
+      padding-top:16px;
+      margin-top:16px;
     }
     .shop-admin-product-thumb{
-      width:56px;
-      height:56px;
+      width:110px;
+      height:110px;
       display:block;
       object-fit:cover;
-      border-radius:8px;
+      border-radius:10px;
+      margin-bottom:10px;
       background:#1a1a1a;
-      flex:0 0 auto;
-    }
-    .shop-admin-product-placeholder{
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:24px;
-    }
-    .shop-admin-product-summary-copy{
-      flex:1;
-      min-width:0;
-    }
-    .shop-admin-product-summary-title{
-      font-size:14px;
-      font-weight:900;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      white-space:nowrap;
-    }
-    .shop-admin-product-summary-meta{
-      color:#999;
-      font-size:11px;
-      margin-top:4px;
-    }
-    .shop-admin-product-chevron{
-      color:#999;
-      font-size:24px;
-      line-height:1;
-      transition:transform .2s ease;
-    }
-    .shop-admin-product[open] .shop-admin-product-chevron{
-      transform:rotate(90deg);
-    }
-    .shop-admin-product-editor{
-      border-top:1px solid #2b2b2b;
-      padding:12px;
     }
     .shop-admin-image-preview img{
       width:100%;
@@ -2102,8 +2075,8 @@
       <h1>Welcome back</h1>
       <p class="muted small">Login to your CENTER MMA account.</p>
 
-      <label>Email</label>
-      <input id="loginEmail" type="email" placeholder="your@email.com">
+      <label translate="no">Benutzername / Login</label>
+      <input id="loginEmail" type="text" autocomplete="username" placeholder="Login">
 
       <label>Password</label>
       <input id="loginPassword" type="password" placeholder="Password">
@@ -2567,17 +2540,19 @@
         <label>Last name</label>
         <input id="profileLastName">
 
-        <label>Email</label>
+        <label translate="no">Benutzername / Login</label>
         <input id="profileEmail" disabled>
 
         <label>Phone</label>
         <input id="profilePhone" type="tel">
+        <div id="cmContacts-self" translate="no"></div>
 
         <label>Emergency contact name</label>
         <input id="profileEmergencyName" type="text">
 
         <label>Emergency contact phone</label>
         <input id="profileEmergencyPhone" type="tel">
+        <div id="cmEmergencyContactEmail-self" translate="no"></div>
 
         <label>Birth date</label>
         <input id="profileBirthDate" type="date" lang="de-AT">
@@ -2606,6 +2581,11 @@
 
       </div>
 
+
+      <div class="card">
+        <h3>Vertrag</h3>
+        <button class="secondary" onclick="openMemberDocuments(currentMember.id)">📄 Vertrag / Documents</button>
+      </div>
 
       <!-- NOTIFICATION SETTINGS -->
       <div class="card">
@@ -3481,6 +3461,10 @@
 
 
   async function logout() {
+    const contractDialog = document.getElementById('cmDocDialog');
+    if (contractDialog?.open) contractDialog.close();
+    cmDocRows = []; cmDocMemberId = null;
+
 
     membershipAccessAllowed =
       false;
@@ -3545,7 +3529,7 @@
         .from("memberships")
         .select("*")
         .eq("member_id", memberId)
-        .order("end_date", { ascending: false })
+        .order("end_date", { ascending: false, nullsFirst: false })
         .limit(1)
         .maybeSingle();
 
@@ -3675,12 +3659,13 @@
         membership?.end_date >= today;
 
       if (!active) {
+        currentMembership = membership || null;
+        if (membershipAccessAllowed) showInactive("Your membership is not active.");
         return false;
       }
 
       currentMembership = membership;
-      stopMembershipActivationWatcher();
-      showApp();
+      if (!membershipAccessAllowed) showApp();
       return true;
     } finally {
       membershipActivationCheckRunning = false;
@@ -3707,7 +3692,7 @@
       document.visibilityState === "visible" &&
       currentUser &&
       currentMember &&
-      !membershipAccessAllowed
+      !isStaff
     ) {
       refreshMembershipAccess();
     }
@@ -3717,7 +3702,7 @@
     if (
       currentUser &&
       currentMember &&
-      !membershipAccessAllowed
+      !isStaff
     ) {
       refreshMembershipAccess();
     }
@@ -3804,7 +3789,7 @@
     membershipAccessAllowed =
       true;
 
-    stopMembershipActivationWatcher();
+    if (!isStaff) startMembershipActivationWatcher();
 
     document
       .getElementById("authScreen")
@@ -6488,6 +6473,8 @@
       "";
 
 
+    await cmLoadContacts(currentMember.id);
+
     await loadProfilePhoto();
 
     await loadProfileGroups();
@@ -7487,6 +7474,14 @@
         .value
         .trim();
 
+    const contactEmail = document.getElementById("cmEmail-self");
+    const emergencyEmail = document.getElementById("cmEmergencyEmailInput-self");
+    if (!contactEmail || !emergencyEmail ||
+        !contactEmail.checkValidity() || !emergencyEmail.checkValidity()) {
+      message.textContent = cmCT().error;
+      message.className = "message error";
+      return;
+    }
 
     const birthDate =
       document
@@ -7549,6 +7544,18 @@
     currentMember =
       data;
 
+    const { error: contactError } = await supabaseClient.rpc("cm_save_contact_emails", {
+      p_member: currentMember.id,
+      p_email: contactEmail.value.trim(),
+      p_parent_phone: null,
+      p_parent_email: null,
+      p_emergency_email: emergencyEmail.value.trim()
+    });
+    if (contactError) {
+      message.textContent = "Profile saved, but contact details could not be saved: " + contactError.message;
+      message.className = "message error";
+      return;
+    }
 
     document
       .getElementById(
@@ -7560,7 +7567,7 @@
 
 
     message.textContent =
-      "Profile saved successfully.";
+      "Profile and contact details saved successfully.";
 
     message.className =
       "message success-text";
@@ -8788,6 +8795,10 @@
      DOCUMENTS
   ========================= */
 
+  function cmIsStatute(documentItem) {
+    return /statut/i.test(`${documentItem?.title || ""} ${documentItem?.file_name || ""} ${documentItem?.description || ""}`);
+  }
+
   async function loadDocuments() {
 
     const element =
@@ -8835,7 +8846,7 @@
     }
 
     const documents =
-      data || [];
+      (data || []).filter(documentItem => !cmIsStatute(documentItem));
 
     if (documents.length === 0) {
 
@@ -9015,7 +9026,8 @@
 
     if (
       error ||
-      !documentItem
+      !documentItem ||
+      cmIsStatute(documentItem)
     ) {
 
       console.error(error);
@@ -10888,31 +10900,6 @@
 
     await loadNotificationBadge();
 
-    if (
-      isAdmin &&
-      /^(admin|members|payments)$/.test(linkSection || "")
-    ) {
-      const { data: notification } = await supabaseClient
-        .from("notifications")
-        .select("type,title,message")
-        .eq("id", notificationId)
-        .maybeSingle();
-
-      const notificationText = [
-        notification?.type,
-        notification?.title,
-        notification?.message
-      ].join(" ");
-
-      if (
-        /payment|zahlung|mitgliedschaft|membership|activation|aktivierung/i
-          .test(notificationText)
-      ) {
-        openSection("admin");
-        await openAdminSection("payments");
-        return;
-      }
-    }
     if (isAdmin && linkSection === "events") {
       const { data: notification } = await supabaseClient
         .from("notifications").select("type,title,message")
@@ -13447,7 +13434,7 @@
     }
 
     const items =
-      documents || [];
+      (documents || []).filter(documentItem => !cmIsStatute(documentItem));
 
     if (items.length === 0) {
 
@@ -13582,6 +13569,12 @@
       message.className =
         "message error";
 
+      return;
+    }
+
+    if (cmIsStatute({title, file_name: file?.name})) {
+      message.textContent = "Statut documents are no longer available.";
+      message.className = "message error";
       return;
     }
 
@@ -15420,7 +15413,8 @@
       .order(
         "end_date",
         {
-          ascending: false
+          ascending: false,
+          nullsFirst: false
         }
       );
 
@@ -15447,7 +15441,7 @@
       <div class="card">
         <h3>Members</h3>
         <p class="muted small">
-          Manage profiles, roles and memberships.
+          Manage profiles, roles and account access. Payment periods are managed in Zahlungen.
         </p>
 
         <input
@@ -15505,8 +15499,10 @@
               ] || null;
 
             const membershipStatus =
-              membership?.status ||
-              "inactive";
+              membership?.status === "active" &&
+              membership?.end_date >= getLocalDateString()
+                ? "active"
+                : "inactive";
 
             return `
               <div
@@ -15534,7 +15530,7 @@
                 </div>
 
                 <div class="muted small">
-                  ${escapeHtml(member.email || "")}
+                  Login: ${escapeHtml(member.email || "")}
                 </div>
 
                 <div
@@ -15574,6 +15570,12 @@
                   </span>
                 </div>
 
+                <div class="muted small" style="margin-top:6px">
+                  Membership valid until: ${escapeHtml(
+                    membership?.end_date ? formatDate(membership.end_date) : "not set"
+                  )}
+                </div>
+
                 <div class="admin-edit-box">
 
                   <h3>
@@ -15595,8 +15597,10 @@
                   <label>Phone</label>
                   <input
                     id="adminMemberPhone-${member.id}"
-                    value="${escapeHtml(member.phone || "")}"
+                    value="${escapeHtml(member.phone || "")}" 
                   >
+
+                  <div id="cmContacts-${member.id}" translate="no"></div>
 
                   <label>Emergency contact name</label>
                   <input
@@ -15609,6 +15613,7 @@
                     id="adminMemberEmergencyPhone-${member.id}"
                     value="${escapeHtml(member.emergency_contact_phone || "")}"
                   >
+                  <div id="cmEmergencyContactEmail-${member.id}" translate="no"></div>
 
                   <label>Geburtsdatum</label>
                   <input
@@ -15698,6 +15703,8 @@
                     id="adminMemberMessage-${member.id}"
                     class="message"
                   ></div>
+
+                  <button class="secondary" onclick="openMemberDocuments('${member.id}')">📄 Vertrag / Documents</button>
 
                   <div class="permanent-delete-box">
                     <button
@@ -15848,6 +15855,14 @@
           }
         )
         .join("");
+
+    list.querySelectorAll(".admin-edit-box").forEach(box => {
+      if (box.querySelector('[id^="adminMembershipType-"]')) box.remove();
+    });
+
+    await Promise.all(
+      members.map(member => cmLoadContacts(member.id, true))
+    );
   }
 
 
@@ -15927,6 +15942,15 @@
         )
         .value;
 
+    const contactEmail = document.getElementById("cmEmail-" + memberId);
+    const emergencyEmail = document.getElementById("cmEmergencyEmailInput-" + memberId);
+    if (!contactEmail || !emergencyEmail ||
+        !contactEmail.checkValidity() || !emergencyEmail.checkValidity()) {
+      message.textContent = cmCT().error;
+      message.className = "message error";
+      return;
+    }
+
     message.textContent =
       "Saving...";
 
@@ -15972,8 +15996,22 @@
       return;
     }
 
+    const { error: contactError } = await supabaseClient.rpc("cm_save_contact_emails", {
+      p_member: memberId,
+      p_email: contactEmail.value.trim(),
+      p_parent_phone: null,
+      p_parent_email: null,
+      p_emergency_email: emergencyEmail.value.trim()
+    });
+
+    if (contactError) {
+      message.textContent = "Profile saved, but contact emails could not be saved: " + contactError.message;
+      message.className = "message error";
+      return;
+    }
+
     message.textContent =
-      "Member saved successfully.";
+      "Profile and contact emails saved successfully.";
 
     message.className =
       "message success-text";
@@ -21075,8 +21113,8 @@
 
     const defaults = {
       monthly: { amount: 60, months: 1 },
-      halfyear: { amount: 300, months: 6 },
-      year: { amount: 500, months: 12 }
+      halfyear: { amount: 330, months: 6 },
+      year: { amount: 600, months: 12 }
     };
 
     const selected = defaults[typeElement.value];
@@ -24626,32 +24664,18 @@
       data.map(
         function (product) {
           return `
-            <details class="shop-admin-product">
-              <summary class="shop-admin-product-summary">
-                ${product.image_url ? `
-                  <img
-                    class="shop-admin-product-thumb"
-                    src="${escapeHtml(product.image_url)}"
-                    alt=""
-                  >
-                ` : `
-                  <div class="shop-admin-product-thumb shop-admin-product-placeholder">📦</div>
-                `}
+            <div class="shop-admin-product">
+              <div style="font-weight:900;margin-bottom:8px;">
+                ${escapeHtml(product.title)}
+              </div>
 
-                <div class="shop-admin-product-summary-copy">
-                  <div class="shop-admin-product-summary-title">
-                    ${escapeHtml(product.title)}
-                  </div>
-                  <div class="shop-admin-product-summary-meta">
-                    ${formatEuro(product.price)} · Stock: ${Math.max(0, Number(product.stock_quantity || 0))}
-                    · ${product.is_active ? "Visible" : "Hidden"}
-                  </div>
-                </div>
-
-                <span class="shop-admin-product-chevron">›</span>
-              </summary>
-
-              <div class="shop-admin-product-editor">
+              ${product.image_url ? `
+                <img
+                  class="shop-admin-product-thumb"
+                  src="${escapeHtml(product.image_url)}"
+                  alt=""
+                >
+              ` : ""}
 
               <label>Product name</label>
               <input
@@ -24720,8 +24744,7 @@
                 id="adminShopMessage-${product.id}"
                 class="message"
               ></div>
-              </div>
-            </details>
+            </div>
           `;
         }
       ).join("");
@@ -25316,5 +25339,512 @@
   });
 </script>
 
+
+<style>
+#cmDocDialog{width:min(720px,calc(100% - 24px));max-height:90dvh;overflow:auto;background:#111;color:#fff;border:1px solid #555;border-radius:14px;padding:20px;box-sizing:border-box}
+#cmDocDialog::backdrop{background:rgba(0,0,0,.8)}
+#cmDocDialog button{margin:8px 0;white-space:normal}
+#cmDocDialog input,#cmDocDialog select,#cmDocDialog textarea{width:100%;box-sizing:border-box}
+#cmDocDialog select{padding:12px;background:#222;color:white;border:1px solid #555;border-radius:8px}
+.cm-doc-actions{display:flex;gap:10px;flex-wrap:wrap}.cm-doc-actions button{flex:1;min-width:120px}
+.cm-document{overflow-wrap:anywhere}.cm-document textarea{min-height:72px}
+</style>
+<dialog id="cmDocDialog" aria-labelledby="cmDocTitle" translate="no">
+ <h2 id="cmDocTitle"></h2><p id="cmDocIntro"></p>
+ <label id="cmDocTypeLabel" for="cmDocType"></label><select id="cmDocType"></select>
+ <input id="cmDocFile" type="file" accept="application/pdf,image/jpeg,image/png,image/webp">
+ <p id="cmDocLimit" class="muted small"></p>
+ <button id="cmDocUpload" onclick="cmUploadDocument()"></button>
+ <div id="cmDocMessage" class="message" role="status" aria-live="polite"></div>
+ <div id="cmDocList"></div>
+ <button id="cmDocClose" class="secondary" onclick="cmCloseDocuments()"></button>
+</dialog>
+<script>
+/* Signed document uploads. Backend: member-documents.sql. */
+const cmDocText = {
+ de: {title:'Vertrag / Meine Dokumente',intro:'Lade deinen ausgefüllten und unterschriebenen Antrag als PDF oder Foto hoch. Unter 18 Jahren ist die Unterschrift der gesetzlichen Vertretung erforderlich.',upload:'Dokument hochladen',type:'Dokumentart',membership:'Beitrittserklärung',parental:'Einverständniserklärung der Eltern',other:'Weiteres Dokument',pending:'Wird geprüft',approved:'Genehmigt',changes_requested:'Bitte korrigieren',open:'Öffnen',close:'Schließen',popupBlocked:'Pop-ups erlauben, um das Dokument zu öffnen.',empty:'Noch keine Dokumente hochgeladen.',note:'Kommentar / gewünschte Korrektur',approve:'Genehmigen',change:'Korrektur anfordern',busy:'Bitte warten…',success:'Dokument gespeichert. Es wird vom Administrator geprüft.',setup:'Dokumente konnten nicht geladen werden. Bitte den Administrator kontaktieren.',limit:'PDF, JPG, PNG oder WebP, maximal 15 MB pro Datei.',history:'Neue Uploads bleiben neben den bisherigen Dokumenten gespeichert.',confirm:'Ist das Dokument vollständig und unterschrieben? Für Minderjährige muss die gesetzliche Vertretung unterschreiben.',reviewed:'Prüfung gespeichert.'},
+ en: {title:'Contract / My documents',intro:'Upload your completed and signed application as a PDF or photo. For members under 18, a parent or legal guardian must sign.',upload:'Upload document',type:'Document type',membership:'Membership application',parental:'Parent / guardian consent',other:'Other document',pending:'Awaiting review',approved:'Approved',changes_requested:'Correction requested',open:'Open',close:'Close',popupBlocked:'Allow pop-ups to open the document.',empty:'No documents uploaded yet.',note:'Comment / requested correction',approve:'Approve',change:'Request correction',busy:'Please wait…',success:'Document saved for administrator review.',setup:'Could not load documents. Please contact the administrator.',limit:'PDF, JPG, PNG or WebP, up to 15 MB per file.',history:'New uploads are saved alongside previous documents.',confirm:'Is the document complete and signed? A parent or legal guardian must sign for members under 18.',reviewed:'Review saved.'},
+ uk: {title:'Договір / Мої документи',intro:'Завантажте заповнену та підписану заяву як PDF або фото. Для учасників до 18 років потрібен підпис батьків або законного представника.',upload:'Завантажити документ',type:'Тип документа',membership:'Заява про вступ',parental:'Згода батьків',other:'Інший документ',pending:'На перевірці',approved:'Схвалено',changes_requested:'Потрібне виправлення',open:'Відкрити',close:'Закрити',popupBlocked:'Дозвольте спливаючі вікна, щоб відкрити документ.',empty:'Документів ще немає.',note:'Коментар / потрібне виправлення',approve:'Схвалити',change:'Попросити виправлення',busy:'Зачекайте…',success:'Документ збережено для перевірки адміністратором.',setup:'Не вдалося завантажити документи. Зверніться до адміністратора.',limit:'PDF, JPG, PNG або WebP, до 15 МБ на файл.',history:'Нові файли зберігаються разом із попередніми документами.',confirm:'Документ повністю заповнений і підписаний? Для учасника до 18 років підписує законний представник.',reviewed:'Результат перевірки збережено.'}
+};
+let cmDocMemberId = null;
+let cmDocRows = [];
+let cmDocBusy = false;
+function cmDT() { return cmDocText[getCurrentInterfaceLanguage()] || cmDocText.de; }
+function cmDocMessage(message, error=false) {
+ const el=document.getElementById('cmDocMessage');
+ el.textContent=message; el.className='message '+(error?'error':'success-text');
+}
+function cmDocOwnOrAdmin(memberId) {return !!currentUser && (isAdmin || currentMember?.id===memberId);}
+async function openMemberDocuments(memberId) {
+ if(cmDocBusy || !cmDocOwnOrAdmin(memberId)) return;
+ cmDocMemberId=memberId; cmDocRows=[];
+ const t=cmDT(), dlg=document.getElementById('cmDocDialog');
+ document.getElementById('cmDocTitle').textContent=t.title;
+ document.getElementById('cmDocIntro').textContent=t.intro;
+ document.getElementById('cmDocLimit').textContent=t.limit+' '+t.history;
+ document.getElementById('cmDocTypeLabel').textContent=t.type;
+ document.getElementById('cmDocType').innerHTML=['membership','parental','other'].map(k=>`<option value="${k}">${t[k]}</option>`).join('');
+ document.getElementById('cmDocUpload').textContent=t.upload;
+ document.getElementById('cmDocClose').textContent=t.close;
+ document.getElementById('cmDocFile').value='';
+ cmDocMessage(''); if(!dlg.open) dlg.showModal();
+ await cmLoadDocuments(memberId);
+}
+async function cmLoadDocuments(memberId=cmDocMemberId) {
+ const list=document.getElementById('cmDocList'); list.textContent=cmDT().busy;
+ const {data,error}=await supabaseClient.from('member_documents').select('*').eq('member_id',memberId).neq('status','uploading').order('created_at',{ascending:false});
+ if(memberId!==cmDocMemberId) return;
+ if(error) {list.textContent=cmDT().setup; return;}
+ cmDocRows=(data||[]).filter(d=>!/statut/i.test(d.file_name||'')); cmRenderDocuments();
+}
+function cmRenderDocuments() {
+ const t=cmDT();
+ document.getElementById('cmDocList').innerHTML=cmDocRows.length ? cmDocRows.map((d,i)=>`<article class="card cm-document">
+ <strong>${escapeHtml(t[d.document_type]||d.document_type)}</strong>
+ <div>${escapeHtml(d.file_name)}</div>
+ <div class="muted small">${escapeHtml(new Date(d.created_at).toLocaleString())} · ${Math.ceil(d.file_size/1024)} KB</div>
+ <p><strong>${escapeHtml(t[d.status]||d.status)}</strong></p>
+ ${d.review_note?`<p style="white-space:pre-wrap">${escapeHtml(d.review_note)}</p>`:''}
+  <div class="cm-doc-actions"><button class="secondary" onclick="cmOpenDocument(${i})">${t.open}</button></div>
+ ${isAdmin?`<label for="cmDocNote-${i}">${t.note}</label><textarea id="cmDocNote-${i}" maxlength="2000">${escapeHtml(d.review_note||'')}</textarea><div class="cm-doc-actions"><button onclick="cmReviewDocument(${i},'approved')">${t.approve}</button><button class="secondary" onclick="cmReviewDocument(${i},'changes_requested')">${t.change}</button></div>`:''}
+ </article>`).join('') : `<p class="muted">${t.empty}</p>`;
+}
+async function cmOpenDocument(index) {
+ const d=cmDocRows[index];if(!d||!cmDocOwnOrAdmin(d.member_id))return;
+ const tab=window.open('about:blank','_blank');
+ if(!tab){cmDocMessage(cmDT().popupBlocked,true);return;}
+ tab.opener=null;
+ try {
+  const {data,error}=await supabaseClient.storage.from('member-contracts').download(d.file_path);
+  if(error)throw error;
+  const url=URL.createObjectURL(data);tab.location.href=url;setTimeout(()=>URL.revokeObjectURL(url),300000);
+ } catch(e) {tab.close();cmDocMessage(e.message,true);}
+}
+async function cmDetectFile(file) {
+ const b=new Uint8Array(await file.slice(0,12).arrayBuffer());
+ if(b[0]===37&&b[1]===80&&b[2]===68&&b[3]===70&&b[4]===45)return 'application/pdf';
+ if(b[0]===255&&b[1]===216&&b[2]===255)return 'image/jpeg';
+ if([137,80,78,71,13,10,26,10].every((v,i)=>b[i]===v))return 'image/png';
+ if(String.fromCharCode(...b.slice(0,4))==='RIFF'&&String.fromCharCode(...b.slice(8,12))==='WEBP')return 'image/webp';
+ throw new Error(cmDT().limit);
+}
+async function cmUploadDocument() {
+ if(cmDocBusy||!cmDocOwnOrAdmin(cmDocMemberId))return;
+ const file=document.getElementById('cmDocFile').files[0], memberId=cmDocMemberId;
+ if(!file||file.size<1||file.size>15*1024*1024){cmDocMessage(cmDT().limit,true);return;}
+ if(/statut/i.test(file.name)){cmDocMessage('Statut documents are no longer available.',true);return;}
+ if(!confirm(cmDT().confirm))return;
+ cmDocBusy=true;document.getElementById('cmDocUpload').disabled=true;cmDocMessage(cmDT().busy);
+ try {
+  const mime=await cmDetectFile(file);
+  const {data,error}=await supabaseClient.rpc('cm_document_begin',{p_member:memberId,p_type:document.getElementById('cmDocType').value,p_name:file.name.slice(0,240),p_mime:mime,p_size:file.size});
+  if(error)throw error;
+  const d=Array.isArray(data)?data[0]:data;
+  if(!d?.id||!d.file_path)throw new Error('Upload could not be initialized');
+  const up=await supabaseClient.storage.from('member-contracts').upload(d.file_path,file,{contentType:mime,upsert:false});
+  if(up.error)throw up.error;
+  const done=await supabaseClient.rpc('cm_document_finish',{p_id:d.id});if(done.error)throw done.error;
+  document.getElementById('cmDocFile').value='';await cmLoadDocuments(memberId);cmDocMessage(cmDT().success);
+ } catch(e){cmDocMessage(e.message,true);}
+ finally{cmDocBusy=false;document.getElementById('cmDocUpload').disabled=false;}
+}
+async function cmReviewDocument(index,status) {
+ const d=cmDocRows[index];if(!isAdmin||!d||cmDocBusy)return;
+ const note=document.getElementById('cmDocNote-'+index).value.trim();
+ if(status==='changes_requested'&&!note){cmDocMessage(cmDT().note,true);return;}
+ cmDocBusy=true;
+ try {const {error}=await supabaseClient.rpc('cm_document_review',{p_id:d.id,p_status:status,p_note:note});if(error)throw error;await cmLoadDocuments();cmDocMessage(cmDT().reviewed);}
+ catch(e){cmDocMessage(e.message,true);}finally{cmDocBusy=false;}
+}
+function cmCloseDocuments(){if(!cmDocBusy){document.getElementById('cmDocDialog').close();cmDocRows=[];cmDocMemberId=null;}}
+document.getElementById('cmDocDialog').addEventListener('cancel',e=>{if(cmDocBusy)e.preventDefault();else{cmDocRows=[];cmDocMemberId=null;}});
+
+</script>
+<script>
+const cmContactTexts={de:{email:'E-Mail des Mitglieds',emergencyEmail:'Notfallkontakt – E-Mail',error:'Bitte gültige E-Mail-Adressen eingeben.'},en:{email:'Member email',emergencyEmail:'Emergency contact email',error:'Please enter valid email addresses.'},uk:{email:'Email учасника',emergencyEmail:'Email екстреного контакту',error:'Введіть коректні email-адреси.'}};
+function cmCT(){return cmContactTexts[getCurrentInterfaceLanguage()]||cmContactTexts.de;}
+async function cmLoadContacts(memberId,admin=false){
+ if(!cmDocOwnOrAdmin(memberId))return;
+ const key=admin?memberId:'self',box=document.getElementById('cmContacts-'+key);if(!box)return;
+ box.textContent='…';
+ const {data,error}=await supabaseClient.from('member_contacts').select('contact_email,emergency_contact_email').eq('member_id',memberId).maybeSingle();
+ if(error){box.textContent=error.message;return;}
+ if(!cmDocOwnOrAdmin(memberId))return;
+ const t=cmCT(),emergencyBox=document.getElementById('cmEmergencyContactEmail-'+key);
+ box.innerHTML=`<label for="cmEmail-${key}">${t.email}</label><input id="cmEmail-${key}" type="email" maxlength="254" autocomplete="email" value="${escapeHtml(data?.contact_email||'')}">`;
+ if(emergencyBox) emergencyBox.innerHTML=`<label for="cmEmergencyEmailInput-${key}">${t.emergencyEmail}</label><input id="cmEmergencyEmailInput-${key}" type="email" maxlength="254" value="${escapeHtml(data?.emergency_contact_email||'')}">`;
+}
+
+</script>
+<script>
+/* Calendar-based, member-specific payment history */
+function cmPaymentPrice(type) {
+  return ({ monthly: 60, halfyear: 330, year: 600 })[type] || null;
+}
+
+function cmCalendarPaymentPeriod(type, paidDate) {
+  const parts = String(paidDate || getLocalDateString()).split("-").map(Number);
+  const year = parts[0] || new Date().getFullYear();
+  const month = parts[1] || new Date().getMonth() + 1;
+  if (type === "year") return { start: year + "-01-01", end: year + "-12-31" };
+  if (type === "halfyear") {
+    return month <= 6
+      ? { start: year + "-01-01", end: year + "-06-30" }
+      : { start: year + "-07-01", end: year + "-12-31" };
+  }
+  const mm = String(month).padStart(2, "0");
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return { start: year + "-" + mm + "-01", end: year + "-" + mm + "-" + String(lastDay).padStart(2, "0") };
+}
+
+function cmPaymentLabel(type) {
+  return ({ monthly: "Monat", halfyear: "Halbjahr", year: "Jahr", other: "Other – Sonderfall" })[type] || "Mitgliedschaft";
+}
+
+function cmStoredPaymentType(payment) {
+  if (String(payment?.period_end || "").startsWith("3000-")) return "other";
+  return ["monthly","halfyear","year","other"].includes(payment?.payment_type) ? payment.payment_type : "monthly";
+}
+
+function cmPaymentPeriod(type, paidDate, savedStart, savedEnd) {
+  if (type !== "other") return cmCalendarPaymentPeriod(type, paidDate);
+  const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
+  return { start: validDate(savedStart) ? savedStart : paidDate, end: validDate(savedEnd) ? savedEnd : paidDate };
+}
+
+function cmDateAfter(dateString) {
+  const [year,month,day] = String(dateString || "").split("-").map(Number);
+  if (!year || !month || !day) return "";
+  const next = new Date(Date.UTC(year,month - 1,day + 1));
+  return next.toISOString().slice(0,10);
+}
+
+function cmMembershipTypesForPayment(type) {
+  if (type === "halfyear") return ["halfyear","half_year"];
+  if (type === "year") return ["year","yearly"];
+  return [type];
+}
+
+function cmPaymentTypeOptions(type, id, dateId, amountId, periodId, includeOther, startId, endId) {
+  const values = [["monthly","Monat – 60 €"],["halfyear","Halbjahr – 330 €"],["year","Jahr – 600 €"]];
+  if (includeOther) values.push(["other","Other – Sonderfall"]);
+  return "<select id=\"" + id + "\" onchange=\"cmRefreshPaymentPeriod('" + id + "','" + dateId + "','" + amountId + "','" + periodId + "','" + (startId || "") + "','" + (endId || "") + "')\">" +
+    values.map(item => "<option value=\"" + item[0] + "\" " + (type === item[0] ? "selected" : "") + ">" + item[1] + "</option>").join("") +
+    "</select>";
+}
+
+function cmRefreshPaymentPeriod(typeId, dateId, amountId, periodId, startId, endId) {
+  const type = document.getElementById(typeId)?.value || "monthly";
+  const paidDate = document.getElementById(dateId)?.value || getLocalDateString();
+  const startInput = startId ? document.getElementById(startId) : null;
+  const endInput = endId ? document.getElementById(endId) : null;
+  const customRange = startInput?.closest(".cm-payment-custom-range");
+  if (customRange) customRange.style.display = type === "other" ? "contents" : "none";
+  const amount = document.getElementById(amountId);
+  if (amount) {
+    amount.readOnly = type !== "other";
+    if (type !== "other") amount.value = cmPaymentPrice(type).toFixed(2);
+  }
+  const period = type === "other" ? {start:startInput?.value || paidDate,end:endInput?.value || paidDate} : cmCalendarPaymentPeriod(type, paidDate);
+  const label = document.getElementById(periodId);
+  if (label) label.textContent = formatDate(period.start) + " – " + formatDate(period.end);
+  return period;
+}
+
+function cmUpdateCustomPaymentPeriod(startId, endId, periodId) {
+  const start = document.getElementById(startId)?.value || "";
+  const end = document.getElementById(endId)?.value || "";
+  const label = document.getElementById(periodId);
+  if (label) label.textContent = start && end ? formatDate(start) + " – " + formatDate(end) : "Zeitraum auswählen";
+}
+
+async function loadAdminPayments(element) {
+  const results = await Promise.all([
+    supabaseClient.from("payments").select("*").eq("status", "pending").order("created_at", { ascending: false }),
+    supabaseClient.from("payments").select("*").order("payment_date", { ascending: false }),
+    supabaseClient.from("members").select("id,first_name,last_name,email,membership_number").order("first_name", { ascending: true })
+  ]);
+  const error = results.find(result => result.error)?.error;
+  if (error) {
+    element.innerHTML += "<div class=\"card\"><div class=\"message error\">Could not load payment history: " + escapeHtml(error.message) + "</div></div>";
+    return;
+  }
+  const requests = results[0].data || [];
+  const allPayments = results[1].data || [];
+  const members = results[2].data || [];
+  const today = getLocalDateString();
+  element.innerHTML +=
+    "<div class=\"card\"><h3>Offene Zahlungsanfragen</h3><p class=\"muted small\">Nach Zahlungseingang bestätigst du die Anfrage. Der Zeitraum wird automatisch nach dem Zahlungsdatum berechnet.</p></div>" +
+    "<div id=\"cmPaymentRequests\"></div>" +
+    "<div class=\"card\" style=\"margin-top:20px\"><h3>Zahlungsverlauf pro Mitglied</h3><p class=\"muted small\">Monat: 60 €, Halbjahr: 330 €, Jahr: 600 €. Die Zeiträume richten sich nach dem Kalender.</p><input class=\"member-search\" type=\"search\" placeholder=\"Mitglied suchen…\" oninput=\"cmFilterPaymentMembers(this.value)\"></div>" +
+    "<div id=\"cmAdminPaymentHistory\"></div>";
+
+  const requestBox = document.getElementById("cmPaymentRequests");
+  requestBox.innerHTML = requests.length ? requests.map(payment => {
+    const member = members.find(item => item.id === payment.member_id) || {};
+    const name = (member.first_name || "") + " " + (member.last_name || "");
+    const type = ["halfyear","year"].includes(payment.payment_type) ? payment.payment_type : "monthly";
+    const period = cmCalendarPaymentPeriod(type, payment.payment_date || today);
+    return "<div class=\"payment-item admin-payment\"><div class=\"payment-top\"><div><div style=\"font-weight:800;font-size:16px\">" +
+      escapeHtml(name.trim() || member.email || "Mitglied") + "</div><div class=\"muted small\">" + escapeHtml(member.email || "") +
+      "</div></div><div class=\"payment-amount\">€" + cmPaymentPrice(type).toFixed(2) + "</div></div><div class=\"payment-description\">Angefragt: " +
+      escapeHtml(formatDate(payment.requested_at || payment.created_at)) + "<br>Mitgliedsnummer: " + escapeHtml(member.membership_number || "-") +
+      "</div><div class=\"admin-payment-editor\"><strong>Zahlung bestätigen und Mitgliedschaft aktivieren</strong><div class=\"cm-payment-grid\">" +
+      "<div><label>Zahlungsdatum</label><input id=\"paymentPaidDate-" + payment.id + "\" type=\"date\" value=\"" + escapeHtml(payment.payment_date || today) +
+      "\" onchange=\"updatePaymentConfirmationDefaults('" + payment.id + "')\"></div><div><label>Mitgliedschaft</label>" +
+      cmPaymentTypeOptions(type,"paymentType-" + payment.id,"paymentPaidDate-" + payment.id,"paymentAmount-" + payment.id,"paymentPeriod-" + payment.id) +
+      "</div><div><label>Betrag</label><input id=\"paymentAmount-" + payment.id + "\" readonly type=\"number\" value=\"" + cmPaymentPrice(type).toFixed(2) +
+      "\"></div><div><label>Gültiger Zeitraum</label><div id=\"paymentPeriod-" + payment.id + "\" class=\"cm-payment-period\">" +
+      formatDate(period.start) + " – " + formatDate(period.end) + "</div></div></div><input id=\"paymentStart-" + payment.id + "\" type=\"hidden\" value=\"" +
+      period.start + "\"><input id=\"paymentEnd-" + payment.id + "\" type=\"hidden\" value=\"" + period.end +
+      "\"><label>Admin-Notiz</label><input id=\"paymentNote-" + payment.id + "\" type=\"text\" placeholder=\"Optional\"><div class=\"admin-actions\">" +
+      "<button class=\"success\" onclick=\"confirmPaymentAndActivate('" + payment.id + "','" + payment.member_id + "')\">BESTÄTIGEN & AKTIVIEREN</button>" +
+      "<button class=\"danger\" onclick=\"rejectPayment('" + payment.id + "')\">ABLEHNEN</button></div><div id=\"paymentConfirmMessage-" + payment.id +
+      "\" class=\"message\"></div></div></div>";
+  }).join("") : "<div class=\"card\"><div class=\"empty\">Keine offenen Zahlungsanfragen.</div></div>";
+
+  const history = allPayments.filter(payment => !["pending","rejected"].includes(String(payment.status || "").toLowerCase()));
+  window.cmAdminPaymentRowsById = Object.fromEntries(history.map(payment => [payment.id,payment]));
+  document.getElementById("cmAdminPaymentHistory").innerHTML = members.map(member => cmAdminPaymentMember(member, history.filter(payment => payment.member_id === member.id))).join("") ||
+    "<div class=\"card\"><div class=\"empty\">Keine Mitglieder gefunden.</div></div>";
+}
+
+function cmAdminPaymentMember(member, payments) {
+  const name = ((member.first_name || "") + " " + (member.last_name || "")).trim() || member.email || "Mitglied";
+  const rows = payments.slice().sort((a,b) => String(b.payment_date || b.created_at || "").localeCompare(String(a.payment_date || a.created_at || "")));
+  const list = rows.length ? rows.map(payment => cmAdminPaymentRecord(member.id,payment)).join("") : "<div class=\"empty\">Noch keine bestätigten Zahlungen.</div>";
+  const search = (name + " " + (member.email || "") + " " + (member.membership_number || "")).toLowerCase();
+  return "<details class=\"card cm-payment-member\" data-payment-search=\"" + escapeHtml(search) + "\"><summary><span>" + escapeHtml(name) +
+    "</span><span class=\"muted small\">" + rows.length + " Zahlung(en)</span></summary><div class=\"cm-payment-member-body\"><div class=\"muted small\">" +
+    escapeHtml(member.email || "") + " · " + escapeHtml(member.membership_number || "Keine Mitgliedsnummer") + "</div>" + list +
+    "<details class=\"card cm-payment-record cm-payment-add\"><summary>＋ Zahlung hinzufügen</summary><div class=\"cm-payment-record-body\">" +
+    cmPaymentForm(member.id,null,"new-" + member.id) + "</div></details></div></details>";
+}
+
+function cmAdminPaymentRecord(memberId,payment) {
+  const date = payment.payment_date || (payment.created_at || "").slice(0,10) || getLocalDateString();
+  const type = cmStoredPaymentType(payment);
+  const period = cmPaymentPeriod(type,date,payment.period_start,payment.period_end);
+  const amount = Number(payment.amount ?? cmPaymentPrice(type) ?? 0);
+  const key = "edit-" + payment.id;
+  window.cmAdminPaymentRowsById[payment.id] = payment;
+  return "<details class=\"card cm-payment-record\"><summary><span>" + cmPaymentLabel(type) + " · €" + amount.toFixed(2) +
+    "</span><span class=\"muted small\">" + escapeHtml(formatDate(date)) + "</span></summary><div class=\"cm-payment-record-body\"><div class=\"cm-payment-period\">Bezahlt: " +
+    escapeHtml(formatDate(date)) + " · Zeitraum: " + escapeHtml(formatDate(period.start)) + " – " + escapeHtml(formatDate(period.end)) + "</div>" +
+    cmPaymentForm(memberId,payment,key) + "<button class=\"danger\" style=\"margin-top:8px;width:100%\" onclick=\"cmDeletePaymentHistory('" + memberId + "','" +
+    payment.id + "')\">EINTRAG LÖSCHEN</button></div></details>";
+}
+
+function cmPaymentForm(memberId,payment,key) {
+  const type = cmStoredPaymentType(payment);
+  const date = payment?.payment_date || (payment?.created_at || "").slice(0,10) || getLocalDateString();
+  const period = cmPaymentPeriod(type,date,payment?.period_start,payment?.period_end);
+  const amount = Number(payment?.amount ?? cmPaymentPrice(type) ?? 0);
+  const prefix = "cmHist-" + key;
+  const dateId = prefix + "-date", typeId = prefix + "-type", amountId = prefix + "-amount", periodId = prefix + "-period";
+  const startId = prefix + "-start", endId = prefix + "-end";
+  return "<div class=\"cm-payment-grid\"><div><label>Zahlungsdatum</label><input id=\"" + dateId + "\" type=\"date\" value=\"" + escapeHtml(date) +
+    "\" onchange=\"cmRefreshPaymentPeriod('" + typeId + "','" + dateId + "','" + amountId + "','" + periodId + "','" + startId + "','" + endId + "')\"></div><div><label>Zeitraum</label>" +
+    cmPaymentTypeOptions(type,typeId,dateId,amountId,periodId,true,startId,endId) + "</div><div><label>Betrag (€)</label><input id=\"" + amountId + "\" " + (type === "other" ? "" : "readonly ") + "type=\"number\" min=\"0.01\" step=\"0.01\" value=\"" +
+    amount.toFixed(2) + "\"></div><div><label>Mitgliedschaftszeitraum</label><div id=\"" + periodId + "\" class=\"cm-payment-period\">" +
+    formatDate(period.start) + " – " + formatDate(period.end) + "</div></div><div class=\"cm-payment-custom-range\" style=\"display:" + (type === "other" ? "contents" : "none") + "\"><div><label>Von</label><input id=\"" + startId + "\" type=\"date\" value=\"" + escapeHtml(period.start) + "\" onchange=\"cmUpdateCustomPaymentPeriod('" + startId + "','" + endId + "','" + periodId + "')\"></div><div><label>Bis</label><input id=\"" + endId + "\" type=\"date\" value=\"" + escapeHtml(period.end) + "\" onchange=\"cmUpdateCustomPaymentPeriod('" + startId + "','" + endId + "','" + periodId + "')\"></div></div></div><button class=\"success\" style=\"width:100%;margin-top:10px\" onclick=\"cmSavePaymentHistory('" +
+    memberId + "','" + (payment ? payment.id : "") + "','" + key + "')\">" + (payment ? "ÄNDERUNGEN SPEICHERN" : "ZAHLUNG EINTRAGEN") +
+    "</button><div id=\"" + prefix + "-message\" class=\"message\"></div>";
+}
+
+function cmFilterPaymentMembers(query) {
+  const value = String(query || "").toLowerCase().trim();
+  document.querySelectorAll("#cmAdminPaymentHistory [data-payment-search]").forEach(card => {
+    card.style.display = !value || card.dataset.paymentSearch.includes(value) ? "" : "none";
+  });
+}
+
+async function cmFindMembershipForPayment(memberId,payment,period) {
+  if (payment?.membership_id) return payment.membership_id;
+  const exact = await supabaseClient.from("memberships").select("id")
+    .eq("member_id",memberId).eq("start_date",period.start).eq("end_date",period.end)
+    .order("created_at",{ascending:false}).limit(1).maybeSingle();
+  if (!exact.error && exact.data) return exact.data.id;
+
+  // Older monthly memberships often ran from the payment day (for example
+  // 13.09–13.10). Reuse the same-type membership that overlaps the calendar
+  // period instead of creating a second row beside it.
+  const types = cmMembershipTypesForPayment(payment?.payment_type || "monthly");
+  const overlapping = await supabaseClient.from("memberships").select("id")
+    .eq("member_id",memberId).in("type",types)
+    .lte("start_date",period.end).gte("end_date",period.start).lt("end_date","3000-01-01")
+    .order("created_at",{ascending:false}).limit(1).maybeSingle();
+  if (!overlapping.error && overlapping.data) return overlapping.data.id;
+
+  // Legacy membership rows may have a missing start or a shifted period.
+  const sameStart = await supabaseClient.from("memberships").select("id")
+    .eq("member_id",memberId).eq("start_date",period.start)
+    .order("created_at",{ascending:false}).limit(1).maybeSingle();
+  if (!sameStart.error && sameStart.data) return sameStart.data.id;
+
+  // Last-resort repair for legacy profiles whose membership has neither a
+  // payment link nor a usable start date. Do not replace any dated membership.
+  const undated = await supabaseClient.from("memberships").select("id")
+    .eq("member_id",memberId).is("end_date",null)
+    .order("created_at",{ascending:false}).limit(1).maybeSingle();
+  return !undated.error && undated.data ? undated.data.id : null;
+}
+
+async function cmSavePaymentHistory(memberId,paymentId,key) {
+  if (!isAdmin) return;
+  const prefix = "cmHist-" + key;
+  const type = document.getElementById(prefix + "-type")?.value || "monthly";
+  const paidDate = document.getElementById(prefix + "-date")?.value;
+  const message = document.getElementById(prefix + "-message");
+  if (!paidDate) { if (message) { message.textContent = "Zahlungsdatum eingeben."; message.className = "message error"; } return; }
+  const amount = type === "other" ? Number(document.getElementById(prefix + "-amount")?.value) : cmPaymentPrice(type);
+  const period = type === "other"
+    ? {start:document.getElementById(prefix + "-start")?.value || "",end:document.getElementById(prefix + "-end")?.value || ""}
+    : cmCalendarPaymentPeriod(type,paidDate);
+  if (!Number.isFinite(amount) || amount <= 0) { if (message) { message.textContent = "Einen gültigen Betrag über 0 € eingeben."; message.className = "message error"; } return; }
+  if (!period.start || !period.end || period.end < period.start) { if (message) { message.textContent = "Gültigen Mitgliedschaftszeitraum eingeben."; message.className = "message error"; } return; }
+  const payload = { member_id:memberId, amount:amount, payment_date:paidDate, payment_type:type,
+    description:cmPaymentLabel(type) + " " + period.start + " bis " + period.end, status:"approved",
+    period_start:period.start, period_end:period.end };
+  if (message) { message.textContent = "Speichert…"; message.className = "message"; }
+
+  if (!paymentId) {
+    const membershipResult = await supabaseClient.from("memberships").insert({
+      member_id:memberId, type:type, start_date:period.start, end_date:period.end, price:amount,
+      status:period.start <= getLocalDateString() && period.end >= getLocalDateString() ? "active" : "inactive"
+    }).select("id").single();
+    if (membershipResult.error) { if (message) { message.textContent = "Mitgliedschaft konnte nicht gespeichert werden: " + membershipResult.error.message; message.className = "message error"; } return; }
+    payload.membership_id = membershipResult.data.id;
+    const paymentResult = await supabaseClient.from("payments").insert(payload);
+    if (paymentResult.error) {
+      await supabaseClient.from("memberships").delete().eq("id",membershipResult.data.id);
+      if (message) { message.textContent = "Zahlung konnte nicht gespeichert werden: " + paymentResult.error.message; message.className = "message error"; }
+      return;
+    }
+  } else {
+    const old = window.cmAdminPaymentRowsById?.[paymentId] || {};
+    const oldDate = old.payment_date || (old.created_at || "").slice(0,10) || paidDate;
+    const oldType = cmStoredPaymentType(old);
+    const oldPeriod = cmPaymentPeriod(oldType,oldDate,old.period_start,old.period_end);
+    let membershipId = await cmFindMembershipForPayment(memberId,old,oldPeriod);
+    let membershipError = null;
+    if (membershipId) {
+      const result = await supabaseClient.from("memberships").update({
+        type:type,start_date:period.start,end_date:period.end,price:amount,status:period.start <= getLocalDateString() && period.end >= getLocalDateString() ? "active" : "inactive"
+      }).eq("id",membershipId);
+      membershipError = result.error;
+    } else {
+      const result = await supabaseClient.from("memberships").insert({
+        member_id:memberId,type:type,start_date:period.start,end_date:period.end,price:amount,
+        status:period.start <= getLocalDateString() && period.end >= getLocalDateString() ? "active" : "inactive"
+      }).select("id").single();
+      membershipError = result.error;
+      if (!membershipError) membershipId = result.data.id;
+    }
+    if (membershipError) { if (message) { message.textContent = "Mitgliedschaft konnte nicht aktualisiert werden: " + membershipError.message; message.className = "message error"; } return; }
+    payload.membership_id = membershipId;
+    const paymentResult = await supabaseClient.from("payments").update(payload).eq("id",paymentId);
+    if (paymentResult.error) { if (message) { message.textContent = "Zahlung konnte nicht aktualisiert werden: " + paymentResult.error.message; message.className = "message error"; } return; }
+
+    // Normalize overlapping legacy rows of this standard term as well, so an
+    // older 13.09–13.10 row cannot continue granting access past 30.09.
+    if (type !== "other") {
+      const membershipTypes = cmMembershipTypesForPayment(type);
+      const overlaps = await supabaseClient.from("memberships").select("id")
+        .eq("member_id",memberId).in("type",membershipTypes)
+        .lte("start_date",period.end).gte("end_date",period.start).lt("end_date","3000-01-01");
+      if (overlaps.error) { if (message) { message.textContent = "Überlappende Mitgliedschaft konnte nicht geprüft werden: " + overlaps.error.message; message.className = "message error"; } return; }
+      for (const row of (overlaps.data || [])) {
+        const correction = await supabaseClient.from("memberships").update({
+          start_date:period.start,end_date:period.end,
+          status:period.start <= getLocalDateString() && period.end >= getLocalDateString() ? "active" : "inactive"
+        }).eq("id",row.id);
+        if (correction.error) { if (message) { message.textContent = "Mitgliedschaftsdatum konnte nicht korrigiert werden: " + correction.error.message; message.className = "message error"; } return; }
+      }
+    }
+  }
+  await renderAdminSection("payments");
+}
+
+async function cmDeletePaymentHistory(memberId,paymentId) {
+  if (!isAdmin || !confirm("Diesen Zahlungseintrag und den zugehörigen Mitgliedschaftszeitraum löschen?")) return;
+  const payment = window.cmAdminPaymentRowsById?.[paymentId] || {};
+  let membershipId = payment.membership_id || null;
+  if (!membershipId) {
+    const date = payment.payment_date || (payment.created_at || "").slice(0,10) || getLocalDateString();
+    const type = cmStoredPaymentType(payment);
+    const period = cmPaymentPeriod(type,date,payment.period_start,payment.period_end);
+    const match = await supabaseClient.from("memberships").select("id").eq("member_id",memberId).eq("start_date",period.start).eq("end_date",period.end).limit(1).maybeSingle();
+    if (!match.error && match.data) membershipId = match.data.id;
+  }
+  const deleted = await supabaseClient.from("payments").delete().eq("id",paymentId);
+  if (deleted.error) { alert("Zahlung konnte nicht gelöscht werden: " + deleted.error.message); return; }
+  if (membershipId) {
+    const membershipDelete = await supabaseClient.from("memberships").delete().eq("id",membershipId);
+    if (membershipDelete.error) { alert("Zahlung gelöscht, Mitgliedschaftszeitraum konnte aber nicht gelöscht werden: " + membershipDelete.error.message); }
+  }
+  await renderAdminSection("payments");
+}
+
+function updatePaymentConfirmationDefaults(paymentId) {
+  const type = document.getElementById("paymentType-" + paymentId)?.value || "monthly";
+  const paidDate = document.getElementById("paymentPaidDate-" + paymentId)?.value || getLocalDateString();
+  const period = cmCalendarPaymentPeriod(type,paidDate);
+  const amount = document.getElementById("paymentAmount-" + paymentId);
+  if (amount) amount.value = cmPaymentPrice(type).toFixed(2);
+  const start = document.getElementById("paymentStart-" + paymentId);
+  const end = document.getElementById("paymentEnd-" + paymentId);
+  if (start) start.value = period.start;
+  if (end) end.value = period.end;
+  const label = document.getElementById("paymentPeriod-" + paymentId);
+  if (label) label.textContent = formatDate(period.start) + " – " + formatDate(period.end);
+}
+
+async function confirmPaymentAndActivate(paymentId,memberId) {
+  if (!isAdmin) return;
+  const message = document.getElementById("paymentConfirmMessage-" + paymentId);
+  const type = document.getElementById("paymentType-" + paymentId)?.value || "monthly";
+  const paidDate = document.getElementById("paymentPaidDate-" + paymentId)?.value || getLocalDateString();
+  const period = cmCalendarPaymentPeriod(type,paidDate);
+  const amount = cmPaymentPrice(type);
+  const note = document.getElementById("paymentNote-" + paymentId)?.value?.trim() || null;
+  if (!confirm("Zahlung über €" + amount.toFixed(2) + " für " + formatDate(period.start) + " bis " + formatDate(period.end) + " bestätigen?")) return;
+  if (message) { message.textContent = "Bestätigt Zahlung…"; message.className = "message"; }
+  const result = await supabaseClient.rpc("admin_confirm_payment_and_membership", {
+    target_payment_id:paymentId, paid_amount:amount, membership_type_value:type,
+    valid_from:period.start, valid_until:period.end, admin_note:note
+  });
+  if (result.error) { if (message) { message.textContent = "Zahlung konnte nicht bestätigt werden: " + result.error.message; message.className = "message error"; } return; }
+  const memberships = await supabaseClient.from("memberships").select("id").eq("member_id",memberId).eq("start_date",period.start).eq("end_date",period.end).order("created_at",{ascending:false}).limit(1);
+  const paymentUpdate = await supabaseClient.from("payments").update({
+    payment_date:paidDate,payment_type:type,amount:amount,period_start:period.start,period_end:period.end,
+    membership_id:memberships.data?.[0]?.id || null
+  }).eq("id",paymentId);
+  await notifyMemberByMemberId(memberId,"Payment approved","Your CENTER MMA membership is active until " + formatDate(period.end) + ".","payment","membership");
+  if (paymentUpdate.error && message) { message.textContent = "Mitgliedschaft ist aktiviert, Zahlungszeitraum konnte jedoch nicht gespeichert werden: " + paymentUpdate.error.message; message.className = "message error"; return; }
+  await renderAdminSection("payments");
+}
+
+async function loadPayments() {
+  if (!currentMember) return;
+  const element = document.getElementById("paymentsList");
+  if (!element) return;
+  element.innerHTML = "<div class=\"empty\">Lade Zahlungshistorie…</div>";
+  const result = await supabaseClient.from("payments").select("*").eq("member_id",currentMember.id).order("payment_date",{ascending:false});
+  if (result.error) { element.innerHTML = "<div class=\"card\"><div class=\"message error\">Zahlungen konnten nicht geladen werden: " + escapeHtml(result.error.message) + "</div></div>"; return; }
+  const rows = result.data || [];
+  if (!rows.length) { element.innerHTML = "<div class=\"card\"><div class=\"empty\">Noch keine Zahlungen vorhanden.</div></div>"; return; }
+  element.innerHTML = rows.map(payment => {
+    const paidDate = payment.payment_date || (payment.created_at || "").slice(0,10) || getLocalDateString();
+    const type = cmStoredPaymentType(payment);
+    const period = cmPaymentPeriod(type,paidDate,payment.period_start,payment.period_end);
+    return "<div class=\"payment-item\"><div class=\"payment-top\"><div class=\"payment-amount\">€" + Number(payment.amount || 0).toFixed(2) +
+      "</div><span class=\"status " + escapeHtml(payment.status || "pending") + "\">" + escapeHtml(payment.status || "pending") +
+      "</span></div><div class=\"payment-description\"><div>" + escapeHtml(cmPaymentLabel(type)) + "</div><div style=\"margin-top:5px\">Bezahlt: " +
+      escapeHtml(formatDate(paidDate)) + "</div><div style=\"margin-top:5px\">Zeitraum: " + escapeHtml(formatDate(period.start)) + " – " +
+      escapeHtml(formatDate(period.end)) + "</div></div></div>";
+  }).join("");
+}
+</script>
 </body>
 </html>
