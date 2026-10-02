@@ -10680,6 +10680,22 @@
       return;
     }
 
+    if (isAdmin && isPaymentRequestNotification(item)) {
+      await supabaseClient
+        .from("notification_reads")
+        .upsert(
+          {
+            notification_id: notificationId,
+            user_id: currentUser.id
+          },
+          { onConflict: "notification_id,user_id" }
+        );
+      await loadNotificationBadge();
+      openSection("admin");
+      await openAdminSection("payments");
+      return;
+    }
+
     await supabaseClient
       .from("notification_reads")
       .upsert(
@@ -10779,6 +10795,13 @@
 
     await renderNotificationPoll(item.id);
     await loadNotificationBadge();
+  }
+
+  function isPaymentRequestNotification(item) {
+    const title = String(item?.title || "");
+    const message = String(item?.message || "");
+    return /payment/i.test(title + " " + message) &&
+      /(request|requested|confirmation|confirm)/i.test(title + " " + message);
   }
 
   async function renderNotificationPoll(notificationId) {
@@ -22793,6 +22816,11 @@
                 currentUser.id
             ) {
               return;
+            }
+
+            if (isAdmin && isPaymentRequestNotification(item)) {
+              openSection("admin");
+              await openAdminSection("payments");
             }
 
             await loadNotificationBadge();
