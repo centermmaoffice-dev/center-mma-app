@@ -506,6 +506,14 @@
       margin-bottom: 4px;
     }
 
+    .community-search { margin: 0 0 14px; }
+    .community-athlete-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+    .community-athlete-card { display:flex; align-items:center; gap:11px; min-width:0; padding:10px; background:#151515; border:1px solid #272727; border-radius:12px; }
+    .community-athlete-avatar { width:48px; height:48px; flex:0 0 48px; display:flex; align-items:center; justify-content:center; overflow:hidden; border-radius:50%; background:#242424; color:#bbb; font-size:18px; font-weight:800; }
+    .community-athlete-avatar img { width:100%; height:100%; object-fit:cover; }
+    .community-athlete-name { min-width:0; overflow-wrap:anywhere; font-size:13px; font-weight:700; line-height:1.3; }
+    @media (max-width:360px) { .community-athlete-grid { grid-template-columns:1fr; } }
+
     .login-switch {
       text-align: center;
       color: #777;
@@ -2326,6 +2334,13 @@
 
 
     <!-- MEMBERSHIP -->
+    <!-- COMMUNITY: athlete directory only; profile pages and messaging are later steps. -->
+    <div id="communitySection" class="hidden">
+      <div class="section-title"><button class="secondary back-button" onclick="goBackInApp()">← BACK</button><h2>Community</h2></div>
+      <input id="communitySearch" class="community-search" type="search" placeholder="Search athletes by name" oninput="filterCommunityAthletes()" autocomplete="off">
+      <div id="communityAthletes" class="community-athlete-grid"><div class="empty">Loading athletes...</div></div>
+    </div>
+
     <div id="membershipSection" class="hidden">
 
       <div class="section-title">
@@ -3164,11 +3179,12 @@
 <!-- BOTTOM NAV -->
 <div id="bottomNav" class="bottom-nav hidden">
   <div class="nav-inner">
-    <button class="nav-item active" id="navHome" onclick="openSection('home')"><span class="nav-icon">⌂</span>Home</button>
+    <button class="nav-item" id="navProfile" onclick="openSection('profile')"><span class="nav-icon">👤</span>Profile</button>
+    <button class="nav-item" id="navCommunity" onclick="openSection('community')"><span class="nav-icon">👥</span>Community</button>
+    <button class="nav-item" id="navShop" onclick="openSection('shop')"><span class="nav-icon">🛒</span>Shop</button>
+    <button class="nav-item" id="navHome" onclick="openSection('home')"><span class="nav-icon">⌂</span>Home</button>
     <button class="nav-item" id="navCalendar" onclick="openSection('calendar')"><span class="nav-icon">🗓️</span>Calendar</button>
     <button class="nav-item" id="navChat" onclick="openSection('chat')"><span class="nav-icon">💬</span>Chat</button>
-    <button class="nav-item" id="navShop" onclick="openSection('shop')"><span class="nav-icon">🛒</span>Shop</button>
-    <button class="nav-item" id="navProfile" onclick="openSection('profile')"><span class="nav-icon">👤</span>Profile</button>
   </div>
 </div>
 
@@ -5443,6 +5459,7 @@
       "news",
       "shop",
       "profile",
+      "community",
       "calendar",
       "attendance",
       "documents",
@@ -5857,6 +5874,7 @@
       "news",
       "shop",
       "profile",
+      "community",
       "calendar",
       "attendance",
       "documents",
@@ -5975,6 +5993,10 @@
     if (section === "profile") {
       loadProfile();
     }
+
+    if (section === "community") {
+      loadCommunityAthletes();
+    }
   }
 
 
@@ -5982,6 +6004,55 @@
      MEMBERSHIP
   ========================= */
 
+  let communityAthletes = [];
+
+  async function loadCommunityAthletes() {
+    const element = document.getElementById("communityAthletes");
+    if (!element || !currentUser) return;
+    element.innerHTML = '<div class="empty">Loading athletes...</div>';
+
+    const { data, error } = await supabaseClient
+      .from("members")
+      .select("id, user_id, first_name, last_name")
+      .eq("is_active", true)
+      .order("last_name", { ascending: true })
+      .order("first_name", { ascending: true });
+
+    if (error) {
+      console.error("Could not load Community athletes:", error);
+      element.innerHTML = '<div class="message error">Could not load athletes right now.</div>';
+      return;
+    }
+
+    communityAthletes = (data || []).filter(member => member.user_id);
+    const profiles = await getChatProfiles(communityAthletes.map(member => member.user_id));
+    communityAthletes = communityAthletes.map(member => ({ ...member, profile: profiles[member.user_id] || {} }));
+    filterCommunityAthletes();
+  }
+
+  function filterCommunityAthletes() {
+    const element = document.getElementById("communityAthletes");
+    const input = document.getElementById("communitySearch");
+    if (!element) return;
+    const query = String(input?.value || "").trim().toLocaleLowerCase();
+    const filtered = communityAthletes.filter(member => {
+      const name = [member.first_name, member.last_name].filter(Boolean).join(" ").toLocaleLowerCase();
+      return name.includes(query);
+    });
+
+    if (!filtered.length) {
+      element.innerHTML = '<div class="empty">No athletes found.</div>';
+      return;
+    }
+
+    element.innerHTML = filtered.map(member => {
+      const name = [member.first_name, member.last_name].filter(Boolean).join(" ").trim() || "Athlete";
+      const photo = member.profile.photo_url
+        ? `<img src="${escapeHtml(member.profile.photo_url)}" alt="">`
+        : escapeHtml(name.charAt(0).toUpperCase());
+      return `<div class="community-athlete-card"><div class="community-athlete-avatar">${photo}</div><div class="community-athlete-name">${escapeHtml(name)}</div></div>`;
+    }).join("");
+  }
   function renderMembershipSummary() {
     const element=document.getElementById("membershipSummary");
     if(!element)return;
