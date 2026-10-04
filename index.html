@@ -486,6 +486,7 @@
     }
 
     .nav-item {
+      position: relative;
       flex: 1;
       border: none;
       background: transparent;
@@ -499,6 +500,14 @@
     .nav-item.active {
       color: #fff;
     }
+
+    .nav-unread-badge { position:absolute; top:2px; left:calc(50% + 8px); min-width:17px; height:17px; padding:0 5px; display:flex; align-items:center; justify-content:center; border-radius:10px; background:#ff2b2b; color:#fff; font-size:10px; line-height:17px; font-weight:800; }
+    .community-message-toast { position:fixed; z-index:150; left:50%; bottom:82px; transform:translateX(-50%); width:min(480px,calc(100% - 24px)); display:flex; align-items:center; gap:12px; padding:13px 14px; background:#191919; border:1px solid #713030; border-radius:13px; box-shadow:0 8px 28px rgba(0,0,0,.5); }
+    .community-message-toast[hidden] { display:none; }
+    .community-message-toast-copy { flex:1; min-width:0; }
+    .community-message-toast-title { font-weight:800; font-size:13px; }
+    .community-message-toast-text { color:#aaa; font-size:12px; margin-top:3px; }
+    .community-message-toast button { width:auto; margin:0; padding:8px 10px; white-space:nowrap; }
 
     .nav-icon {
       display: block;
@@ -3237,9 +3246,17 @@
     <button class="nav-item" id="navCalendar" onclick="openSection('calendar')"><span class="nav-icon">🗓️</span>Calendar</button>
     <button class="nav-item" id="navShop" onclick="openSection('shop')"><span class="nav-icon">🛒</span>Shop</button>
     <button class="nav-item" id="navChat" onclick="openSection('chat')"><span class="nav-icon">💬</span>Chat</button>
-    <button class="nav-item" id="navCommunity" onclick="openSection('community')"><span class="nav-icon">👥</span>Community</button>
+    <button class="nav-item" id="navCommunity" onclick="openSection('community')"><span class="nav-unread-badge hidden" id="communityNavUnreadBadge" aria-label="Unread private messages"></span><span class="nav-icon">👥</span>Community</button>
     <button class="nav-item" id="navProfile" onclick="openSection('profile')"><span class="nav-icon">👤</span>Profile</button>
   </div>
+</div>
+
+<div id="communityMessageToast" class="community-message-toast" role="status" aria-live="polite" hidden>
+  <div class="community-message-toast-copy">
+    <div id="communityMessageToastTitle" class="community-message-toast-title"></div>
+    <div id="communityMessageToastText" class="community-message-toast-text"></div>
+  </div>
+  <button id="communityMessageToastOpen" type="button" class="secondary"></button>
 </div>
 
 
@@ -3283,6 +3300,8 @@
   let notificationRealtimeChannel = null;
   let communityPrivateRealtimeChannel = null;
   let communityConversationsRealtimeChannels = [];
+  let communityRealtimeUserId = null;
+  let communityMessageToastTimer = null;
   let currentPrivateConversationId = null;
   let currentPrivateRecipientId = null;
   let membershipActivationTimer = null;
@@ -3555,6 +3574,8 @@
 
     stopChatRealtime();
     stopNotificationRealtime();
+    stopCommunityConversationsRealtime();
+    document.getElementById("communityMessageToast")?.setAttribute("hidden", "");
     stopMembershipActivationWatcher();
 
     showAuth();
@@ -3979,6 +4000,7 @@
     loadEvents();
 
     startNotificationRealtime();
+    startCommunityConversationsRealtime();
 
     // Keep the device's Web Push subscription synchronized with the
     // currently logged-in account. This is what allows notifications to
@@ -6083,7 +6105,8 @@
       member: "Mitglied", noMessagesYet: "Noch keine Nachricht", loadingConversation: "Gespräch wird geladen...", conversationError: "Dieses private Gespräch kann nicht geladen werden.",
       writeMessage: "Private Nachricht schreiben...", send: "SENDEN", emptyConversation: "Schreibe eine Nachricht, um das Gespräch zu beginnen.",
       delete: "Löschen", deleteConfirm: "Diese Nachricht für beide Teilnehmer löschen?", deleteDenied: "Nur der Absender kann diese Nachricht löschen.",
-      messageError: "Nachricht konnte nicht gesendet werden.", sent: "Gesendet", read: "Gelesen"
+      messageError: "Nachricht konnte nicht gesendet werden.", sent: "Gesendet", read: "Gelesen",
+      messageFrom: "Neue Nachricht von", newPrivateMessage: "Neue private Nachricht", privateMessage: "Du hast eine neue private Nachricht.", open: "ÖFFNEN", unreadMessages: "Ungelesene private Nachrichten"
     },
     en: {
       back: "← BACK", community: "Community", myMessages: "My Messages", search: "Search athletes by name",
@@ -6097,7 +6120,8 @@
       member: "Member", noMessagesYet: "No messages yet", loadingConversation: "Loading conversation...", conversationError: "Could not load this private conversation.",
       writeMessage: "Write a private message...", send: "SEND", emptyConversation: "Say hello to start the conversation.",
       delete: "Delete", deleteConfirm: "Delete this message for both participants?", deleteDenied: "Only the sender can delete this message.",
-      messageError: "Message could not be sent.", sent: "Sent", read: "Read"
+      messageError: "Message could not be sent.", sent: "Sent", read: "Read",
+      messageFrom: "New message from", newPrivateMessage: "New private message", privateMessage: "You have a new private message.", open: "OPEN", unreadMessages: "Unread private messages"
     },
     uk: {
       back: "← НАЗАД", community: "Спільнота", myMessages: "Мої повідомлення", search: "Пошук спортсменів за ім’ям",
@@ -6111,7 +6135,8 @@
       member: "Учасник", noMessagesYet: "Повідомлень ще немає", loadingConversation: "Завантаження розмови...", conversationError: "Не вдалося завантажити приватну розмову.",
       writeMessage: "Напишіть приватне повідомлення...", send: "НАДІСЛАТИ", emptyConversation: "Напишіть перше повідомлення, щоб почати розмову.",
       delete: "Видалити", deleteConfirm: "Видалити це повідомлення для обох учасників?", deleteDenied: "Видалити повідомлення може лише його автор.",
-      messageError: "Не вдалося надіслати повідомлення.", sent: "Надіслано", read: "Прочитано"
+      messageError: "Не вдалося надіслати повідомлення.", sent: "Надіслано", read: "Прочитано",
+      messageFrom: "Нове повідомлення від", newPrivateMessage: "Нове приватне повідомлення", privateMessage: "У вас нове приватне повідомлення.", open: "ВІДКРИТИ", unreadMessages: "Непрочитані приватні повідомлення"
     }
   };
 
@@ -6136,6 +6161,8 @@
     if (search) search.placeholder = communityText("search");
     if (input) input.placeholder = communityText("writeMessage");
     if (send) send.textContent = communityText("send");
+    const badge = document.getElementById("communityNavUnreadBadge");
+    if (badge) badge.setAttribute("aria-label", `${badge.textContent || "0"} ${communityText("unreadMessages")}`);
   }
 
   let communityAthletes = [];
@@ -6318,6 +6345,25 @@
     }).join("");
   }
 
+  async function updateCommunityUnreadBadge() {
+    const badge = document.getElementById("communityNavUnreadBadge");
+    if (!badge) return;
+    if (!currentUser) {
+      badge.textContent = "";
+      badge.classList.add("hidden");
+      return;
+    }
+    const { data, error } = await supabaseClient.rpc("get_community_private_conversation_summaries");
+    if (error) {
+      console.error("Could not update Community unread badge:", error);
+      return;
+    }
+    const count = (data || []).reduce((sum, row) => sum + Number(row.unread_count || 0), 0);
+    badge.textContent = count > 99 ? "99+" : String(count);
+    badge.classList.toggle("hidden", count <= 0);
+    badge.setAttribute("aria-label", `${count} ${communityText("unreadMessages")}`);
+  }
+
   async function openCommunityPrivateConversation(conversationId, otherUserId, knownName) {
     if (!conversationId || !otherUserId) return;
     stopCommunityPrivateRealtime();
@@ -6371,6 +6417,7 @@
       .neq("sender_id", currentUser.id)
       .is("read_at", null);
     if (readError) console.error("Could not mark private messages as read:", readError);
+    else await updateCommunityUnreadBadge();
   }
 
   async function sendCommunityPrivateMessage() {
@@ -6467,9 +6514,15 @@
   }
 
   function startCommunityConversationsRealtime() {
-    stopCommunityPrivateRealtime();
     if (!currentUser) return;
-    const refresh = () => {
+    if (communityRealtimeUserId === currentUser.id && communityConversationsRealtimeChannels.length) {
+      void updateCommunityUnreadBadge();
+      return;
+    }
+    stopCommunityConversationsRealtime();
+    communityRealtimeUserId = currentUser.id;
+    const refresh = async () => {
+      await updateCommunityUnreadBadge();
       if (!document.getElementById("communityMessagesView")?.classList.contains("hidden")) loadCommunityConversations();
     };
     ["user_low_id", "user_high_id"].forEach(column => {
@@ -6478,6 +6531,25 @@
         .subscribe();
       communityConversationsRealtimeChannels.push(channel);
     });
+    void updateCommunityUnreadBadge();
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && currentUser) void updateCommunityUnreadBadge();
+  });
+  window.addEventListener("focus", () => {
+    if (currentUser) void updateCommunityUnreadBadge();
+  });
+
+  function stopCommunityConversationsRealtime() {
+    communityConversationsRealtimeChannels.forEach(channel => supabaseClient.removeChannel(channel));
+    communityConversationsRealtimeChannels = [];
+    communityRealtimeUserId = null;
+    const badge = document.getElementById("communityNavUnreadBadge");
+    if (badge) {
+      badge.textContent = "";
+      badge.classList.add("hidden");
+    }
   }
 
   function stopCommunityPrivateRealtime() {
@@ -6485,8 +6557,6 @@
       supabaseClient.removeChannel(communityPrivateRealtimeChannel);
       communityPrivateRealtimeChannel = null;
     }
-    communityConversationsRealtimeChannels.forEach(channel => supabaseClient.removeChannel(channel));
-    communityConversationsRealtimeChannels = [];
   }
   function filterCommunityAthletes() {
     const element = document.getElementById("communityAthletes");
@@ -23450,6 +23520,34 @@
   }
 
 
+  async function showCommunityMessageToast(item) {
+    const toast = document.getElementById("communityMessageToast");
+    const title = document.getElementById("communityMessageToastTitle");
+    const text = document.getElementById("communityMessageToastText");
+    const open = document.getElementById("communityMessageToastOpen");
+    if (!toast || !title || !text || !open) return;
+    const match = /^community-message:([0-9a-f-]{36})$/i.exec(item?.link_section || "");
+    if (!match || currentPrivateConversationId === match[1]) return;
+    let senderName = "";
+    const { data } = await supabaseClient.rpc("get_community_private_conversation_summaries");
+    const conversation = (data || []).find(row => row.conversation_id === match[1]);
+    if (conversation?.other_user_id) {
+      const profiles = await getChatProfiles([conversation.other_user_id]);
+      senderName = String(profiles[conversation.other_user_id]?.first_name || "").trim();
+    }
+    title.textContent = senderName ? `${communityText("messageFrom")} ${senderName}` : communityText("newPrivateMessage");
+    text.textContent = communityText("privateMessage");
+    open.textContent = communityText("open");
+    open.onclick = async () => {
+      toast.hidden = true;
+      if (item.id) await openNotification(item.id, item.link_section);
+      else await openCommunityConversationFromNotification(match[1]);
+    };
+    toast.hidden = false;
+    if (communityMessageToastTimer) clearTimeout(communityMessageToastTimer);
+    communityMessageToastTimer = setTimeout(() => { toast.hidden = true; }, 9000);
+  }
+
   function startNotificationRealtime() {
 
     if (!currentUser) {
@@ -23502,17 +23600,17 @@
               return;
             }
 
-            if (
-              !("Notification" in window) ||
-              Notification.permission !==
-                "granted"
-            ) {
+            if (document.visibilityState === "visible") {
+              if (/^community-message:[0-9a-f-]{36}$/i.test(item.link_section || "")) {
+                await showCommunityMessageToast(item);
+              }
               return;
             }
 
             if (
-              document.visibilityState ===
-              "visible"
+              !("Notification" in window) ||
+              Notification.permission !==
+                "granted"
             ) {
               return;
             }
