@@ -502,6 +502,7 @@
     }
 
     .nav-unread-badge { position:absolute; top:2px; left:calc(50% + 8px); min-width:17px; height:17px; padding:0 5px; display:flex; align-items:center; justify-content:center; border-radius:10px; background:#ff2b2b; color:#fff; font-size:10px; line-height:17px; font-weight:800; }
+    .section-update-badge { position:absolute; top:11px; right:11px; width:11px; height:11px; border-radius:50%; background:#ff2b2b; box-shadow:0 0 0 3px rgba(255,43,43,.16); }
     .community-message-toast { position:fixed; z-index:150; left:50%; bottom:82px; transform:translateX(-50%); width:min(480px,calc(100% - 24px)); display:flex; align-items:center; gap:12px; padding:13px 14px; background:#191919; border:1px solid #713030; border-radius:13px; box-shadow:0 8px 28px rgba(0,0,0,.5); }
     .community-message-toast[hidden] { display:none; }
     .community-message-toast-copy { flex:1; min-width:0; }
@@ -1191,6 +1192,7 @@
       display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0
     }
     .home-tile{
+      position:relative;
       min-height:154px;background:linear-gradient(145deg,rgba(25,25,25,.94),rgba(10,10,10,.94));
       border:1px solid #474747;border-radius:18px;padding:18px 14px;cursor:pointer;text-align:center;
       display:flex;flex-direction:column;align-items:center;justify-content:center;transition:.15s;
@@ -2265,6 +2267,7 @@
       <div class="dashboard-main-grid">
 
         <div class="home-tile" onclick="openSection('calendar')">
+          <span id="homeCalendarUpdateBadge" class="section-update-badge hidden" aria-hidden="true"></span>
           <div class="home-tile-icon">📆</div>
           <div class="home-tile-title">Calendar</div>
           <div class="home-tile-text">
@@ -2273,6 +2276,7 @@
         </div>
 
         <div class="home-tile" onclick="openSection('events')">
+          <span id="homeEventsUpdateBadge" class="section-update-badge hidden" aria-hidden="true"></span>
           <div class="home-tile-icon">🏆</div>
           <div class="home-tile-title">
             Competitions & Events
@@ -2286,6 +2290,7 @@
         </div>
 
         <div class="home-tile" onclick="openSection('news')">
+          <span id="homeNewsUpdateBadge" class="section-update-badge hidden" aria-hidden="true"></span>
           <div class="home-tile-icon">📰</div>
           <div class="home-tile-title">News</div>
           <div
@@ -2297,6 +2302,7 @@
         </div>
 
         <div class="home-tile" onclick="openSection('membership')">
+          <span id="homeMembershipUpdateBadge" class="section-update-badge hidden" aria-hidden="true"></span>
           <div class="home-tile-icon">🪪</div>
           <div class="home-tile-title">Membership</div>
           <div class="home-tile-text">
@@ -2305,6 +2311,7 @@
         </div>
 
         <div class="home-tile" onclick="openSection('payments')">
+          <span id="homePaymentsUpdateBadge" class="section-update-badge hidden" aria-hidden="true"></span>
           <div class="home-tile-icon">€</div>
           <div class="home-tile-title">Payments</div>
           <div class="home-tile-text">
@@ -2334,6 +2341,7 @@
         </div>
 
         <div class="home-tile" onclick="openSection('documents')">
+          <span id="homeDocumentsUpdateBadge" class="section-update-badge hidden" aria-hidden="true"></span>
           <div class="home-tile-icon">📄</div>
           <div class="home-tile-title">Documents</div>
           <div class="home-tile-text">
@@ -3243,9 +3251,9 @@
 <div id="bottomNav" class="bottom-nav hidden">
   <div class="nav-inner">
     <button class="nav-item" id="navHome" onclick="openSection('home')"><span class="nav-icon">⌂</span>Home</button>
-    <button class="nav-item" id="navCalendar" onclick="openSection('calendar')"><span class="nav-icon">🗓️</span>Calendar</button>
+    <button class="nav-item" id="navCalendar" onclick="openSection('calendar')"><span id="calendarNavUpdateBadge" class="section-update-badge hidden" aria-hidden="true"></span><span class="nav-icon">🗓️</span>Calendar</button>
     <button class="nav-item" id="navShop" onclick="openSection('shop')"><span class="nav-icon">🛒</span>Shop</button>
-    <button class="nav-item" id="navChat" onclick="openSection('chat')"><span class="nav-icon">💬</span>Chat</button>
+    <button class="nav-item" id="navChat" onclick="openSection('chat')"><span id="chatNavUnreadBadge" class="nav-unread-badge hidden" aria-label="Unread chat messages"></span><span class="nav-icon">💬</span>Chat</button>
     <button class="nav-item" id="navCommunity" onclick="openSection('community')"><span class="nav-unread-badge hidden" id="communityNavUnreadBadge" aria-label="Unread private messages"></span><span class="nav-icon">👥</span>Community</button>
     <button class="nav-item" id="navProfile" onclick="openSection('profile')"><span class="nav-icon">👤</span>Profile</button>
   </div>
@@ -3573,6 +3581,7 @@
     currentAdminSection = null;
 
     stopChatRealtime();
+    stopChatUnreadRealtime();
     stopNotificationRealtime();
     stopCommunityConversationsRealtime();
     document.getElementById("communityMessageToast")?.setAttribute("hidden", "");
@@ -4001,11 +4010,18 @@
 
     startNotificationRealtime();
     startCommunityConversationsRealtime();
+    startChatUnreadRealtime();
+    updateSectionUpdateBadges();
 
     // Keep the device's Web Push subscription synchronized with the
     // currently logged-in account. This is what allows notifications to
     // arrive through the service worker even when the app is closed.
-    syncPushSubscriptionAfterLogin();
+    syncPushSubscriptionAfterLogin()
+      .then(() => ensureMembershipExpiryNotification())
+      .catch(error => {
+        console.error("Could not synchronize push before membership reminder:", error);
+        ensureMembershipExpiryNotification();
+      });
 
     // Mandatory push gate: only disappears when this device has an active
     // push permission + subscription. No skip/close action is provided.
@@ -6015,14 +6031,21 @@
 
 
     if (section === "news") {
+      void markSectionNotificationsRead(["news"]);
       loadNews();
     }
 
     if (section === "payments") {
+      void markSectionNotificationsRead(["payments", "membership"]);
       loadPayments();
     }
 
+    if (section === "membership") {
+      void markSectionNotificationsRead(["membership", "payments"]);
+    }
+
     if (section === "calendar") {
+      void markSectionNotificationsRead(["calendar", "training"]);
       loadClubCalendar();
     }
 
@@ -6031,11 +6054,13 @@
     }
 
     if (section === "documents") {
+      void markSectionNotificationsRead(["documents"]);
       loadDocuments();
     }
 
     if (section === "chat") {
       loadChatMessages();
+      void markChatRead();
       startChatRealtime();
     } else {
       stopChatRealtime();
@@ -6071,6 +6096,7 @@
     }
 
     if (section === "events") {
+      void markSectionNotificationsRead(["events"]);
       loadEvents();
     }
 
@@ -6440,14 +6466,18 @@
     }
     const recipientId = currentPrivateRecipientId;
     if (recipientId && recipientId !== currentUser.id) {
-      // Keep private message contents and sender details out of push previews.
-      void createNotification(
-        "New private message",
-        "You have a new private message.",
-        "chat",
-        `community-message:${currentPrivateConversationId}`,
-        recipientId
+      const { data: notificationId, error: notificationError } = await supabaseClient.rpc(
+        "create_community_private_message_notification",
+        { p_conversation_id: currentPrivateConversationId }
       );
+      if (notificationError) {
+        console.error("Could not create private-message notification:", notificationError);
+      } else if (notificationId) {
+        const { error: pushError } = await supabaseClient.functions.invoke("send-push", {
+          body: { notificationId }
+        });
+        if (pushError) console.error("Could not send private-message push:", pushError);
+      }
     }
     if (input) input.value = "";
     if (status) { status.textContent = ""; status.className = "message"; }
@@ -6589,7 +6619,11 @@
       return;
     }
     const active=currentMembership.status==="active"&&currentMembership.end_date>=getLocalDateString();
-    element.innerHTML=`<div class="home-membership-top"><div><div class="home-membership-title">Membership Status</div><div class="membership-status-chip ${active?"active":"inactive"}">${active?"ACTIVE":"INACTIVE"}</div><div class="membership-valid-label">Valid until</div><div class="membership-valid-date">${currentMembership.end_date?formatDate(currentMembership.end_date):"-"}</div></div><div class="membership-card-icon">🪪</div></div>`;
+    const tomorrowDate=new Date();tomorrowDate.setDate(tomorrowDate.getDate()+1);
+    const tomorrowKey=`${tomorrowDate.getFullYear()}-${String(tomorrowDate.getMonth()+1).padStart(2,"0")}-${String(tomorrowDate.getDate()).padStart(2,"0")}`;
+    const expiresTomorrow=active&&currentMembership.end_date===tomorrowKey;
+    const expiryWarning=expiresTomorrow?`<div class="message error" role="status" style="margin-top:12px">${getCurrentInterfaceLanguage()==="de"?"Mitgliedschaft endet morgen – bitte Zahlung rechtzeitig veranlassen.":getCurrentInterfaceLanguage()==="uk"?"Термін членства завершується завтра — будь ласка, вчасно здійсніть оплату.":"Membership expires tomorrow—please arrange payment."}</div>`:"";
+    element.innerHTML=`<div class="home-membership-top"><div><div class="home-membership-title">Membership Status</div><div class="membership-status-chip ${active?"active":"inactive"}">${active?"ACTIVE":"INACTIVE"}</div><div class="membership-valid-label">Valid until</div><div class="membership-valid-date">${currentMembership.end_date?formatDate(currentMembership.end_date):"-"}</div></div><div class="membership-card-icon">🪪</div></div>${expiryWarning}`;
   }
 
 
@@ -10945,6 +10979,131 @@
     );
   }
 
+
+  const SECTION_NOTIFICATION_MAP = {
+    news: ["news"], calendar: ["calendar", "training"], events: ["events"],
+    documents: ["documents"], membership: ["membership", "payments"], payments: ["payments", "membership"]
+  };
+
+  async function updateSectionUpdateBadges() {
+    if (!currentUser) return;
+    const { data, error } = await supabaseClient.from("notifications")
+      .select("id,user_id,created_by,type,link_section").order("created_at", { ascending: false }).limit(250);
+    if (error) { console.error("Could not load section update badges:", error); return; }
+    const notices = (data || []).filter(n => (!n.user_id || n.user_id === currentUser.id) && n.created_by !== currentUser.id && n.link_section);
+    const ids = notices.map(n => n.id);
+    let readSet = new Set();
+    if (ids.length) {
+      const { data: reads, error: readError } = await supabaseClient.from("notification_reads")
+        .select("notification_id").eq("user_id", currentUser.id).in("notification_id", ids);
+      if (readError) { console.error("Could not load section update reads:", readError); return; }
+      readSet = new Set((reads || []).map(r => r.notification_id));
+    }
+    const counts = {};
+    notices.forEach(n => {
+      if (readSet.has(n.id)) return;
+      const section = String(n.link_section || "").split(":")[0];
+      counts[section] = (counts[section] || 0) + 1;
+    });
+    const setDot = (id, shown) => document.getElementById(id)?.classList.toggle("hidden", !shown);
+    setDot("homeNewsUpdateBadge", !!counts.news);
+    setDot("homeCalendarUpdateBadge", !!(counts.calendar || counts.training));
+    setDot("calendarNavUpdateBadge", !!(counts.calendar || counts.training));
+    setDot("homeEventsUpdateBadge", !!(counts.events || counts.competition));
+    setDot("homeDocumentsUpdateBadge", !!counts.documents);
+    setDot("homeMembershipUpdateBadge", !!counts.membership);
+    setDot("homePaymentsUpdateBadge", !!counts.payments);
+  }
+
+  async function markSectionNotificationsRead(linkSections) {
+    if (!currentUser || !Array.isArray(linkSections) || !linkSections.length) return;
+    const { data, error } = await supabaseClient.from("notifications").select("id,user_id,link_section")
+      .or(`user_id.is.null,user_id.eq.${currentUser.id}`).in("link_section", linkSections);
+    if (error) { console.error("Could not mark section updates read:", error); return; }
+    const ids = (data || []).map(n => n.id);
+    if (!ids.length) { await updateSectionUpdateBadges(); return; }
+    const { data: reads, error: readError } = await supabaseClient.from("notification_reads")
+      .select("notification_id").eq("user_id", currentUser.id).in("notification_id", ids);
+    if (readError) { console.error("Could not read section update state:", readError); return; }
+    const existing = new Set((reads || []).map(r => r.notification_id));
+    const rows = ids.filter(id => !existing.has(id)).map(notification_id => ({ user_id: currentUser.id, notification_id }));
+    if (rows.length) {
+      const { error: insertError } = await supabaseClient.from("notification_reads").insert(rows);
+      if (insertError) console.error("Could not mark section updates read:", insertError);
+    }
+    await Promise.all([loadNotificationBadge(), updateSectionUpdateBadges()]);
+  }
+
+  let chatUnreadRealtimeChannel = null;
+  let chatUnreadRealtimeUserId = null;
+
+  async function ensureChatReadState() {
+    if (!currentUser) return null;
+    const { data, error } = await supabaseClient.from("chat_read_states").select("last_read_at")
+      .eq("user_id", currentUser.id).maybeSingle();
+    if (error) { console.error("Could not load chat read state:", error); return null; }
+    if (data) return data.last_read_at;
+    const { data: created, error: insertError } = await supabaseClient.from("chat_read_states")
+      .insert({ user_id: currentUser.id, last_read_at: new Date().toISOString() }).select("last_read_at").maybeSingle();
+    if (insertError) { console.error("Could not initialize chat read state:", insertError); return null; }
+    return created?.last_read_at || new Date().toISOString();
+  }
+
+  async function updateChatUnreadBadge() {
+    const badge = document.getElementById("chatNavUnreadBadge");
+    if (!badge || !currentUser) return;
+    const lastReadAt = await ensureChatReadState();
+    if (!lastReadAt) { badge.classList.add("hidden"); return; }
+    const { count, error } = await supabaseClient.from("chat_messages").select("id", { count: "exact", head: true })
+      .neq("user_id", currentUser.id).gt("created_at", lastReadAt);
+    if (error) { console.error("Could not count unread club chat messages:", error); return; }
+    const n = count || 0;
+    badge.textContent = n > 99 ? "99+" : String(n);
+    badge.classList.toggle("hidden", n === 0);
+    badge.setAttribute("aria-label", `${n} unread chat messages`);
+  }
+
+  async function markChatRead() {
+    if (!currentUser) return;
+    const { error } = await supabaseClient.from("chat_read_states").upsert({
+      user_id: currentUser.id, last_read_at: new Date().toISOString(), updated_at: new Date().toISOString()
+    }, { onConflict: "user_id" });
+    if (error) { console.error("Could not mark club chat read:", error); return; }
+    await updateChatUnreadBadge();
+  }
+
+  function startChatUnreadRealtime() {
+    if (!currentUser || chatUnreadRealtimeUserId === currentUser.id) return;
+    stopChatUnreadRealtime();
+    chatUnreadRealtimeUserId = currentUser.id;
+    chatUnreadRealtimeChannel = supabaseClient.channel("club-chat-unread-" + currentUser.id)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, payload => {
+        if (payload.new?.user_id === currentUser?.id) return;
+        const section = document.getElementById("chatSection");
+        if (section && !section.classList.contains("hidden")) void markChatRead();
+        else void updateChatUnreadBadge();
+      }).subscribe();
+    void updateChatUnreadBadge();
+  }
+
+  function stopChatUnreadRealtime() {
+    if (chatUnreadRealtimeChannel) supabaseClient.removeChannel(chatUnreadRealtimeChannel);
+    chatUnreadRealtimeChannel = null;
+    chatUnreadRealtimeUserId = null;
+  }
+
+  async function ensureMembershipExpiryNotification() {
+    if (!currentUser) return;
+    const { data: notificationId, error } = await supabaseClient.rpc("create_own_membership_expiry_notification", {
+      p_language: getCurrentInterfaceLanguage()
+    });
+    if (error) { console.error("Could not create membership expiry reminder:", error); return; }
+    if (notificationId) {
+      await loadNotificationBadge();
+      const { error: pushError } = await supabaseClient.functions.invoke("send-push", { body: { notificationId } });
+      if (pushError) console.error("Could not send membership expiry push:", pushError);
+    }
+  }
 
   async function loadNotifications(
     markRead = false
@@ -23587,6 +23746,7 @@
             }
 
             await loadNotificationBadge();
+            await updateSectionUpdateBadges();
 
             const preferences =
               await getNotificationPreferences();
