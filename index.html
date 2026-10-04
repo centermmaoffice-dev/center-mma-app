@@ -520,9 +520,30 @@
     .community-profile-name { font-size:23px; font-weight:900; overflow-wrap:anywhere; }
     .community-detail-card { padding:16px; background:#151515; border:1px solid #272727; border-radius:14px; margin-top:12px; }
     .community-detail-heading { color:#888; font-size:11px; text-transform:uppercase; letter-spacing:1px; margin-bottom:9px; }
-    .community-message-button { width:100%; margin-top:16px; opacity:.7; cursor:not-allowed; }
+    .community-message-button { width:100%; margin-top:16px; cursor:pointer; }
+    .community-message-button:disabled { opacity:.7; cursor:not-allowed; }
     .community-athlete-card { color:#fff; text-align:left; font-family:inherit; cursor:pointer; }
     .community-athlete-card:hover { border-color:#555; }
+    .community-social-actions { display:flex; justify-content:flex-end; margin:0 0 12px; }
+    .community-messages-list { display:flex; flex-direction:column; gap:8px; }
+    .community-conversation { width:100%; display:flex; align-items:center; gap:11px; padding:12px; text-align:left; color:#fff; background:#151515; border:1px solid #272727; border-radius:12px; cursor:pointer; }
+    .community-conversation-avatar { width:44px; height:44px; flex:0 0 44px; border-radius:50%; overflow:hidden; background:#242424; display:flex; align-items:center; justify-content:center; color:#bbb; font-weight:800; }
+    .community-conversation-avatar img { width:100%; height:100%; object-fit:cover; }
+    .community-conversation-copy { flex:1; min-width:0; }
+    .community-conversation-top { display:flex; justify-content:space-between; gap:8px; align-items:center; }
+    .community-conversation-name { font-size:14px; font-weight:800; }
+    .community-conversation-time { color:#888; font-size:11px; white-space:nowrap; }
+    .community-conversation-preview { color:#999; font-size:12px; margin-top:4px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    .community-unread-badge { min-width:20px; height:20px; padding:0 6px; display:flex; align-items:center; justify-content:center; border-radius:12px; background:#ff2b2b; color:#fff; font-size:11px; font-weight:800; }
+    .community-private-chat { display:flex; flex-direction:column; height:calc(100dvh - 220px); min-height:280px; }
+    .community-private-messages { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding:12px 2px; }
+    .community-private-bubble { max-width:82%; padding:9px 12px; border-radius:14px; background:#202020; align-self:flex-start; overflow-wrap:anywhere; }
+    .community-private-bubble.mine { background:#292929; border:1px solid #713030; align-self:flex-end; }
+    .community-private-time { color:#999; font-size:10px; text-align:right; margin-top:4px; }
+    .community-private-compose { display:flex; align-items:flex-end; gap:8px; padding-top:8px; border-top:1px solid #292929; }
+    .community-private-compose textarea { flex:1; margin:0; min-height:44px; max-height:120px; resize:vertical; }
+    .community-private-compose button { width:auto; margin:0; }
+    .community-private-back { width:auto; }
 
     .login-switch {
       text-align: center;
@@ -2348,12 +2369,25 @@
     <div id="communitySection" class="hidden">
       <div id="communityListView">
         <div class="section-title"><button class="secondary back-button" onclick="goBackInApp()">← BACK</button><h2>Community</h2></div>
+        <div class="community-social-actions"><button class="secondary" style="width:auto;margin:0;" onclick="openCommunityMessages()">My Messages</button></div>
         <input id="communitySearch" class="community-search" type="search" placeholder="Search athletes by name" oninput="filterCommunityAthletes()" autocomplete="off">
         <div id="communityAthletes" class="community-athlete-grid"><div class="empty">Loading athletes...</div></div>
       </div>
       <div id="communityAthleteView" class="hidden">
         <div class="section-title"><button class="secondary back-button" onclick="closeCommunityAthlete()">← COMMUNITY</button><h2>Athlete</h2></div>
         <div id="communityAthleteDetails"><div class="empty">Loading athlete...</div></div>
+      </div>
+      <div id="communityMessagesView" class="hidden">
+        <div class="section-title"><button class="secondary back-button" onclick="closeCommunityMessages()">← COMMUNITY</button><h2>My Messages</h2></div>
+        <div id="communityConversations" class="community-messages-list"><div class="empty">Loading messages...</div></div>
+      </div>
+      <div id="communityPrivateChatView" class="hidden">
+        <div class="section-title"><button class="secondary back-button community-private-back" onclick="closeCommunityPrivateChat()">← MESSAGES</button><h2 id="communityPrivateChatName">Private Chat</h2></div>
+        <div class="community-private-chat">
+          <div id="communityPrivateMessages" class="community-private-messages"><div class="empty">Loading conversation...</div></div>
+          <div class="community-private-compose"><textarea id="communityPrivateInput" rows="1" maxlength="4000" placeholder="Write a private message..."></textarea><button id="communityPrivateSend" onclick="sendCommunityPrivateMessage()">SEND</button></div>
+          <div id="communityPrivateStatus" class="message"></div>
+        </div>
       </div>
     </div>
 
@@ -3243,6 +3277,10 @@
   let chatRealtimeChannel = null;
   let chatRefreshTimer = null;
   let notificationRealtimeChannel = null;
+  let communityPrivateRealtimeChannel = null;
+  let communityConversationsRealtimeChannels = [];
+  let currentPrivateConversationId = null;
+  let currentPrivateRecipientId = null;
   let membershipActivationTimer = null;
   let membershipActivationCheckRunning = false;
   let deferredInstallPrompt = null;
@@ -5941,6 +5979,10 @@
       nav.classList.add("active");
     }
 
+    if (section !== "community") {
+      stopCommunityPrivateRealtime();
+    }
+
 
     if (section === "news") {
       loadNews();
@@ -6025,9 +6067,11 @@
   async function loadCommunityAthletes() {
     const element = document.getElementById("communityAthletes");
     if (!element || !currentUser) return;
+    stopCommunityPrivateRealtime();
+    currentPrivateConversationId = null;
+    currentPrivateRecipientId = null;
     currentCommunityAthlete = null;
-    document.getElementById("communityListView")?.classList.remove("hidden");
-    document.getElementById("communityAthleteView")?.classList.add("hidden");
+    setCommunitySubview("communityListView");
     element.innerHTML = '<div class="empty">Loading athletes...</div>';
 
     const { data, error } = await supabaseClient
@@ -6064,7 +6108,11 @@
     const photo = profile.photo_url
       ? `<img src="${escapeHtml(profile.photo_url)}" alt="">`
       : escapeHtml(name.charAt(0).toUpperCase());
-    element.innerHTML = `<div class="community-profile"><div class="community-profile-avatar">${photo}</div><div class="community-profile-name">${escapeHtml(name)}</div><button type="button" class="secondary community-message-button" disabled aria-disabled="true" title="Private messaging will be added in a later step">Message</button></div><div id="communityGroups" class="community-detail-card"><div class="community-detail-heading">Groups</div><div class="empty">Loading groups...</div></div><div id="communityCompetition"></div>`;
+    const isSelf = athlete.user_id === currentUser?.id;
+    const messageButton = isSelf
+      ? '<button type="button" class="secondary community-message-button" disabled aria-disabled="true">Message</button>'
+      : `<button type="button" class="community-message-button" onclick="startCommunityPrivateMessage('${escapeHtml(athlete.id)}')">Message</button>`;
+    element.innerHTML = `<div class="community-profile"><div class="community-profile-avatar">${photo}</div><div class="community-profile-name">${escapeHtml(name)}</div>${messageButton}</div><div id="communityGroups" class="community-detail-card"><div class="community-detail-heading">Groups</div><div class="empty">Loading groups...</div></div><div id="communityCompetition"></div>`;
 
     const [groupsResult, registrationsResult] = await Promise.all([
       supabaseClient.from("group_members").select("group_id, groups ( id, name )").eq("member_id", athlete.id),
@@ -6098,8 +6146,202 @@
 
   function closeCommunityAthlete() {
     currentCommunityAthlete = null;
+    stopCommunityPrivateRealtime();
     document.getElementById("communityAthleteView")?.classList.add("hidden");
     document.getElementById("communityListView")?.classList.remove("hidden");
+  }
+
+  function setCommunitySubview(activeId) {
+    ["communityListView", "communityAthleteView", "communityMessagesView", "communityPrivateChatView"].forEach(id => {
+      document.getElementById(id)?.classList.toggle("hidden", id !== activeId);
+    });
+  }
+
+  async function startCommunityPrivateMessage(memberId) {
+    const athlete = communityAthletes.find(member => member.id === memberId);
+    if (!athlete?.user_id || athlete.user_id === currentUser?.id) return;
+    const button = document.querySelector("#communityAthleteDetails .community-message-button");
+    if (button) button.disabled = true;
+    const { data, error } = await supabaseClient.rpc("get_or_create_community_private_conversation", {
+      p_other_user_id: athlete.user_id
+    });
+    if (button) button.disabled = false;
+    if (error || !data) {
+      console.error("Could not open private conversation:", error);
+      alert("Private messaging is not available yet. Please contact the club if this continues.");
+      return;
+    }
+    const name = [athlete.first_name, athlete.last_name].filter(Boolean).join(" ").trim() || "Athlete";
+    await openCommunityPrivateConversation(data, athlete.user_id, name);
+  }
+
+  async function openCommunityMessages() {
+    stopCommunityPrivateRealtime();
+    setCommunitySubview("communityMessagesView");
+    await loadCommunityConversations();
+    startCommunityConversationsRealtime();
+  }
+
+  function closeCommunityMessages() {
+    stopCommunityPrivateRealtime();
+    setCommunitySubview("communityListView");
+  }
+
+  function communityMessageTime(value) {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+    if (sameDay(date, today)) return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    if (sameDay(date, yesterday)) return "Yesterday";
+    return date.toLocaleDateString([], { weekday: "short" });
+  }
+
+  async function loadCommunityConversations() {
+    const element = document.getElementById("communityConversations");
+    if (!element || !currentUser) return;
+    element.innerHTML = '<div class="empty">Loading messages...</div>';
+    const { data, error } = await supabaseClient.rpc("get_community_private_conversation_summaries");
+    if (error) {
+      console.error("Could not load private conversations:", error);
+      element.innerHTML = '<div class="message error">Private messages are not enabled yet. Apply the Community private messaging database migration.</div>';
+      return;
+    }
+    const rows = data || [];
+    if (!rows.length) {
+      element.innerHTML = '<div class="empty">No private conversations yet. Open an athlete page and tap Message to start one.</div>';
+      return;
+    }
+    const profiles = await getChatProfiles(rows.map(row => row.other_user_id));
+    rows.sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
+    element.innerHTML = rows.map(row => {
+      const profile = profiles[row.other_user_id] || {};
+      const name = [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim() || "Member";
+      const avatar = profile.photo_url ? `<img src="${escapeHtml(profile.photo_url)}" alt="">` : escapeHtml(name.charAt(0).toUpperCase());
+      const preview = String(row.last_message || "No messages yet").slice(0, 140);
+      const unread = Number(row.unread_count || 0);
+      return `<button type="button" class="community-conversation" onclick="openCommunityPrivateConversation('${escapeHtml(row.conversation_id)}','${escapeHtml(row.other_user_id)}','${escapeHtml(name)}')"><div class="community-conversation-avatar">${avatar}</div><div class="community-conversation-copy"><div class="community-conversation-top"><span class="community-conversation-name">${escapeHtml(name)}</span><span class="community-conversation-time">${escapeHtml(communityMessageTime(row.last_message_at))}</span></div><div class="community-conversation-preview">${escapeHtml(preview)}</div></div>${unread ? `<span class="community-unread-badge">${unread > 99 ? "99+" : unread}</span>` : ""}</button>`;
+    }).join("");
+  }
+
+  async function openCommunityPrivateConversation(conversationId, otherUserId, knownName) {
+    if (!conversationId || !otherUserId) return;
+    stopCommunityPrivateRealtime();
+    currentPrivateConversationId = conversationId;
+    currentPrivateRecipientId = otherUserId;
+    setCommunitySubview("communityPrivateChatView");
+    const nameElement = document.getElementById("communityPrivateChatName");
+    if (nameElement) nameElement.textContent = knownName || "Private Chat";
+    if (!knownName) {
+      const profiles = await getChatProfiles([otherUserId]);
+      const profile = profiles[otherUserId] || {};
+      if (nameElement) nameElement.textContent = [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Member";
+    }
+    await loadCommunityPrivateMessages();
+    startCommunityPrivateRealtime(conversationId);
+  }
+
+  async function loadCommunityPrivateMessages() {
+    const element = document.getElementById("communityPrivateMessages");
+    if (!element || !currentPrivateConversationId) return;
+    element.innerHTML = '<div class="empty">Loading conversation...</div>';
+    const { data, error } = await supabaseClient.from("community_private_messages")
+      .select("id, conversation_id, sender_id, body, created_at, read_at")
+      .eq("conversation_id", currentPrivateConversationId)
+      .order("created_at", { ascending: true })
+      .limit(500);
+    if (error) {
+      console.error("Could not load private messages:", error);
+      element.innerHTML = '<div class="message error">Could not load this private conversation.</div>';
+      return;
+    }
+    const messages = data || [];
+    element.innerHTML = messages.length ? messages.map(message => {
+      const mine = message.sender_id === currentUser?.id;
+      return `<div class="community-private-bubble${mine ? " mine" : ""}">${escapeHtml(message.body)}<div class="community-private-time">${escapeHtml(new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}</div></div>`;
+    }).join("") : '<div class="empty">Say hello to start the conversation.</div>';
+    element.scrollTop = element.scrollHeight;
+    const input = document.getElementById("communityPrivateInput");
+    input?.focus({ preventScroll: true });
+    if (input) input.onkeydown = event => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        sendCommunityPrivateMessage();
+      }
+    };
+    const { error: readError } = await supabaseClient.from("community_private_messages")
+      .update({ read_at: new Date().toISOString() })
+      .eq("conversation_id", currentPrivateConversationId)
+      .neq("sender_id", currentUser.id)
+      .is("read_at", null);
+    if (readError) console.error("Could not mark private messages as read:", readError);
+  }
+
+  async function sendCommunityPrivateMessage() {
+    const input = document.getElementById("communityPrivateInput");
+    const button = document.getElementById("communityPrivateSend");
+    const status = document.getElementById("communityPrivateStatus");
+    const body = String(input?.value || "").trim();
+    if (!body || !currentPrivateConversationId || !currentUser) return;
+    if (button) button.disabled = true;
+    const { error } = await supabaseClient.from("community_private_messages").insert({
+      conversation_id: currentPrivateConversationId,
+      sender_id: currentUser.id,
+      body
+    });
+    if (button) button.disabled = false;
+    if (error) {
+      console.error("Could not send private message:", error);
+      if (status) { status.textContent = "Message could not be sent."; status.className = "message error"; }
+      return;
+    }
+    if (input) input.value = "";
+    if (status) { status.textContent = ""; status.className = "message"; }
+    await loadCommunityPrivateMessages();
+  }
+
+  async function closeCommunityPrivateChat() {
+    stopCommunityPrivateRealtime();
+    currentPrivateConversationId = null;
+    currentPrivateRecipientId = null;
+    setCommunitySubview("communityMessagesView");
+    await loadCommunityConversations();
+    startCommunityConversationsRealtime();
+  }
+
+  function startCommunityPrivateRealtime(conversationId) {
+    stopCommunityPrivateRealtime();
+    communityPrivateRealtimeChannel = supabaseClient.channel(`community-private-${conversationId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "community_private_messages", filter: `conversation_id=eq.${conversationId}` }, async () => {
+        if (currentPrivateConversationId === conversationId) await loadCommunityPrivateMessages();
+      })
+      .subscribe();
+  }
+
+  function startCommunityConversationsRealtime() {
+    stopCommunityPrivateRealtime();
+    if (!currentUser) return;
+    const refresh = () => {
+      if (!document.getElementById("communityMessagesView")?.classList.contains("hidden")) loadCommunityConversations();
+    };
+    ["user_low_id", "user_high_id"].forEach(column => {
+      const channel = supabaseClient.channel(`community-conversations-${column}-${currentUser.id}`)
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "community_private_conversations", filter: `${column}=eq.${currentUser.id}` }, refresh)
+        .subscribe();
+      communityConversationsRealtimeChannels.push(channel);
+    });
+  }
+
+  function stopCommunityPrivateRealtime() {
+    if (communityPrivateRealtimeChannel) {
+      supabaseClient.removeChannel(communityPrivateRealtimeChannel);
+      communityPrivateRealtimeChannel = null;
+    }
+    communityConversationsRealtimeChannels.forEach(channel => supabaseClient.removeChannel(channel));
+    communityConversationsRealtimeChannels = [];
   }
   function filterCommunityAthletes() {
     const element = document.getElementById("communityAthletes");
