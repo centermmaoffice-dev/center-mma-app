@@ -6453,11 +6453,11 @@
     const body = String(input?.value || "").trim();
     if (!body || !currentPrivateConversationId || !currentUser) return;
     if (button) button.disabled = true;
-    const { error } = await supabaseClient.from("community_private_messages").insert({
+    const { data: sentMessage, error } = await supabaseClient.from("community_private_messages").insert({
       conversation_id: currentPrivateConversationId,
       sender_id: currentUser.id,
       body
-    });
+    }).select("id").single();
     if (button) button.disabled = false;
     if (error) {
       console.error("Could not send private message:", error);
@@ -6468,7 +6468,7 @@
     if (recipientId && recipientId !== currentUser.id) {
       const { data: notificationId, error: notificationError } = await supabaseClient.rpc(
         "create_community_private_message_notification",
-        { p_conversation_id: currentPrivateConversationId }
+        { p_conversation_id: currentPrivateConversationId, p_message_id: sentMessage.id }
       );
       if (notificationError) {
         console.error("Could not create private-message notification:", notificationError);
