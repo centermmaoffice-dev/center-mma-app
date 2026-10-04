@@ -2475,7 +2475,6 @@
       </div>
 
 
-      <div id="shopAdminToolsMount"></div>
 
       <div class="shop-toolbar">
         <div class="muted small">CENTER MMA merchandise</div>
@@ -2691,7 +2690,7 @@
               💬 Chat messages
             </div>
             <div class="notification-setting-text">
-              Notifications about new club chat messages.
+              Notifications about new club and private chat messages.
             </div>
           </div>
 
@@ -3033,7 +3032,7 @@
               💬 Chat messages
             </div>
             <div id="notifChatText" class="notification-setting-text">
-              Notify me about new club chat messages.
+              Notify me about new club and private chat messages.
             </div>
           </div>
           <input id="notifPrefChat" type="checkbox" class="notification-checkbox">
@@ -6307,6 +6306,17 @@
       console.error("Could not send private message:", error);
       if (status) { status.textContent = "Message could not be sent."; status.className = "message error"; }
       return;
+    }
+    const recipientId = currentPrivateRecipientId;
+    if (recipientId && recipientId !== currentUser.id) {
+      // Keep private message contents and sender details out of push previews.
+      void createNotification(
+        "New private message",
+        "You have a new private message.",
+        "chat",
+        "community",
+        recipientId
+      );
     }
     if (input) input.value = "";
     if (status) { status.textContent = ""; status.className = "message"; }
@@ -12445,6 +12455,17 @@
           <div class="feature-text">Visibility, profile details and displayed groups</div>
         </div>
 
+        ${currentUser?.id === SHOP_ADMIN_USER_ID ? `
+        <div
+          class="feature"
+          onclick="openAdminSection('shop')"
+        >
+          <div class="feature-icon">🛍️</div>
+          <div class="feature-title">Shop Management</div>
+          <div class="feature-text">Products, stock and orders</div>
+        </div>
+        ` : ""}
+
 
         <div
           class="feature"
@@ -12570,6 +12591,8 @@
         "Groups",
       community:
         "Community Management",
+      shop:
+        "Shop Management",
       notifications:
         "Notifications",
       tools:
@@ -12684,6 +12707,16 @@
       await loadAdminCommunityManagement(
         content
       );
+
+    } else if (
+      section === "shop"
+    ) {
+
+      if (currentUser?.id !== SHOP_ADMIN_USER_ID) {
+        content.innerHTML = `<div class="card"><p>Access denied.</p></div>`;
+        return;
+      }
+      await loadAdminShopManagement(content);
 
     } else if (
       section === "notifications"
@@ -22759,7 +22792,7 @@
         mandatoryTitle: "🔒 Wichtige Vereinsmitteilungen",
         mandatoryText: "Admin-, Gruppen-, Zahlungs-, Mitgliedschafts- und Kontomitteilungen. Immer aktiviert.",
         chatTitle: "💬 Chat-Nachrichten",
-        chatText: "Benachrichtige mich über neue Nachrichten im Vereinschat.",
+        chatText: "Benachrichtige mich über neue Nachrichten im Vereins- und Privat-Chat.",
         reminderTitle: "⏰ Trainingserinnerungen (2 Stunden vorher)",
         reminderText: "Erinnerungen vor bevorstehenden Trainingseinheiten.",
         changesTitle: "🥋 Trainingsänderungen",
@@ -22815,7 +22848,7 @@
         mandatoryTitle: "🔒 Important club notifications",
         mandatoryText: "Admin, group, payment, membership and account notifications. Always enabled.",
         chatTitle: "💬 Chat messages",
-        chatText: "Notify me about new club chat messages.",
+        chatText: "Notify me about new club and private chat messages.",
         reminderTitle: "⏰ Training reminders (2 hours before)",
         reminderText: "Reminders before upcoming training sessions.",
         changesTitle: "🥋 Training changes",
@@ -22871,7 +22904,7 @@
         mandatoryTitle: "🔒 Важливі повідомлення клубу",
         mandatoryText: "Повідомлення адміністрації, груп, оплати, членства та облікового запису. Завжди увімкнені.",
         chatTitle: "💬 Повідомлення чату",
-        chatText: "Сповіщати мене про нові повідомлення в чаті клубу.",
+        chatText: "Сповіщати мене про нові повідомлення в клубному та приватному чатах.",
         reminderTitle: "⏰ Нагадування про тренування (за 2 години)",
         reminderText: "Нагадування перед майбутніми тренуваннями.",
         changesTitle: "🥋 Зміни тренувань",
@@ -23812,69 +23845,6 @@
   async function loadShop() {
     loadShopCartFromStorage();
 
-    const adminMount =
-      document.getElementById(
-        "shopAdminToolsMount"
-      );
-
-    // Remove admin UI from the DOM every time Shop opens.
-    if (adminMount) {
-      adminMount.innerHTML = "";
-    }
-
-    let canManageShop = false;
-
-    try {
-      const {
-        data: adminAllowed,
-        error: adminCheckError
-      } = await supabaseClient
-        .rpc("is_admin");
-
-      if (adminCheckError) {
-        console.error(
-          "Shop admin check failed:",
-          adminCheckError
-        );
-      }
-
-      canManageShop =
-        adminAllowed === true &&
-        currentMember?.role === "admin" &&
-        currentUser?.id === SHOP_ADMIN_USER_ID;
-    } catch (error) {
-      console.error(
-        "Shop admin check failed:",
-        error
-      );
-    }
-
-    // Admin controls are created only after a positive server-side check.
-    if (
-      adminMount &&
-      canManageShop
-    ) {
-      adminMount.innerHTML = `
-        <div
-          id="shopAdminTools"
-          style="margin-bottom:14px;"
-        >
-          <button
-            class="secondary"
-            onclick="toggleShopAdminTools()"
-          >
-            ⚙ MANAGE SHOP
-          </button>
-
-          <div
-            id="shopAdminToolsContent"
-            class="hidden"
-            style="margin-top:12px;"
-          ></div>
-        </div>
-      `;
-    }
-
     if (shopViewMode === "cart") {
       showShopCart();
     } else {
@@ -23885,6 +23855,17 @@
       loadShopProducts(),
       loadMyShopOrders()
     ]);
+  }
+
+  async function loadAdminShopManagement(element) {
+    if (!element) return;
+    const { data: adminAllowed, error } = await supabaseClient.rpc("is_admin");
+    if (error || adminAllowed !== true || currentMember?.role !== "admin" || currentUser?.id !== SHOP_ADMIN_USER_ID) {
+      element.innerHTML = `<div class="card"><p>Shop management access denied.</p></div>`;
+      return;
+    }
+    element.innerHTML = `<div id="adminShopManagementContent"></div>`;
+    await loadAdminShop(document.getElementById("adminShopManagementContent"));
   }
 
   async function loadShopProducts() {
