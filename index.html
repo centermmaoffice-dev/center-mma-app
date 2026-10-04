@@ -6076,12 +6076,7 @@
     setCommunitySubview("communityListView");
     element.innerHTML = '<div class="empty">Loading athletes...</div>';
 
-    const { data, error } = await supabaseClient
-      .from("members")
-      .select("id, user_id, first_name, last_name")
-      .eq("is_active", true)
-      .order("last_name", { ascending: true })
-      .order("first_name", { ascending: true });
+    const { data, error } = await supabaseClient.rpc("get_community_directory");
 
     if (error) {
       console.error("Could not load Community athletes:", error);
@@ -6089,22 +6084,49 @@
       return;
     }
 
-    communityAthletes = (data || []).filter(member => member.user_id);
-    const profiles = await getChatProfiles(communityAthletes.map(member => member.user_id));
-    communityAthletes = communityAthletes.map(member => ({ ...member, profile: profiles[member.user_id] || {} }));
+    communityAthletes = await Promise.all((data || []).filter(member => member.user_id).map(async member => {
+      let photoUrl = "";
+      if (member.photo_path) {
+        const { data: signed, error: signedError } = await supabaseClient.storage
+          .from("member-photos")
+          .createSignedUrl(member.photo_path, 3600);
+        if (!signedError) photoUrl = signed?.signedUrl || "";
+      }
+      return {
+        ...member,
+        profile: { photo_url: photoUrl }
+      };
+    }));
     filterCommunityAthletes();
   }
 
   let currentCommunityAthlete = null;
 
   async function openCommunityAthlete(memberId) {
-    const athlete = communityAthletes.find(member => member.id === memberId);
-    if (!athlete) return;
-    currentCommunityAthlete = athlete;
-    document.getElementById("communityListView")?.classList.add("hidden");
-    document.getElementById("communityAthleteView")?.classList.remove("hidden");
+    const cachedAthlete = communityAthletes.find(member => member.id === memberId);
+    if (!cachedAthlete) return;
+    setCommunitySubview("communityAthleteView");
     const element = document.getElementById("communityAthleteDetails");
     if (!element) return;
+    element.innerHTML = '<div class="empty">Loading athlete...</div>';
+    const { data, error } = await supabaseClient.rpc("get_community_athlete_details", {
+      p_member_id: memberId
+    });
+    if (error || !data?.member) {
+      console.error("Could not load Community athlete details:", error);
+      element.innerHTML = '<div class="card"><div class="empty">This Community page is no longer available.</div></div>';
+      return;
+    }
+    const athlete = {
+      ...cachedAthlete,
+      ...data.member,
+      profile: {
+        photo_url: data.member.photo_path ? cachedAthlete.profile?.photo_url || "" : ""
+      },
+      groups: Array.isArray(data.groups) ? data.groups : [],
+      upcoming_competition: data.upcoming_competition || null
+    };
+    currentCommunityAthlete = athlete;
     const name = String(athlete.first_name || "Athlete").trim();
     const profile = athlete.profile || {};
     const photo = profile.photo_url
@@ -6116,30 +6138,15 @@
       : `<button type="button" class="community-message-button" onclick="startCommunityPrivateMessage('${escapeHtml(athlete.id)}')">Message</button>`;
     element.innerHTML = `<div class="community-profile"><div class="community-profile-avatar">${photo}</div><div class="community-profile-name">${escapeHtml(name)}</div>${messageButton}</div><div id="communityGroups" class="community-detail-card"><div class="community-detail-heading">Groups</div><div class="empty">Loading groups...</div></div><div id="communityCompetition"></div>`;
 
-    const [groupsResult, registrationsResult] = await Promise.all([
-      supabaseClient.from("group_members").select("group_id, groups ( id, name )").eq("member_id", athlete.id),
-      supabaseClient.from("competition_registrations").select("id, status, competitions ( id, title, date, location )").eq("member_id", athlete.id).eq("status", "approved")
-    ]);
-
     const groupsElement = document.getElementById("communityGroups");
     if (groupsElement) {
-      if (groupsResult.error) {
-        console.error("Could not load Community athlete groups:", groupsResult.error);
-        groupsElement.innerHTML = '<div class="community-detail-heading">Groups</div><div class="muted small">Groups are unavailable.</div>';
-      } else {
-        const groups = (groupsResult.data || []).map(row => row.groups).filter(group => group?.name);
-        groupsElement.innerHTML = `<div class="community-detail-heading">Groups</div>${groups.length ? groups.map(group => `<span class="admin-badge" style="display:inline-block;margin:2px 5px 2px 0;">${escapeHtml(group.name)}</span>`).join("") : '<div class="muted small">No groups listed.</div>'}`;
-      }
+      const groups = athlete.groups.filter(group => group?.name);
+      groupsElement.innerHTML = `<div class="community-detail-heading">Groups</div>${groups.length ? groups.map(group => `<span class="admin-badge" style="display:inline-block;margin:2px 5px 2px 0;">${escapeHtml(group.name)}</span>`).join("") : '<div class="muted small">No groups listed.</div>'}`;
     }
 
     const competitionElement = document.getElementById("communityCompetition");
-    if (competitionElement && !registrationsResult.error) {
-      const today = getLocalDateString();
-      const upcoming = (registrationsResult.data || [])
-        .map(row => row.competitions)
-        .flat()
-        .filter(competition => competition?.date && String(competition.date).slice(0, 10) >= today)
-        .sort((a, b) => String(a.date).localeCompare(String(b.date)))[0];
+    if (competitionElement) {
+      const upcoming = athlete.upcoming_competition;
       if (upcoming) {
         competitionElement.innerHTML = `<div class="community-detail-card"><div class="community-detail-heading">Upcoming Competition</div><div style="font-weight:800;">${escapeHtml(upcoming.title || "Competition")}</div><div class="muted small" style="margin-top:5px;">${escapeHtml(formatDate(upcoming.date))}${upcoming.location ? ` · ${escapeHtml(upcoming.location)}` : ""}</div></div>`;
       }
@@ -6370,7 +6377,7 @@
     if (!element) return;
     const query = String(input?.value || "").trim().toLocaleLowerCase();
     const filtered = communityAthletes.filter(member => {
-      const name = [member.first_name, member.last_name].filter(Boolean).join(" ").toLocaleLowerCase();
+      const name = String(member.first_name || "").toLocaleLowerCase();
       return name.includes(query);
     });
 
@@ -6380,7 +6387,7 @@
     }
 
     element.innerHTML = filtered.map(member => {
-      const name = [member.first_name, member.last_name].filter(Boolean).join(" ").trim() || "Athlete";
+      const name = String(member.first_name || "Athlete").trim();
       const photo = member.profile.photo_url
         ? `<img src="${escapeHtml(member.profile.photo_url)}" alt="">`
         : escapeHtml(name.charAt(0).toUpperCase());
@@ -12431,6 +12438,16 @@
 
         <div
           class="feature"
+          onclick="openAdminSection('community')"
+        >
+          <div class="feature-icon">🌐</div>
+          <div class="feature-title">Community</div>
+          <div class="feature-text">Visibility, profile details and displayed groups</div>
+        </div>
+
+
+        <div
+          class="feature"
           onclick="openAdminSection('notifications')"
         >
           <div class="feature-icon">🔔</div>
@@ -12551,6 +12568,8 @@
         "Members",
       groups:
         "Groups",
+      community:
+        "Community Management",
       notifications:
         "Notifications",
       tools:
@@ -12655,6 +12674,14 @@
     ) {
 
       await loadAdminGroups(
+        content
+      );
+
+    } else if (
+      section === "community"
+    ) {
+
+      await loadAdminCommunityManagement(
         content
       );
 
@@ -15060,6 +15087,93 @@
   /* =========================
      ADMIN GROUPS
   ========================= */
+
+  async function loadAdminCommunityManagement(element) {
+    if (!isAdmin || !element) return;
+    element.innerHTML = '<div class="card"><div class="empty">Loading Community controls...</div></div>';
+    const [membersResult, groupsResult, hiddenGroupsResult] = await Promise.all([
+      supabaseClient.from("members")
+        .select("id, user_id, first_name, last_name, is_active, community_visible, community_show_photo, community_show_groups, community_show_upcoming_competition")
+        .order("first_name", { ascending: true }),
+      supabaseClient.from("group_members")
+        .select("member_id, group_id, groups ( id, name )"),
+      supabaseClient.from("community_hidden_groups")
+        .select("member_id, group_id")
+    ]);
+
+    const failed = membersResult.error || groupsResult.error || hiddenGroupsResult.error;
+    if (failed) {
+      console.error("Could not load Community management:", failed);
+      element.innerHTML = `<div class="card"><div class="message error">Could not load Community controls. Apply the Community management SQL migration and try again.<br>${escapeHtml(failed.message || "")}</div></div>`;
+      return;
+    }
+
+    const groupsByMember = new Map();
+    (groupsResult.data || []).forEach(row => {
+      if (!groupsByMember.has(row.member_id)) groupsByMember.set(row.member_id, []);
+      if (row.groups) groupsByMember.get(row.member_id).push(row.groups);
+    });
+    const hiddenSet = new Set((hiddenGroupsResult.data || []).map(row => `${row.member_id}:${row.group_id}`));
+    const checkbox = (id, label, checked, description = "") => `<label style="display:flex;align-items:flex-start;gap:9px;margin:9px 0;color:#ddd;font-size:13px;"><input id="${id}" type="checkbox" ${checked ? "checked" : ""} style="width:18px;height:18px;flex:0 0 18px;margin:0;accent-color:#ff2b2b;"><span><strong>${label}</strong>${description ? `<span class="muted small" style="display:block;margin-top:2px;">${description}</span>` : ""}</span></label>`;
+
+    const members = membersResult.data || [];
+    if (!members.length) {
+      element.innerHTML = '<div class="card"><div class="empty">No members found.</div></div>';
+      return;
+    }
+
+    element.innerHTML = `<div class="card"><h3>Community Management</h3><p class="muted small">Choose who appears in Community and which public details are shown. These settings do not change membership or profile data.</p></div>${members.map(member => {
+      const memberId = escapeHtml(member.id);
+      const name = [member.first_name, member.last_name].filter(Boolean).join(" ").trim() || "Member";
+      const assignedGroups = groupsByMember.get(member.id) || [];
+      return `<div class="card" style="padding:15px;margin-bottom:10px;"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;"><strong>${escapeHtml(name)}</strong><span class="muted small">${member.is_active === false ? "Inactive" : "Active"}</span></div>${checkbox(`communityVisible-${memberId}`, "Show in Community", member.community_visible !== false, "Hidden members and their pages are excluded from Community.")}${checkbox(`communityPhoto-${memberId}`, "Show photo", member.community_show_photo !== false)}${checkbox(`communityGroups-${memberId}`, "Show groups", member.community_show_groups !== false)}${checkbox(`communityCompetition-${memberId}`, "Show upcoming competition", member.community_show_upcoming_competition !== false)}<div class="community-admin-groups" style="border-top:1px solid #292929;margin-top:12px;padding-top:8px;"><div class="community-detail-heading">Groups shown on athlete page</div>${assignedGroups.length ? assignedGroups.map(group => checkbox(`communityGroup-${memberId}-${escapeHtml(group.id)}`, escapeHtml(group.name), !hiddenSet.has(`${member.id}:${group.id}`))).join("") : '<div class="muted small">No groups assigned.</div>'}</div><div id="communityAdminStatus-${memberId}" class="message small"></div></div>`;
+    }).join("")}`;
+
+    members.forEach(member => {
+      const memberId = escapeHtml(member.id);
+      ["communityVisible", "communityPhoto", "communityGroups", "communityCompetition"].forEach(prefix => {
+        document.getElementById(`${prefix}-${memberId}`)?.addEventListener("change", () => saveAdminCommunityPreferences(member.id));
+      });
+      (groupsByMember.get(member.id) || []).forEach(group => {
+        const checkboxId = `communityGroup-${memberId}-${escapeHtml(group.id)}`;
+        document.getElementById(checkboxId)?.addEventListener("change", event => saveAdminCommunityGroupVisibility(member.id, group.id, event.currentTarget.checked));
+      });
+    });
+  }
+
+  async function saveAdminCommunityPreferences(memberId) {
+    if (!isAdmin) return;
+    const id = escapeHtml(memberId);
+    const value = prefix => !!document.getElementById(`${prefix}-${id}`)?.checked;
+    const status = document.getElementById(`communityAdminStatus-${id}`);
+    if (status) { status.textContent = "Saving..."; status.className = "message small"; }
+    const { error } = await supabaseClient.rpc("admin_update_community_preferences", {
+      p_member_id: memberId,
+      p_community_visible: value("communityVisible"),
+      p_show_photo: value("communityPhoto"),
+      p_show_groups: value("communityGroups"),
+      p_show_upcoming_competition: value("communityCompetition")
+    });
+    if (error) {
+      console.error("Could not save Community preferences:", error);
+      if (status) { status.textContent = "Could not save these settings."; status.className = "message error small"; }
+      return;
+    }
+    if (status) { status.textContent = "Saved."; status.className = "message success-text small"; }
+  }
+
+  async function saveAdminCommunityGroupVisibility(memberId, groupId, visible) {
+    if (!isAdmin) return;
+    const { error } = await supabaseClient.rpc("admin_set_community_group_visibility", {
+      p_member_id: memberId,
+      p_group_id: groupId,
+      p_visible: visible
+    });
+    if (error) {
+      console.error("Could not save displayed Community group:", error);
+      alert("Could not save the group visibility setting.");
+    }
+  }
 
   async function loadAdminGroups(
     element
