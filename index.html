@@ -549,6 +549,7 @@
     .community-private-messages { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding:12px 2px; }
     .community-private-bubble { max-width:82%; padding:9px 12px; border-radius:14px; background:#202020; align-self:flex-start; overflow-wrap:anywhere; }
     .community-private-bubble.mine { background:#292929; border:1px solid #713030; align-self:flex-end; }
+    .community-private-bubble.pending { opacity:.68; }
     .community-private-delete { display:block; width:auto; padding:0; margin:5px 0 0 auto; color:#ff8b8b; background:transparent; border:0; font-size:10px; cursor:pointer; }
     .community-private-delete:hover { text-decoration:underline; }
     .community-private-time { color:#999; font-size:10px; text-align:right; margin-top:4px; }
@@ -3307,6 +3308,8 @@
   let chatRefreshTimer = null;
   let notificationRealtimeChannel = null;
   let communityPrivateRealtimeChannel = null;
+  let communityPrivateRefreshTimer = null;
+  let communityPrivateMessagesLoadToken = 0;
   let communityConversationsRealtimeChannels = [];
   let communityRealtimeUserId = null;
   let communityMessageToastTimer = null;
@@ -6192,9 +6195,39 @@
   }
 
   let communityAthletes = [];
+  const communityPhotoUrlCache = new Map();
+  let communityDirectoryLoadToken = 0;
+
+  async function getCommunityPhotoUrls(photoPaths) {
+    const paths = [...new Set((photoPaths || []).filter(Boolean))];
+    const urls = new Map();
+    const now = Date.now();
+    const missing = [];
+    paths.forEach(path => {
+      const cached = communityPhotoUrlCache.get(path);
+      if (cached && cached.expiresAt > now + 60000) urls.set(path, cached.url);
+      else missing.push(path);
+    });
+    for (let offset = 0; offset < missing.length; offset += 100) {
+      const batch = missing.slice(offset, offset + 100);
+      const { data, error } = await supabaseClient.storage.from("member-photos").createSignedUrls(batch, 3600);
+      if (error) {
+        console.error("Could not load Community photos:", error);
+        continue;
+      }
+      (data || []).forEach(row => {
+        const path = row?.path;
+        if (!path || !row?.signedUrl) return;
+        communityPhotoUrlCache.set(path, { url: row.signedUrl, expiresAt: Date.now() + 3500000 });
+        urls.set(path, row.signedUrl);
+      });
+    }
+    return urls;
+  }
 
   async function loadCommunityAthletes() {
     updateCommunityLanguage();
+    const loadToken = ++communityDirectoryLoadToken;
     const element = document.getElementById("communityAthletes");
     if (!element || !currentUser) return;
     stopCommunityPrivateRealtime();
@@ -6213,26 +6246,25 @@
     }
 
     const members = (data || []).filter(member => member.user_id);
-    const photoPaths = [...new Set(members.map(member => member.photo_path).filter(Boolean))];
-    const signedPhotoUrls = new Map();
-    for (let offset = 0; offset < photoPaths.length; offset += 100) {
-      const batch = photoPaths.slice(offset, offset + 100);
-      const { data: signedRows, error: signedError } = await supabaseClient.storage
-        .from("member-photos")
-        .createSignedUrls(batch, 3600);
-      if (signedError) {
-        console.error("Could not load Community photos:", signedError);
-        continue;
-      }
-      (signedRows || []).forEach(row => {
-        if (row?.path && row?.signedUrl) signedPhotoUrls.set(row.path, row.signedUrl);
-      });
-    }
     communityAthletes = members.map(member => ({
       ...member,
-      profile: { photo_url: signedPhotoUrls.get(member.photo_path) || "" }
+      profile: { photo_url: communityPhotoUrlCache.get(member.photo_path)?.url || "" }
     }));
     filterCommunityAthletes();
+    const photoPaths = members.map(member => member.photo_path).filter(Boolean);
+    if (photoPaths.some(path => !communityPhotoUrlCache.has(path) || communityPhotoUrlCache.get(path).expiresAt <= Date.now() + 60000)) {
+      void getCommunityPhotoUrls(photoPaths).then(urls => {
+        if (loadToken !== communityDirectoryLoadToken) return;
+        communityAthletes.forEach(member => {
+          if (urls.has(member.photo_path)) member.profile.photo_url = urls.get(member.photo_path);
+        });
+        communityAthletes.forEach(member => {
+          const card = element.querySelector(`[data-community-member-id="${member.id}"] .community-athlete-avatar`);
+          if (!card || !member.profile.photo_url) return;
+          card.innerHTML = `<img loading="lazy" decoding="async" src="${escapeHtml(member.profile.photo_url)}" alt="">`;
+        });
+      });
+    }
   }
 
   let currentCommunityAthlete = null;
@@ -6265,7 +6297,7 @@
     const name = String(athlete.first_name || communityText("athlete")).trim();
     const profile = athlete.profile || {};
     const photo = profile.photo_url
-      ? `<img src="${escapeHtml(profile.photo_url)}" alt="">`
+      ? `<img loading="lazy" decoding="async" src="${escapeHtml(profile.photo_url)}" alt="">`
       : escapeHtml(name.charAt(0).toUpperCase());
     const isSelf = athlete.user_id === currentUser?.id;
     const messageButton = isSelf
@@ -6364,7 +6396,7 @@
     element.innerHTML = rows.map(row => {
       const profile = profiles[row.other_user_id] || {};
       const name = String(profile.first_name || communityText("member")).trim();
-      const avatar = profile.photo_url ? `<img src="${escapeHtml(profile.photo_url)}" alt="">` : escapeHtml(name.charAt(0).toUpperCase());
+      const avatar = profile.photo_url ? `<img loading="lazy" decoding="async" src="${escapeHtml(profile.photo_url)}" alt="">` : escapeHtml(name.charAt(0).toUpperCase());
       const preview = String(row.last_message || communityText("noMessagesYet")).slice(0, 140);
       const unread = Number(row.unread_count || 0);
       return `<button type="button" class="community-conversation" onclick="openCommunityPrivateConversation('${escapeHtml(row.conversation_id)}','${escapeHtml(row.other_user_id)}','${escapeHtml(name)}')"><div class="community-conversation-avatar">${avatar}</div><div class="community-conversation-copy"><div class="community-conversation-top"><span class="community-conversation-name">${escapeHtml(name)}</span><span class="community-conversation-time">${escapeHtml(communityMessageTime(row.last_message_at))}</span></div><div class="community-conversation-preview">${escapeHtml(preview)}</div></div>${unread ? `<span class="community-unread-badge">${unread > 99 ? "99+" : unread}</span>` : ""}</button>`;
@@ -6403,31 +6435,45 @@
       const profile = profiles[otherUserId] || {};
       if (nameElement) nameElement.textContent = profile.first_name || communityText("member");
     }
-    await loadCommunityPrivateMessages();
     startCommunityPrivateRealtime(conversationId);
+    await loadCommunityPrivateMessages();
+  }
+
+  function renderCommunityPrivateMessage(message, pending = false) {
+    const mine = message.sender_id === currentUser?.id;
+    const deleteButton = mine && !pending
+      ? `<button type="button" class="community-private-delete" onclick="deleteCommunityPrivateMessage('${escapeHtml(message.id)}')" aria-label="${escapeHtml(communityText("delete"))}">${escapeHtml(communityText("delete"))}</button>`
+      : "";
+    const readStatus = mine && !pending
+      ? `<span class="community-private-read-status" aria-label="${escapeHtml(message.read_at ? communityText("read") : communityText("sent"))}">${message.read_at ? "✓✓" : "✓"} ${escapeHtml(message.read_at ? communityText("read") : communityText("sent"))}</span>`
+      : "";
+    const time = message.created_at
+      ? new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      : "";
+    return `<div class="community-private-bubble${mine ? " mine" : ""}${pending ? " pending" : ""}" data-community-message-id="${escapeHtml(message.id)}">${escapeHtml(message.body)}${deleteButton}<div class="community-private-meta"><div class="community-private-time">${escapeHtml(time)}</div>${readStatus}</div></div>`;
   }
 
   async function loadCommunityPrivateMessages() {
     const element = document.getElementById("communityPrivateMessages");
     if (!element || !currentPrivateConversationId) return;
+    const conversationId = currentPrivateConversationId;
+    const loadToken = ++communityPrivateMessagesLoadToken;
     element.innerHTML = `<div class="empty">${escapeHtml(communityText("loadingConversation"))}</div>`;
     const { data, error } = await supabaseClient.from("community_private_messages")
       .select("id, conversation_id, sender_id, body, created_at, read_at")
-      .eq("conversation_id", currentPrivateConversationId)
+      .eq("conversation_id", conversationId)
       .order("created_at", { ascending: true })
       .limit(500);
+    if (loadToken !== communityPrivateMessagesLoadToken || currentPrivateConversationId !== conversationId) return;
     if (error) {
       console.error("Could not load private messages:", error);
       element.innerHTML = `<div class="message error">${escapeHtml(communityText("conversationError"))}</div>`;
       return;
     }
     const messages = data || [];
-    element.innerHTML = messages.length ? messages.map(message => {
-      const mine = message.sender_id === currentUser?.id;
-      const deleteButton = mine ? `<button type="button" class="community-private-delete" onclick="deleteCommunityPrivateMessage('${escapeHtml(message.id)}')" aria-label="${escapeHtml(communityText("delete"))}">${escapeHtml(communityText("delete"))}</button>` : "";
-      const readStatus = mine ? `<span class="community-private-read-status" aria-label="${escapeHtml(message.read_at ? communityText("read") : communityText("sent"))}">${message.read_at ? "✓✓" : "✓"} ${escapeHtml(message.read_at ? communityText("read") : communityText("sent"))}</span>` : "";
-      return `<div class="community-private-bubble${mine ? " mine" : ""}">${escapeHtml(message.body)}${deleteButton}<div class="community-private-meta"><div class="community-private-time">${escapeHtml(new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}</div>${readStatus}</div></div>`;
-    }).join("") : `<div class="empty">${escapeHtml(communityText("emptyConversation"))}</div>`;
+    element.innerHTML = messages.length
+      ? messages.map(message => renderCommunityPrivateMessage(message)).join("")
+      : `<div class="empty">${escapeHtml(communityText("emptyConversation"))}</div>`;
     element.scrollTop = element.scrollHeight;
     const input = document.getElementById("communityPrivateInput");
     input?.focus({ preventScroll: true });
@@ -6437,13 +6483,15 @@
         sendCommunityPrivateMessage();
       }
     };
-    const { error: readError } = await supabaseClient.from("community_private_messages")
+    void supabaseClient.from("community_private_messages")
       .update({ read_at: new Date().toISOString() })
-      .eq("conversation_id", currentPrivateConversationId)
+      .eq("conversation_id", conversationId)
       .neq("sender_id", currentUser.id)
-      .is("read_at", null);
-    if (readError) console.error("Could not mark private messages as read:", readError);
-    else await updateCommunityUnreadBadge();
+      .is("read_at", null)
+      .then(({ error: readError }) => {
+        if (readError) console.error("Could not mark private messages as read:", readError);
+        else void updateCommunityUnreadBadge();
+      });
   }
 
   async function sendCommunityPrivateMessage() {
@@ -6452,36 +6500,56 @@
     const status = document.getElementById("communityPrivateStatus");
     const body = String(input?.value || "").trim();
     if (!body || !currentPrivateConversationId || !currentUser) return;
+    const conversationId = currentPrivateConversationId;
+    const recipientId = currentPrivateRecipientId;
+    const pendingId = `pending-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const messageList = document.getElementById("communityPrivateMessages");
+    const emptyState = messageList?.querySelector(".empty");
+    if (emptyState) emptyState.remove();
+    if (messageList) {
+      messageList.insertAdjacentHTML("beforeend", renderCommunityPrivateMessage({
+        id: pendingId, sender_id: currentUser.id, body, created_at: new Date().toISOString()
+      }, true));
+      messageList.scrollTop = messageList.scrollHeight;
+    }
+    if (input) input.value = "";
     if (button) button.disabled = true;
     const { data: sentMessage, error } = await supabaseClient.from("community_private_messages").insert({
-      conversation_id: currentPrivateConversationId,
+      conversation_id: conversationId,
       sender_id: currentUser.id,
       body
-    }).select("id").single();
+    }).select("id,conversation_id,sender_id,body,created_at,read_at").single();
     if (button) button.disabled = false;
     if (error) {
       console.error("Could not send private message:", error);
+      document.querySelector(`[data-community-message-id="${pendingId}"]`)?.remove();
+      if (input && !input.value) input.value = body;
       if (status) { status.textContent = communityText("messageError"); status.className = "message error"; }
       return;
     }
-    const recipientId = currentPrivateRecipientId;
-    if (recipientId && recipientId !== currentUser.id) {
-      const { data: notificationId, error: notificationError } = await supabaseClient.rpc(
-        "create_community_private_message_notification",
-        { p_conversation_id: currentPrivateConversationId, p_message_id: sentMessage.id }
-      );
-      if (notificationError) {
-        console.error("Could not create private-message notification:", notificationError);
-      } else if (notificationId) {
-        const { error: pushError } = await supabaseClient.functions.invoke("send-push", {
-          body: { notificationId }
-        });
-        if (pushError) console.error("Could not send private-message push:", pushError);
-      }
-    }
-    if (input) input.value = "";
+    const pendingBubble = document.querySelector(`[data-community-message-id="${pendingId}"]`);
+    if (pendingBubble) pendingBubble.outerHTML = renderCommunityPrivateMessage(sentMessage);
+    if (messageList) messageList.scrollTop = messageList.scrollHeight;
     if (status) { status.textContent = ""; status.className = "message"; }
-    await loadCommunityPrivateMessages();
+    if (recipientId && recipientId !== currentUser.id) {
+      void createCommunityPrivateMessagePush(conversationId, sentMessage.id);
+    }
+  }
+
+  async function createCommunityPrivateMessagePush(conversationId, messageId) {
+    const { data: notificationId, error: notificationError } = await supabaseClient.rpc(
+      "create_community_private_message_notification",
+      { p_conversation_id: conversationId, p_message_id: messageId }
+    );
+    if (notificationError) {
+      console.error("Could not create private-message notification:", notificationError);
+      return;
+    }
+    if (!notificationId) return;
+    const { error: pushError } = await supabaseClient.functions.invoke("send-push", {
+      body: { notificationId }
+    });
+    if (pushError) console.error("Could not send private-message push:", pushError);
   }
 
   async function deleteCommunityPrivateMessage(messageId) {
@@ -6514,12 +6582,21 @@
   function startCommunityPrivateRealtime(conversationId) {
     stopCommunityPrivateRealtime();
     communityPrivateRealtimeChannel = supabaseClient.channel(`community-private-${conversationId}`)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "community_private_conversations", filter: `id=eq.${conversationId}` }, async () => {
-        if (currentPrivateConversationId === conversationId) await loadCommunityPrivateMessages();
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "community_private_messages", filter: `conversation_id=eq.${conversationId}` }, payload => {
+        if (currentPrivateConversationId !== conversationId || payload.new?.sender_id === currentUser?.id) return;
+        if (communityPrivateRefreshTimer) clearTimeout(communityPrivateRefreshTimer);
+        communityPrivateRefreshTimer = setTimeout(() => {
+          communityPrivateRefreshTimer = null;
+          if (currentPrivateConversationId === conversationId) void loadCommunityPrivateMessages();
+        }, 100);
       })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "community_private_messages", filter: `conversation_id=eq.${conversationId}` }, async payload => {
-        if (currentPrivateConversationId === conversationId && payload.new?.sender_id === currentUser?.id && payload.new?.read_at) {
-          await loadCommunityPrivateMessages();
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "community_private_messages", filter: `conversation_id=eq.${conversationId}` }, payload => {
+        if (currentPrivateConversationId !== conversationId || payload.new?.sender_id !== currentUser?.id || !payload.new?.read_at) return;
+        const bubble = document.querySelector(`[data-community-message-id="${payload.new.id}"]`);
+        const receipt = bubble?.querySelector(".community-private-read-status");
+        if (receipt) {
+          receipt.setAttribute("aria-label", communityText("read"));
+          receipt.innerHTML = `✓✓ ${escapeHtml(communityText("read"))}`;
         }
       })
       .subscribe();
@@ -6583,6 +6660,10 @@
   }
 
   function stopCommunityPrivateRealtime() {
+    if (communityPrivateRefreshTimer) {
+      clearTimeout(communityPrivateRefreshTimer);
+      communityPrivateRefreshTimer = null;
+    }
     if (communityPrivateRealtimeChannel) {
       supabaseClient.removeChannel(communityPrivateRealtimeChannel);
       communityPrivateRealtimeChannel = null;
@@ -6608,7 +6689,7 @@
       const photo = member.profile.photo_url
         ? `<img src="${escapeHtml(member.profile.photo_url)}" alt="">`
         : escapeHtml(name.charAt(0).toUpperCase());
-      return `<button type="button" class="community-athlete-card" onclick="openCommunityAthlete('${escapeHtml(member.id)}')"><div class="community-athlete-avatar">${photo}</div><div class="community-athlete-name">${escapeHtml(name)}</div></button>`;
+      return `<button type="button" class="community-athlete-card" data-community-member-id="${escapeHtml(member.id)}" onclick="openCommunityAthlete('${escapeHtml(member.id)}')"><div class="community-athlete-avatar">${photo}</div><div class="community-athlete-name">${escapeHtml(name)}</div></button>`;
     }).join("");
   }
   function renderMembershipSummary() {
@@ -10148,41 +10229,18 @@
       return {};
     }
 
+    const profiles = data || [];
+    const photoUrls = await getCommunityPhotoUrls(profiles.map(profile => profile.photo_path));
     const profileMap = {};
 
-    for (const profile of (data || [])) {
-
-      let photoUrl = "";
-
-      if (profile.photo_path) {
-
-        const {
-          data: signedData,
-          error: signedError
-        } = await supabaseClient
-          .storage
-          .from("member-photos")
-          .createSignedUrl(
-            profile.photo_path,
-            3600
-          );
-
-        if (
-          !signedError &&
-          signedData?.signedUrl
-        ) {
-          photoUrl =
-            signedData.signedUrl;
-        }
-      }
-
+    for (const profile of profiles) {
       profileMap[profile.user_id] = {
         first_name:
           profile.first_name || "",
         last_name:
           profile.last_name || "",
         photo_url:
-          photoUrl
+          photoUrls.get(profile.photo_path) || communityPhotoUrlCache.get(profile.photo_path)?.url || ""
       };
     }
 
@@ -10227,6 +10285,8 @@
       return `
         <div class="chat-avatar">
           <img
+            loading="lazy"
+            decoding="async"
             src="${escapeHtml(
               profile.photo_url
             )}"
