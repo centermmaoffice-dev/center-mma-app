@@ -3723,7 +3723,7 @@
       currentMembership.end_date >= today;
 
     if (!membershipActive) {
-      showInactive("Your membership is not active.");
+      showInactive(getMembershipInactiveMessage(currentMembership, today));
       return;
     }
 
@@ -3767,7 +3767,7 @@
 
       if (!active) {
         currentMembership = membership || null;
-        if (membershipAccessAllowed) showInactive("Your membership is not active.");
+        if (membershipAccessAllowed) showInactive(getMembershipInactiveMessage(currentMembership, today));
         return false;
       }
 
@@ -3835,6 +3835,15 @@
       ).padStart(2, "0");
 
     return `${year}-${month}-${day}`;
+  }
+
+  function getMembershipInactiveMessage(membership, today = getLocalDateString()) {
+    if (!membership?.end_date || membership.end_date >= today) return "Your membership is not active.";
+    const date = formatDate(membership.end_date);
+    const language = getCurrentInterfaceLanguage();
+    if (language === "de") return `Deine Mitgliedschaft ist seit dem ${date} abgelaufen. Bitte stelle eine Zahlungsanfrage, um deinen Zugang wieder zu aktivieren.`;
+    if (language === "uk") return `Термін членства завершився ${date}. Подайте запит на оплату, щоб відновити доступ.`;
+    return `Your membership expired on ${date}. Please request payment to restore your access.`;
   }
 
 
@@ -7629,6 +7638,8 @@
       type === "admin" ||
       type === "payment" ||
       type === "membership" ||
+      type === "membership_expiry" ||
+      type === "membership_expired" ||
       type === "account"
     ) {
       return true;
