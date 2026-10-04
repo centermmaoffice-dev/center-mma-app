@@ -539,6 +539,8 @@
     .community-private-messages { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding:12px 2px; }
     .community-private-bubble { max-width:82%; padding:9px 12px; border-radius:14px; background:#202020; align-self:flex-start; overflow-wrap:anywhere; }
     .community-private-bubble.mine { background:#292929; border:1px solid #713030; align-self:flex-end; }
+    .community-private-delete { display:block; width:auto; padding:0; margin:5px 0 0 auto; color:#ff8b8b; background:transparent; border:0; font-size:10px; cursor:pointer; }
+    .community-private-delete:hover { text-decoration:underline; }
     .community-private-time { color:#999; font-size:10px; text-align:right; margin-top:4px; }
     .community-private-compose { display:flex; align-items:flex-end; gap:8px; padding-top:8px; border-top:1px solid #292929; }
     .community-private-compose textarea { flex:1; margin:0; min-height:44px; max-height:120px; resize:vertical; }
@@ -6103,7 +6105,7 @@
     document.getElementById("communityAthleteView")?.classList.remove("hidden");
     const element = document.getElementById("communityAthleteDetails");
     if (!element) return;
-    const name = [athlete.first_name, athlete.last_name].filter(Boolean).join(" ").trim() || "Athlete";
+    const name = String(athlete.first_name || "Athlete").trim();
     const profile = athlete.profile || {};
     const photo = profile.photo_url
       ? `<img src="${escapeHtml(profile.photo_url)}" alt="">`
@@ -6171,7 +6173,7 @@
       alert("Private messaging is not available yet. Please contact the club if this continues.");
       return;
     }
-    const name = [athlete.first_name, athlete.last_name].filter(Boolean).join(" ").trim() || "Athlete";
+    const name = String(athlete.first_name || "Athlete").trim();
     await openCommunityPrivateConversation(data, athlete.user_id, name);
   }
 
@@ -6219,7 +6221,7 @@
     rows.sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
     element.innerHTML = rows.map(row => {
       const profile = profiles[row.other_user_id] || {};
-      const name = [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim() || "Member";
+      const name = String(profile.first_name || "Member").trim();
       const avatar = profile.photo_url ? `<img src="${escapeHtml(profile.photo_url)}" alt="">` : escapeHtml(name.charAt(0).toUpperCase());
       const preview = String(row.last_message || "No messages yet").slice(0, 140);
       const unread = Number(row.unread_count || 0);
@@ -6238,7 +6240,7 @@
     if (!knownName) {
       const profiles = await getChatProfiles([otherUserId]);
       const profile = profiles[otherUserId] || {};
-      if (nameElement) nameElement.textContent = [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Member";
+      if (nameElement) nameElement.textContent = profile.first_name || "Member";
     }
     await loadCommunityPrivateMessages();
     startCommunityPrivateRealtime(conversationId);
@@ -6261,7 +6263,8 @@
     const messages = data || [];
     element.innerHTML = messages.length ? messages.map(message => {
       const mine = message.sender_id === currentUser?.id;
-      return `<div class="community-private-bubble${mine ? " mine" : ""}">${escapeHtml(message.body)}<div class="community-private-time">${escapeHtml(new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}</div></div>`;
+      const deleteButton = mine ? `<button type="button" class="community-private-delete" onclick="deleteCommunityPrivateMessage('${escapeHtml(message.id)}')" aria-label="Delete your message">Delete</button>` : "";
+      return `<div class="community-private-bubble${mine ? " mine" : ""}">${escapeHtml(message.body)}${deleteButton}<div class="community-private-time">${escapeHtml(new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}</div></div>`;
     }).join("") : '<div class="empty">Say hello to start the conversation.</div>';
     element.scrollTop = element.scrollHeight;
     const input = document.getElementById("communityPrivateInput");
@@ -6303,6 +6306,24 @@
     await loadCommunityPrivateMessages();
   }
 
+  async function deleteCommunityPrivateMessage(messageId) {
+    if (!currentPrivateConversationId || !currentUser || !messageId) return;
+    if (!confirm("Delete this message for both participants?")) return;
+    const { data, error } = await supabaseClient.from("community_private_messages")
+      .delete()
+      .eq("id", messageId)
+      .eq("conversation_id", currentPrivateConversationId)
+      .eq("sender_id", currentUser.id)
+      .select("id");
+    if (error || !data?.length) {
+      console.error("Could not delete private message:", error);
+      const status = document.getElementById("communityPrivateStatus");
+      if (status) { status.textContent = "Only the sender can delete this message."; status.className = "message error"; }
+      return;
+    }
+    await loadCommunityPrivateMessages();
+  }
+
   async function closeCommunityPrivateChat() {
     stopCommunityPrivateRealtime();
     currentPrivateConversationId = null;
@@ -6315,7 +6336,7 @@
   function startCommunityPrivateRealtime(conversationId) {
     stopCommunityPrivateRealtime();
     communityPrivateRealtimeChannel = supabaseClient.channel(`community-private-${conversationId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "community_private_messages", filter: `conversation_id=eq.${conversationId}` }, async () => {
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "community_private_conversations", filter: `id=eq.${conversationId}` }, async () => {
         if (currentPrivateConversationId === conversationId) await loadCommunityPrivateMessages();
       })
       .subscribe();
