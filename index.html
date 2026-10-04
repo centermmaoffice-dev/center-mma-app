@@ -542,6 +542,9 @@
     .community-private-delete { display:block; width:auto; padding:0; margin:5px 0 0 auto; color:#ff8b8b; background:transparent; border:0; font-size:10px; cursor:pointer; }
     .community-private-delete:hover { text-decoration:underline; }
     .community-private-time { color:#999; font-size:10px; text-align:right; margin-top:4px; }
+    .community-private-meta { display:flex; align-items:center; justify-content:flex-end; gap:7px; margin-top:4px; }
+    .community-private-meta .community-private-time { margin-top:0; }
+    .community-private-read-status { color:#ff8b8b; font-size:10px; white-space:nowrap; }
     .community-private-compose { display:flex; align-items:flex-end; gap:8px; padding-top:8px; border-top:1px solid #292929; }
     .community-private-compose textarea { flex:1; margin:0; min-height:44px; max-height:120px; resize:vertical; }
     .community-private-compose button { width:auto; margin:0; }
@@ -2370,21 +2373,21 @@
     <!-- COMMUNITY -->
     <div id="communitySection" class="hidden">
       <div id="communityListView">
-        <div class="section-title"><button class="secondary back-button" onclick="goBackInApp()">← BACK</button><h2>Community</h2></div>
-        <div class="community-social-actions"><button class="secondary" style="width:auto;margin:0;" onclick="openCommunityMessages()">My Messages</button></div>
+        <div class="section-title"><button id="communityBackButton" class="secondary back-button" onclick="goBackInApp()">← BACK</button><h2 id="communityTitle">Community</h2></div>
+        <div class="community-social-actions"><button id="communityMessagesButton" class="secondary" style="width:auto;margin:0;" onclick="openCommunityMessages()">My Messages</button></div>
         <input id="communitySearch" class="community-search" type="search" placeholder="Search athletes by name" oninput="filterCommunityAthletes()" autocomplete="off">
         <div id="communityAthletes" class="community-athlete-grid"><div class="empty">Loading athletes...</div></div>
       </div>
       <div id="communityAthleteView" class="hidden">
-        <div class="section-title"><button class="secondary back-button" onclick="closeCommunityAthlete()">← COMMUNITY</button><h2>Athlete</h2></div>
+        <div class="section-title"><button id="communityAthleteBackButton" class="secondary back-button" onclick="closeCommunityAthlete()">← COMMUNITY</button><h2 id="communityAthleteTitle">Athlete</h2></div>
         <div id="communityAthleteDetails"><div class="empty">Loading athlete...</div></div>
       </div>
       <div id="communityMessagesView" class="hidden">
-        <div class="section-title"><button class="secondary back-button" onclick="closeCommunityMessages()">← COMMUNITY</button><h2>My Messages</h2></div>
+        <div class="section-title"><button id="communityMessagesBackButton" class="secondary back-button" onclick="closeCommunityMessages()">← COMMUNITY</button><h2 id="communityMessagesTitle">My Messages</h2></div>
         <div id="communityConversations" class="community-messages-list"><div class="empty">Loading messages...</div></div>
       </div>
       <div id="communityPrivateChatView" class="hidden">
-        <div class="section-title"><button class="secondary back-button community-private-back" onclick="closeCommunityPrivateChat()">← MESSAGES</button><h2 id="communityPrivateChatName">Private Chat</h2></div>
+        <div class="section-title"><button id="communityPrivateBackButton" class="secondary back-button community-private-back" onclick="closeCommunityPrivateChat()">← MESSAGES</button><h2 id="communityPrivateChatName">Private Chat</h2></div>
         <div class="community-private-chat">
           <div id="communityPrivateMessages" class="community-private-messages"><div class="empty">Loading conversation...</div></div>
           <div class="community-private-compose"><textarea id="communityPrivateInput" rows="1" maxlength="4000" placeholder="Write a private message..."></textarea><button id="communityPrivateSend" onclick="sendCommunityPrivateMessage()">SEND</button></div>
@@ -4022,14 +4025,18 @@
 
       setTimeout(
         async function () {
-
-          openSection(
-            "notifications"
-          );
-
-          await openNotificationDetail(
-            notificationId
-          );
+          const { data: linkedNotification } = await supabaseClient
+            .from("notifications")
+            .select("link_section")
+            .eq("id", notificationId)
+            .maybeSingle();
+          const privateConversation = /^community-message:([0-9a-f-]{36})$/i.exec(linkedNotification?.link_section || "");
+          if (privateConversation) {
+            await openNotification(notificationId, linkedNotification.link_section);
+          } else {
+            openSection("notifications");
+            await openNotificationDetail(notificationId);
+          }
 
         },
         250
@@ -6063,9 +6070,78 @@
      MEMBERSHIP
   ========================= */
 
+  const COMMUNITY_TRANSLATIONS = {
+    de: {
+      back: "← ZURÜCK", community: "Community", myMessages: "Meine Nachrichten", search: "Sportler nach Namen suchen",
+      athlete: "Sportler", messages: "Meine Nachrichten", privateChat: "Privater Chat", messagesBack: "← NACHRICHTEN",
+      loadingAthletes: "Sportler werden geladen...", athletesError: "Sportler können gerade nicht geladen werden.", noAthletes: "Keine Sportler gefunden.", yesterday: "Gestern",
+      loadingAthlete: "Sportler wird geladen...", unavailable: "Diese Community-Seite ist nicht mehr verfügbar.",
+      message: "Nachricht", groups: "Gruppen", loadingGroups: "Gruppen werden geladen...", noGroups: "Keine Gruppen angezeigt.",
+      upcoming: "Nächster Wettkampf", competition: "Wettkampf", privateUnavailable: "Private Nachrichten sind noch nicht verfügbar. Bitte kontaktiere den Verein, falls das Problem bestehen bleibt.",
+      loadingMessages: "Nachrichten werden geladen...", migration: "Private Nachrichten sind noch nicht aktiviert. Bitte die Datenbankmigration für Community-Nachrichten anwenden.",
+      noConversations: "Noch keine privaten Gespräche. Öffne eine Sportlerseite und tippe auf Nachricht, um zu beginnen.",
+      member: "Mitglied", noMessagesYet: "Noch keine Nachricht", loadingConversation: "Gespräch wird geladen...", conversationError: "Dieses private Gespräch kann nicht geladen werden.",
+      writeMessage: "Private Nachricht schreiben...", send: "SENDEN", emptyConversation: "Schreibe eine Nachricht, um das Gespräch zu beginnen.",
+      delete: "Löschen", deleteConfirm: "Diese Nachricht für beide Teilnehmer löschen?", deleteDenied: "Nur der Absender kann diese Nachricht löschen.",
+      messageError: "Nachricht konnte nicht gesendet werden.", sent: "Gesendet", read: "Gelesen"
+    },
+    en: {
+      back: "← BACK", community: "Community", myMessages: "My Messages", search: "Search athletes by name",
+      athlete: "Athlete", messages: "My Messages", privateChat: "Private Chat", messagesBack: "← MESSAGES",
+      loadingAthletes: "Loading athletes...", athletesError: "Could not load athletes right now.", noAthletes: "No athletes found.", yesterday: "Yesterday",
+      loadingAthlete: "Loading athlete...", unavailable: "This Community page is no longer available.",
+      message: "Message", groups: "Groups", loadingGroups: "Loading groups...", noGroups: "No groups listed.",
+      upcoming: "Upcoming Competition", competition: "Competition", privateUnavailable: "Private messaging is not available yet. Please contact the club if this continues.",
+      loadingMessages: "Loading messages...", migration: "Private messages are not enabled yet. Apply the Community private messaging database migration.",
+      noConversations: "No private conversations yet. Open an athlete page and tap Message to start one.",
+      member: "Member", noMessagesYet: "No messages yet", loadingConversation: "Loading conversation...", conversationError: "Could not load this private conversation.",
+      writeMessage: "Write a private message...", send: "SEND", emptyConversation: "Say hello to start the conversation.",
+      delete: "Delete", deleteConfirm: "Delete this message for both participants?", deleteDenied: "Only the sender can delete this message.",
+      messageError: "Message could not be sent.", sent: "Sent", read: "Read"
+    },
+    uk: {
+      back: "← НАЗАД", community: "Спільнота", myMessages: "Мої повідомлення", search: "Пошук спортсменів за ім’ям",
+      athlete: "Спортсмен", messages: "Мої повідомлення", privateChat: "Приватний чат", messagesBack: "← ПОВІДОМЛЕННЯ",
+      loadingAthletes: "Завантаження спортсменів...", athletesError: "Не вдалося завантажити спортсменів.", noAthletes: "Спортсменів не знайдено.", yesterday: "Учора",
+      loadingAthlete: "Завантаження профілю спортсмена...", unavailable: "Ця сторінка спільноти більше недоступна.",
+      message: "Написати", groups: "Групи", loadingGroups: "Завантаження груп...", noGroups: "Групи не вказані.",
+      upcoming: "Найближчі змагання", competition: "Змагання", privateUnavailable: "Приватні повідомлення поки недоступні. Якщо проблема не зникне, зверніться до клубу.",
+      loadingMessages: "Завантаження повідомлень...", migration: "Приватні повідомлення ще не ввімкнені. Застосуйте міграцію бази даних Community.",
+      noConversations: "Приватних розмов поки немає. Відкрийте сторінку спортсмена й натисніть «Написати».",
+      member: "Учасник", noMessagesYet: "Повідомлень ще немає", loadingConversation: "Завантаження розмови...", conversationError: "Не вдалося завантажити приватну розмову.",
+      writeMessage: "Напишіть приватне повідомлення...", send: "НАДІСЛАТИ", emptyConversation: "Напишіть перше повідомлення, щоб почати розмову.",
+      delete: "Видалити", deleteConfirm: "Видалити це повідомлення для обох учасників?", deleteDenied: "Видалити повідомлення може лише його автор.",
+      messageError: "Не вдалося надіслати повідомлення.", sent: "Надіслано", read: "Прочитано"
+    }
+  };
+
+  function communityText(key) {
+    const lang = typeof getCurrentInterfaceLanguage === "function" ? getCurrentInterfaceLanguage() : "en";
+    return COMMUNITY_TRANSLATIONS[lang]?.[key] || COMMUNITY_TRANSLATIONS.en[key] || key;
+  }
+
+  function updateCommunityLanguage() {
+    const setText = (id, key) => { const el = document.getElementById(id); if (el) el.textContent = communityText(key); };
+    setText("communityTitle", "community");
+    setText("communityBackButton", "back");
+    setText("communityMessagesButton", "myMessages");
+    setText("communityAthleteBackButton", "back");
+    setText("communityAthleteTitle", "athlete");
+    setText("communityMessagesBackButton", "back");
+    setText("communityMessagesTitle", "messages");
+    setText("communityPrivateBackButton", "messagesBack");
+    const search = document.getElementById("communitySearch");
+    const input = document.getElementById("communityPrivateInput");
+    const send = document.getElementById("communityPrivateSend");
+    if (search) search.placeholder = communityText("search");
+    if (input) input.placeholder = communityText("writeMessage");
+    if (send) send.textContent = communityText("send");
+  }
+
   let communityAthletes = [];
 
   async function loadCommunityAthletes() {
+    updateCommunityLanguage();
     const element = document.getElementById("communityAthletes");
     if (!element || !currentUser) return;
     stopCommunityPrivateRealtime();
@@ -6073,28 +6149,35 @@
     currentPrivateRecipientId = null;
     currentCommunityAthlete = null;
     setCommunitySubview("communityListView");
-    element.innerHTML = '<div class="empty">Loading athletes...</div>';
+    element.innerHTML = `<div class="empty">${escapeHtml(communityText("loadingAthletes"))}</div>`;
 
     const { data, error } = await supabaseClient.rpc("get_community_directory");
 
     if (error) {
       console.error("Could not load Community athletes:", error);
-      element.innerHTML = '<div class="message error">Could not load athletes right now.</div>';
+      element.innerHTML = `<div class="message error">${escapeHtml(communityText("athletesError"))}</div>`;
       return;
     }
 
-    communityAthletes = await Promise.all((data || []).filter(member => member.user_id).map(async member => {
-      let photoUrl = "";
-      if (member.photo_path) {
-        const { data: signed, error: signedError } = await supabaseClient.storage
-          .from("member-photos")
-          .createSignedUrl(member.photo_path, 3600);
-        if (!signedError) photoUrl = signed?.signedUrl || "";
+    const members = (data || []).filter(member => member.user_id);
+    const photoPaths = [...new Set(members.map(member => member.photo_path).filter(Boolean))];
+    const signedPhotoUrls = new Map();
+    for (let offset = 0; offset < photoPaths.length; offset += 100) {
+      const batch = photoPaths.slice(offset, offset + 100);
+      const { data: signedRows, error: signedError } = await supabaseClient.storage
+        .from("member-photos")
+        .createSignedUrls(batch, 3600);
+      if (signedError) {
+        console.error("Could not load Community photos:", signedError);
+        continue;
       }
-      return {
-        ...member,
-        profile: { photo_url: photoUrl }
-      };
+      (signedRows || []).forEach(row => {
+        if (row?.path && row?.signedUrl) signedPhotoUrls.set(row.path, row.signedUrl);
+      });
+    }
+    communityAthletes = members.map(member => ({
+      ...member,
+      profile: { photo_url: signedPhotoUrls.get(member.photo_path) || "" }
     }));
     filterCommunityAthletes();
   }
@@ -6107,13 +6190,13 @@
     setCommunitySubview("communityAthleteView");
     const element = document.getElementById("communityAthleteDetails");
     if (!element) return;
-    element.innerHTML = '<div class="empty">Loading athlete...</div>';
+    element.innerHTML = `<div class="empty">${escapeHtml(communityText("loadingAthlete"))}</div>`;
     const { data, error } = await supabaseClient.rpc("get_community_athlete_details", {
       p_member_id: memberId
     });
     if (error || !data?.member) {
       console.error("Could not load Community athlete details:", error);
-      element.innerHTML = '<div class="card"><div class="empty">This Community page is no longer available.</div></div>';
+      element.innerHTML = `<div class="card"><div class="empty">${escapeHtml(communityText("unavailable"))}</div></div>`;
       return;
     }
     const athlete = {
@@ -6126,28 +6209,28 @@
       upcoming_competition: data.upcoming_competition || null
     };
     currentCommunityAthlete = athlete;
-    const name = String(athlete.first_name || "Athlete").trim();
+    const name = String(athlete.first_name || communityText("athlete")).trim();
     const profile = athlete.profile || {};
     const photo = profile.photo_url
       ? `<img src="${escapeHtml(profile.photo_url)}" alt="">`
       : escapeHtml(name.charAt(0).toUpperCase());
     const isSelf = athlete.user_id === currentUser?.id;
     const messageButton = isSelf
-      ? '<button type="button" class="secondary community-message-button" disabled aria-disabled="true">Message</button>'
-      : `<button type="button" class="community-message-button" onclick="startCommunityPrivateMessage('${escapeHtml(athlete.id)}')">Message</button>`;
-    element.innerHTML = `<div class="community-profile"><div class="community-profile-avatar">${photo}</div><div class="community-profile-name">${escapeHtml(name)}</div>${messageButton}</div><div id="communityGroups" class="community-detail-card"><div class="community-detail-heading">Groups</div><div class="empty">Loading groups...</div></div><div id="communityCompetition"></div>`;
+      ? `<button type="button" class="secondary community-message-button" disabled aria-disabled="true">${escapeHtml(communityText("message"))}</button>`
+      : `<button type="button" class="community-message-button" onclick="startCommunityPrivateMessage('${escapeHtml(athlete.id)}')">${escapeHtml(communityText("message"))}</button>`;
+    element.innerHTML = `<div class="community-profile"><div class="community-profile-avatar">${photo}</div><div class="community-profile-name">${escapeHtml(name)}</div>${messageButton}</div><div id="communityGroups" class="community-detail-card"><div class="community-detail-heading">${escapeHtml(communityText("groups"))}</div><div class="empty">${escapeHtml(communityText("loadingGroups"))}</div></div><div id="communityCompetition"></div>`;
 
     const groupsElement = document.getElementById("communityGroups");
     if (groupsElement) {
       const groups = athlete.groups.filter(group => group?.name);
-      groupsElement.innerHTML = `<div class="community-detail-heading">Groups</div>${groups.length ? groups.map(group => `<span class="admin-badge" style="display:inline-block;margin:2px 5px 2px 0;">${escapeHtml(group.name)}</span>`).join("") : '<div class="muted small">No groups listed.</div>'}`;
+      groupsElement.innerHTML = `<div class="community-detail-heading">${escapeHtml(communityText("groups"))}</div>${groups.length ? groups.map(group => `<span class="admin-badge" style="display:inline-block;margin:2px 5px 2px 0;">${escapeHtml(group.name)}</span>`).join("") : `<div class="muted small">${escapeHtml(communityText("noGroups"))}</div>`}`;
     }
 
     const competitionElement = document.getElementById("communityCompetition");
     if (competitionElement) {
       const upcoming = athlete.upcoming_competition;
       if (upcoming) {
-        competitionElement.innerHTML = `<div class="community-detail-card"><div class="community-detail-heading">Upcoming Competition</div><div style="font-weight:800;">${escapeHtml(upcoming.title || "Competition")}</div><div class="muted small" style="margin-top:5px;">${escapeHtml(formatDate(upcoming.date))}${upcoming.location ? ` · ${escapeHtml(upcoming.location)}` : ""}</div></div>`;
+        competitionElement.innerHTML = `<div class="community-detail-card"><div class="community-detail-heading">${escapeHtml(communityText("upcoming"))}</div><div style="font-weight:800;">${escapeHtml(upcoming.title || communityText("competition"))}</div><div class="muted small" style="margin-top:5px;">${escapeHtml(formatDate(upcoming.date))}${upcoming.location ? ` · ${escapeHtml(upcoming.location)}` : ""}</div></div>`;
       }
     }
   }
@@ -6176,7 +6259,7 @@
     if (button) button.disabled = false;
     if (error || !data) {
       console.error("Could not open private conversation:", error);
-      alert("Private messaging is not available yet. Please contact the club if this continues.");
+      alert(communityText("privateUnavailable"));
       return;
     }
     const name = String(athlete.first_name || "Athlete").trim();
@@ -6204,32 +6287,32 @@
     yesterday.setDate(today.getDate() - 1);
     const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
     if (sameDay(date, today)) return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    if (sameDay(date, yesterday)) return "Yesterday";
+    if (sameDay(date, yesterday)) return communityText("yesterday");
     return date.toLocaleDateString([], { weekday: "short" });
   }
 
   async function loadCommunityConversations() {
     const element = document.getElementById("communityConversations");
     if (!element || !currentUser) return;
-    element.innerHTML = '<div class="empty">Loading messages...</div>';
+    element.innerHTML = `<div class="empty">${escapeHtml(communityText("loadingMessages"))}</div>`;
     const { data, error } = await supabaseClient.rpc("get_community_private_conversation_summaries");
     if (error) {
       console.error("Could not load private conversations:", error);
-      element.innerHTML = '<div class="message error">Private messages are not enabled yet. Apply the Community private messaging database migration.</div>';
+      element.innerHTML = `<div class="message error">${escapeHtml(communityText("migration"))}</div>`;
       return;
     }
     const rows = data || [];
     if (!rows.length) {
-      element.innerHTML = '<div class="empty">No private conversations yet. Open an athlete page and tap Message to start one.</div>';
+      element.innerHTML = `<div class="empty">${escapeHtml(communityText("noConversations"))}</div>`;
       return;
     }
     const profiles = await getChatProfiles(rows.map(row => row.other_user_id));
     rows.sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
     element.innerHTML = rows.map(row => {
       const profile = profiles[row.other_user_id] || {};
-      const name = String(profile.first_name || "Member").trim();
+      const name = String(profile.first_name || communityText("member")).trim();
       const avatar = profile.photo_url ? `<img src="${escapeHtml(profile.photo_url)}" alt="">` : escapeHtml(name.charAt(0).toUpperCase());
-      const preview = String(row.last_message || "No messages yet").slice(0, 140);
+      const preview = String(row.last_message || communityText("noMessagesYet")).slice(0, 140);
       const unread = Number(row.unread_count || 0);
       return `<button type="button" class="community-conversation" onclick="openCommunityPrivateConversation('${escapeHtml(row.conversation_id)}','${escapeHtml(row.other_user_id)}','${escapeHtml(name)}')"><div class="community-conversation-avatar">${avatar}</div><div class="community-conversation-copy"><div class="community-conversation-top"><span class="community-conversation-name">${escapeHtml(name)}</span><span class="community-conversation-time">${escapeHtml(communityMessageTime(row.last_message_at))}</span></div><div class="community-conversation-preview">${escapeHtml(preview)}</div></div>${unread ? `<span class="community-unread-badge">${unread > 99 ? "99+" : unread}</span>` : ""}</button>`;
     }).join("");
@@ -6242,11 +6325,11 @@
     currentPrivateRecipientId = otherUserId;
     setCommunitySubview("communityPrivateChatView");
     const nameElement = document.getElementById("communityPrivateChatName");
-    if (nameElement) nameElement.textContent = knownName || "Private Chat";
+    if (nameElement) nameElement.textContent = knownName || communityText("privateChat");
     if (!knownName) {
       const profiles = await getChatProfiles([otherUserId]);
       const profile = profiles[otherUserId] || {};
-      if (nameElement) nameElement.textContent = profile.first_name || "Member";
+      if (nameElement) nameElement.textContent = profile.first_name || communityText("member");
     }
     await loadCommunityPrivateMessages();
     startCommunityPrivateRealtime(conversationId);
@@ -6255,7 +6338,7 @@
   async function loadCommunityPrivateMessages() {
     const element = document.getElementById("communityPrivateMessages");
     if (!element || !currentPrivateConversationId) return;
-    element.innerHTML = '<div class="empty">Loading conversation...</div>';
+    element.innerHTML = `<div class="empty">${escapeHtml(communityText("loadingConversation"))}</div>`;
     const { data, error } = await supabaseClient.from("community_private_messages")
       .select("id, conversation_id, sender_id, body, created_at, read_at")
       .eq("conversation_id", currentPrivateConversationId)
@@ -6263,15 +6346,16 @@
       .limit(500);
     if (error) {
       console.error("Could not load private messages:", error);
-      element.innerHTML = '<div class="message error">Could not load this private conversation.</div>';
+      element.innerHTML = `<div class="message error">${escapeHtml(communityText("conversationError"))}</div>`;
       return;
     }
     const messages = data || [];
     element.innerHTML = messages.length ? messages.map(message => {
       const mine = message.sender_id === currentUser?.id;
-      const deleteButton = mine ? `<button type="button" class="community-private-delete" onclick="deleteCommunityPrivateMessage('${escapeHtml(message.id)}')" aria-label="Delete your message">Delete</button>` : "";
-      return `<div class="community-private-bubble${mine ? " mine" : ""}">${escapeHtml(message.body)}${deleteButton}<div class="community-private-time">${escapeHtml(new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}</div></div>`;
-    }).join("") : '<div class="empty">Say hello to start the conversation.</div>';
+      const deleteButton = mine ? `<button type="button" class="community-private-delete" onclick="deleteCommunityPrivateMessage('${escapeHtml(message.id)}')" aria-label="${escapeHtml(communityText("delete"))}">${escapeHtml(communityText("delete"))}</button>` : "";
+      const readStatus = mine ? `<span class="community-private-read-status" aria-label="${escapeHtml(message.read_at ? communityText("read") : communityText("sent"))}">${message.read_at ? "✓✓" : "✓"} ${escapeHtml(message.read_at ? communityText("read") : communityText("sent"))}</span>` : "";
+      return `<div class="community-private-bubble${mine ? " mine" : ""}">${escapeHtml(message.body)}${deleteButton}<div class="community-private-meta"><div class="community-private-time">${escapeHtml(new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}</div>${readStatus}</div></div>`;
+    }).join("") : `<div class="empty">${escapeHtml(communityText("emptyConversation"))}</div>`;
     element.scrollTop = element.scrollHeight;
     const input = document.getElementById("communityPrivateInput");
     input?.focus({ preventScroll: true });
@@ -6304,7 +6388,7 @@
     if (button) button.disabled = false;
     if (error) {
       console.error("Could not send private message:", error);
-      if (status) { status.textContent = "Message could not be sent."; status.className = "message error"; }
+      if (status) { status.textContent = communityText("messageError"); status.className = "message error"; }
       return;
     }
     const recipientId = currentPrivateRecipientId;
@@ -6314,7 +6398,7 @@
         "New private message",
         "You have a new private message.",
         "chat",
-        "community",
+        `community-message:${currentPrivateConversationId}`,
         recipientId
       );
     }
@@ -6325,7 +6409,7 @@
 
   async function deleteCommunityPrivateMessage(messageId) {
     if (!currentPrivateConversationId || !currentUser || !messageId) return;
-    if (!confirm("Delete this message for both participants?")) return;
+    if (!confirm(communityText("deleteConfirm"))) return;
     const { data, error } = await supabaseClient.from("community_private_messages")
       .delete()
       .eq("id", messageId)
@@ -6335,7 +6419,7 @@
     if (error || !data?.length) {
       console.error("Could not delete private message:", error);
       const status = document.getElementById("communityPrivateStatus");
-      if (status) { status.textContent = "Only the sender can delete this message."; status.className = "message error"; }
+      if (status) { status.textContent = communityText("deleteDenied"); status.className = "message error"; }
       return;
     }
     await loadCommunityPrivateMessages();
@@ -6356,7 +6440,30 @@
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "community_private_conversations", filter: `id=eq.${conversationId}` }, async () => {
         if (currentPrivateConversationId === conversationId) await loadCommunityPrivateMessages();
       })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "community_private_messages", filter: `conversation_id=eq.${conversationId}` }, async payload => {
+        if (currentPrivateConversationId === conversationId && payload.new?.sender_id === currentUser?.id && payload.new?.read_at) {
+          await loadCommunityPrivateMessages();
+        }
+      })
       .subscribe();
+  }
+
+  async function openCommunityConversationFromNotification(conversationId) {
+    openSection("community");
+    const { data, error } = await supabaseClient.rpc("get_community_private_conversation_summaries");
+    if (error) {
+      console.error("Could not open the linked private conversation:", error);
+      await openCommunityMessages();
+      return;
+    }
+    const conversation = (data || []).find(row => row.conversation_id === conversationId);
+    if (!conversation) {
+      await openCommunityMessages();
+      return;
+    }
+    const profiles = await getChatProfiles([conversation.other_user_id]);
+    const name = String(profiles[conversation.other_user_id]?.first_name || communityText("member")).trim();
+    await openCommunityPrivateConversation(conversation.conversation_id, conversation.other_user_id, name);
   }
 
   function startCommunityConversationsRealtime() {
@@ -6392,7 +6499,7 @@
     });
 
     if (!filtered.length) {
-      element.innerHTML = '<div class="empty">No athletes found.</div>';
+      element.innerHTML = `<div class="empty">${escapeHtml(communityText("noAthletes"))}</div>`;
       return;
     }
 
@@ -11344,6 +11451,12 @@
       );
 
     await loadNotificationBadge();
+
+    const privateConversation = /^community-message:([0-9a-f-]{36})$/i.exec(linkSection || "");
+    if (privateConversation) {
+      await openCommunityConversationFromNotification(privateConversation[1]);
+      return;
+    }
 
     if (isAdmin && linkSection === "events") {
       const { data: notification } = await supabaseClient
@@ -25856,13 +25969,24 @@
     };
   }
 
+  if (typeof window.setAppLanguage === "function") {
+    const previousSetAppLanguageForCommunity = window.setAppLanguage;
+    window.setAppLanguage = function(language) {
+      const result = previousSetAppLanguageForCommunity.apply(this, arguments);
+      Promise.resolve(result).finally(updateCommunityLanguage);
+      return result;
+    };
+  }
+
   // Apply the saved/current interface language after the existing i18n script initializes.
   window.addEventListener("load", () => {
     syncClubChatLanguageFromInterface();
     updatePushNotificationLanguage(getCurrentInterfaceLanguage());
+    updateCommunityLanguage();
     setTimeout(() => {
       syncClubChatLanguageFromInterface();
       updatePushNotificationLanguage(getCurrentInterfaceLanguage());
+      updateCommunityLanguage();
     }, 250);
   });
 </script>
