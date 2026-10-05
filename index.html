@@ -15708,7 +15708,7 @@
       const memberId = escapeHtml(member.id);
       const name = [member.first_name, member.last_name].filter(Boolean).join(" ").trim() || "Member";
       const assignedGroups = groupsByMember.get(member.id) || [];
-      return `<div class="card" style="padding:15px;margin-bottom:10px;"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;"><strong>${escapeHtml(name)}</strong><span class="muted small">${member.is_active === false ? "Inactive" : "Active"}</span></div>${checkbox(`communityVisible-${memberId}`, "Show in Community", member.community_visible !== false, "Hidden members and their pages are excluded from Community.")}${checkbox(`communityPhoto-${memberId}`, "Show photo", member.community_show_photo !== false)}${checkbox(`communityGroups-${memberId}`, "Show groups", member.community_show_groups !== false)}${checkbox(`communityCompetition-${memberId}`, "Show upcoming competition", member.community_show_upcoming_competition !== false)}<div class="community-admin-groups" style="border-top:1px solid #292929;margin-top:12px;padding-top:8px;"><div class="community-detail-heading">Groups shown on athlete page</div>${assignedGroups.length ? assignedGroups.map(group => checkbox(`communityGroup-${memberId}-${escapeHtml(group.id)}`, escapeHtml(group.name), !hiddenSet.has(`${member.id}:${group.id}`))).join("") : '<div class="muted small">No groups assigned.</div>'}</div><div id="communityAdminStatus-${memberId}" class="message small"></div></div>`;
+      return `<div class="card" style="padding:15px;margin-bottom:10px;"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;"><strong>${escapeHtml(name)}</strong><span class="muted small">${member.is_active === false ? "Inactive" : "Active"}</span></div>${member.user_id ? `<div style="border-top:1px solid #292929;margin-top:12px;padding-top:12px;"><label style="display:block;">Set profile photo<input id="communityMemberPhoto-${memberId}" type="file" accept="image/jpeg,image/png,image/webp" onchange="uploadAdminMemberProfilePhoto(event,'${memberId}')" style="margin-top:7px;"></label><div class="muted small">JPG, PNG or WebP, up to 5 MB.</div><div id="communityMemberPhotoStatus-${memberId}" class="message small"></div></div>` : `<div class="muted small" style="margin-top:10px;">A login account is required to set a profile photo.</div>`}${checkbox(`communityVisible-${memberId}`, "Show in Community", member.community_visible !== false, "Hidden members and their pages are excluded from Community.")}${checkbox(`communityPhoto-${memberId}`, "Show photo", member.community_show_photo !== false)}${checkbox(`communityGroups-${memberId}`, "Show groups", member.community_show_groups !== false)}${checkbox(`communityCompetition-${memberId}`, "Show upcoming competition", member.community_show_upcoming_competition !== false)}<div class="community-admin-groups" style="border-top:1px solid #292929;margin-top:12px;padding-top:8px;"><div class="community-detail-heading">Groups shown on athlete page</div>${assignedGroups.length ? assignedGroups.map(group => checkbox(`communityGroup-${memberId}-${escapeHtml(group.id)}`, escapeHtml(group.name), !hiddenSet.has(`${member.id}:${group.id}`))).join("") : '<div class="muted small">No groups assigned.</div>'}</div><div id="communityAdminStatus-${memberId}" class="message small"></div></div>`;
     }).join("")}`;
 
     members.forEach(member => {
@@ -15742,6 +15742,96 @@
       return;
     }
     if (status) { status.textContent = "Saved."; status.className = "message success-text small"; }
+  }
+
+  async function uploadAdminMemberProfilePhoto(event, memberId) {
+    if (!isAdmin) return;
+
+    const input = event?.target;
+    const file = input?.files?.[0];
+    if (!file) return;
+
+    const status = document.getElementById(`communityMemberPhotoStatus-${memberId}`);
+    const setStatus = (text, className = "message small") => {
+      if (!status) return;
+      status.textContent = text;
+      status.className = className;
+    };
+
+    const extensions = {
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp"
+    };
+    if (!extensions[file.type]) {
+      setStatus("Choose a JPG, PNG or WebP image.", "message error small");
+      input.value = "";
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setStatus("The photo must be 5 MB or smaller.", "message error small");
+      input.value = "";
+      return;
+    }
+
+    setStatus("Uploading photo...");
+    const { data: member, error: memberError } = await supabaseClient
+      .from("members")
+      .select("id,user_id,photo_path")
+      .eq("id", memberId)
+      .maybeSingle();
+
+    if (memberError || !member?.user_id) {
+      console.error("Could not load member for photo upload:", memberError);
+      setStatus("Could not find an active member account.", "message error small");
+      input.value = "";
+      return;
+    }
+
+    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const photoPath = `${member.user_id}/profile-${suffix}.${extensions[file.type]}`;
+    const { error: uploadError } = await supabaseClient
+      .storage
+      .from("member-photos")
+      .upload(photoPath, file, { upsert: false, contentType: file.type });
+
+    if (uploadError) {
+      console.error("Could not upload member profile photo:", uploadError);
+      setStatus("Upload failed. Apply the admin member photo SQL migration and try again.", "message error small");
+      input.value = "";
+      return;
+    }
+
+    const { error: updateError } = await supabaseClient.rpc("admin_set_member_photo_path", {
+      p_member_id: memberId,
+      p_photo_path: photoPath
+    });
+
+    if (updateError) {
+      console.error("Could not update member profile photo:", updateError);
+      await supabaseClient.storage.from("member-photos").remove([photoPath]);
+      setStatus("Photo uploaded, but the member profile could not be updated.", "message error small");
+      input.value = "";
+      return;
+    }
+
+    if (member.photo_path && member.photo_path !== photoPath && member.photo_path.startsWith(`${member.user_id}/`)) {
+      await supabaseClient.storage.from("member-photos").remove([member.photo_path]);
+      communityPhotoUrlCache.delete(member.photo_path);
+    }
+
+    const cachedAthlete = communityAthletes.find(athlete => athlete.id === memberId);
+    if (cachedAthlete) {
+      cachedAthlete.photo_path = photoPath;
+      cachedAthlete.profile.photo_url = "";
+    }
+    if (currentMember?.id === memberId) {
+      currentMember.photo_path = photoPath;
+      await loadProfilePhoto();
+    }
+
+    setStatus("Profile photo updated.", "message success-text small");
+    input.value = "";
   }
 
   async function saveAdminCommunityGroupVisibility(memberId, groupId, visible) {
