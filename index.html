@@ -2850,6 +2850,42 @@
       </div>
 
 
+      <!-- COMMUNITY PROFILE VISIBILITY -->
+      <div class="card">
+        <div class="section-title">
+          <h2 style="margin-bottom:0;">Community Profile Visibility</h2>
+        </div>
+        <p class="muted small">Choose which of your sports information other active club members can see. This does not change your records.</p>
+
+        <div class="notification-setting-row">
+          <div class="notification-setting-copy">
+            <div class="notification-setting-title">🏆 Competition statistics and past competitions</div>
+            <div class="notification-setting-text">Medals, fights, wins and recorded competition results.</div>
+          </div>
+          <input id="communityProfileShowCompetitionStats" type="checkbox" class="notification-checkbox">
+        </div>
+
+        <div class="notification-setting-row">
+          <div class="notification-setting-copy">
+            <div class="notification-setting-title">📅 Upcoming competitions</div>
+            <div class="notification-setting-text">Competitions where your participation is approved.</div>
+          </div>
+          <input id="communityProfileShowUpcomingCompetition" type="checkbox" class="notification-checkbox">
+        </div>
+
+        <div class="notification-setting-row">
+          <div class="notification-setting-copy">
+            <div class="notification-setting-title">🥋 Attendance and progress</div>
+            <div class="notification-setting-text">Training attendance totals and percentage.</div>
+          </div>
+          <input id="communityProfileShowAttendance" type="checkbox" class="notification-checkbox">
+        </div>
+
+        <button onclick="saveCommunityProfileVisibility()">SAVE VISIBILITY SETTINGS</button>
+        <div id="communityProfileVisibilityMessage" class="message"></div>
+      </div>
+
+
       <!-- COMPETITION RECORD -->
       <div class="card">
 
@@ -6137,7 +6173,7 @@
       loadingAthletes: "Sportler werden geladen...", athletesError: "Sportler können gerade nicht geladen werden.", noAthletes: "Keine Sportler gefunden.", yesterday: "Gestern",
       loadingAthlete: "Sportler wird geladen...", unavailable: "Diese Community-Seite ist nicht mehr verfügbar.",
       message: "Nachricht", groups: "Gruppen", loadingGroups: "Gruppen werden geladen...", noGroups: "Keine Gruppen angezeigt.",
-      upcoming: "Nächster Wettkampf", competition: "Wettkampf", privateUnavailable: "Private Nachrichten sind noch nicht verfügbar. Bitte kontaktiere den Verein, falls das Problem bestehen bleibt.",
+      upcoming: "Kommende Wettkämpfe", competition: "Wettkampf", competitionStats: "Wettkampfstatistik", pastCompetitions: "Vergangene Wettkämpfe", attendance: "Anwesenheit", attended: "Besucht", totalTrainings: "Trainings gesamt", fights: "Kämpfe", wins: "Siege", gold: "Gold", silver: "Silber", bronze: "Bronze", privateUnavailable: "Private Nachrichten sind noch nicht verfügbar. Bitte kontaktiere den Verein, falls das Problem bestehen bleibt.",
       loadingMessages: "Nachrichten werden geladen...", migration: "Private Nachrichten sind noch nicht aktiviert. Bitte die Datenbankmigration für Community-Nachrichten anwenden.",
       noConversations: "Noch keine privaten Gespräche. Öffne eine Sportlerseite und tippe auf Nachricht, um zu beginnen.",
       member: "Mitglied", noMessagesYet: "Noch keine Nachricht", loadingConversation: "Gespräch wird geladen...", conversationError: "Dieses private Gespräch kann nicht geladen werden.",
@@ -6152,7 +6188,7 @@
       loadingAthletes: "Loading athletes...", athletesError: "Could not load athletes right now.", noAthletes: "No athletes found.", yesterday: "Yesterday",
       loadingAthlete: "Loading athlete...", unavailable: "This Community page is no longer available.",
       message: "Message", groups: "Groups", loadingGroups: "Loading groups...", noGroups: "No groups listed.",
-      upcoming: "Upcoming Competition", competition: "Competition", privateUnavailable: "Private messaging is not available yet. Please contact the club if this continues.",
+      upcoming: "Upcoming Competitions", competition: "Competition", competitionStats: "Competition Statistics", pastCompetitions: "Past Competitions", attendance: "Attendance", attended: "Attended", totalTrainings: "Total trainings", fights: "Fights", wins: "Wins", gold: "Gold", silver: "Silver", bronze: "Bronze", privateUnavailable: "Private messaging is not available yet. Please contact the club if this continues.",
       loadingMessages: "Loading messages...", migration: "Private messages are not enabled yet. Apply the Community private messaging database migration.",
       noConversations: "No private conversations yet. Open an athlete page and tap Message to start one.",
       member: "Member", noMessagesYet: "No messages yet", loadingConversation: "Loading conversation...", conversationError: "Could not load this private conversation.",
@@ -6167,7 +6203,7 @@
       loadingAthletes: "Завантаження спортсменів...", athletesError: "Не вдалося завантажити спортсменів.", noAthletes: "Спортсменів не знайдено.", yesterday: "Учора",
       loadingAthlete: "Завантаження профілю спортсмена...", unavailable: "Ця сторінка спільноти більше недоступна.",
       message: "Написати", groups: "Групи", loadingGroups: "Завантаження груп...", noGroups: "Групи не вказані.",
-      upcoming: "Найближчі змагання", competition: "Змагання", privateUnavailable: "Приватні повідомлення поки недоступні. Якщо проблема не зникне, зверніться до клубу.",
+      upcoming: "Майбутні змагання", competition: "Змагання", competitionStats: "Статистика змагань", pastCompetitions: "Минулі змагання", attendance: "Відвідуваність", attended: "Відвідано", totalTrainings: "Усього тренувань", fights: "Поєдинки", wins: "Перемоги", gold: "Золото", silver: "Срібло", bronze: "Бронза", privateUnavailable: "Приватні повідомлення поки недоступні. Якщо проблема не зникне, зверніться до клубу.",
       loadingMessages: "Завантаження повідомлень...", migration: "Приватні повідомлення ще не ввімкнені. Застосуйте міграцію бази даних Community.",
       noConversations: "Приватних розмов поки немає. Відкрийте сторінку спортсмена й натисніть «Написати».",
       member: "Учасник", noMessagesYet: "Повідомлень ще немає", loadingConversation: "Завантаження розмови...", conversationError: "Не вдалося завантажити приватну розмову.",
@@ -6300,7 +6336,11 @@
         photo_url: data.member.photo_path ? cachedAthlete.profile?.photo_url || "" : ""
       },
       groups: Array.isArray(data.groups) ? data.groups : [],
-      upcoming_competition: data.upcoming_competition || null
+      upcoming_competition: data.upcoming_competition || null,
+      upcoming_competitions: Array.isArray(data.upcoming_competitions) ? data.upcoming_competitions : [],
+      competition_stats: data.competition_stats || null,
+      past_competitions: Array.isArray(data.past_competitions) ? data.past_competitions : [],
+      attendance: data.attendance || null
     };
     currentCommunityAthlete = athlete;
     const name = String(athlete.first_name || communityText("athlete")).trim();
@@ -6322,10 +6362,40 @@
 
     const competitionElement = document.getElementById("communityCompetition");
     if (competitionElement) {
-      const upcoming = athlete.upcoming_competition;
-      if (upcoming) {
-        competitionElement.innerHTML = `<div class="community-detail-card"><div class="community-detail-heading">${escapeHtml(communityText("upcoming"))}</div><div style="font-weight:800;">${escapeHtml(upcoming.title || communityText("competition"))}</div><div class="muted small" style="margin-top:5px;">${escapeHtml(formatDate(upcoming.date))}${upcoming.location ? ` · ${escapeHtml(upcoming.location)}` : ""}</div></div>`;
+      const sections = [];
+      const upcoming = athlete.upcoming_competitions.length
+        ? athlete.upcoming_competitions
+        : (athlete.upcoming_competition ? [athlete.upcoming_competition] : []);
+
+      if (upcoming.length) {
+        sections.push(`<div class="community-detail-card"><div class="community-detail-heading">${escapeHtml(communityText("upcoming"))}</div>${upcoming.map(item => `<div style="padding:7px 0;border-top:1px solid #292929;"><div style="font-weight:800;">${escapeHtml(item.title || communityText("competition"))}</div><div class="muted small" style="margin-top:4px;">${escapeHtml(formatDate(item.date))}${item.location ? ` · ${escapeHtml(item.location)}` : ""}</div></div>`).join("")}</div>`);
       }
+
+      if (athlete.competition_stats) {
+        const stats = athlete.competition_stats;
+        const renderCommunityEntry = entry => {
+          const medal = String(entry.medal || "").toLowerCase();
+          const place = Number(entry.result_place || 0);
+          const result = medal === "gold" || place === 1 ? "🥇 Gold"
+            : medal === "silver" || place === 2 ? "🥈 Silver"
+            : medal === "bronze" || place === 3 ? "🥉 Bronze"
+            : place ? `${place}. Place` : "No medal";
+          return `<div class="record-details" style="margin-top:8px;"><div class="record-result" style="margin-top:0;">${escapeHtml(result)}</div>${entry.discipline ? `<div class="record-detail-line">Discipline: <strong>${escapeHtml(entry.discipline)}</strong></div>` : ""}${entry.category ? `<div class="record-detail-line">Category: <strong>${escapeHtml(entry.category)}</strong></div>` : ""}${entry.weight !== null && entry.weight !== undefined ? `<div class="record-detail-line">Weight: <strong>${escapeHtml(entry.weight)} kg</strong></div>` : ""}<div class="record-detail-line">${escapeHtml(communityText("fights"))}: <strong>${Number(entry.fights_count || 0)}</strong> · ${escapeHtml(communityText("wins"))}: <strong>${Number(entry.wins_count || 0)}</strong> · Finishes: <strong>${Number(entry.finishes_count || 0)}</strong></div>${entry.notes ? `<div class="record-detail-line">Notes: <strong>${escapeHtml(entry.notes)}</strong></div>` : ""}</div>`;
+        };
+        const pastCompetitionCards = athlete.past_competitions.map(item => {
+          const entries = Array.isArray(item.entries) ? item.entries : [];
+          return `<div style="padding:9px 0;border-top:1px solid #292929;"><div style="font-weight:800;">${escapeHtml(item.title || communityText("competition"))}</div><div class="muted small" style="margin-top:4px;">${escapeHtml(formatDate(item.date))}${item.location ? ` · ${escapeHtml(item.location)}` : ""}</div>${entries.map(renderCommunityEntry).join("")}${item.age_category || item.belt || item.experience ? `<div class="record-details">${item.age_category ? `<div class="record-detail-line">Age: <strong>${escapeHtml(item.age_category)}</strong></div>` : ""}${item.belt ? `<div class="record-detail-line">Belt: <strong>${escapeHtml(item.belt)}</strong></div>` : ""}${item.experience ? `<div class="record-detail-line">Experience: <strong>${escapeHtml(item.experience)}</strong></div>` : ""}</div>` : ""}</div>`;
+        }).join("");
+        sections.push(`<div class="community-detail-card"><div class="community-detail-heading">${escapeHtml(communityText("competitionStats"))}</div><div class="record-summary" style="margin:0 0 10px;"><div class="record-summary-box"><div class="record-summary-number">${Number(stats.competitions_count || 0)}</div><div class="record-summary-label">${escapeHtml(communityText("pastCompetitions"))}</div></div><div class="record-summary-box"><div class="record-summary-number">${Number(stats.fights_count || 0)}</div><div class="record-summary-label">${escapeHtml(communityText("fights"))}</div></div><div class="record-summary-box"><div class="record-summary-number">${Number(stats.wins_count || 0)}</div><div class="record-summary-label">${escapeHtml(communityText("wins"))}</div></div><div class="record-summary-box"><div class="record-summary-number">${Number(stats.finishes_count || 0)}</div><div class="record-summary-label">Finishes</div></div><div class="record-summary-box"><div class="record-summary-number">🥇 ${Number(stats.gold_count || 0)}</div><div class="record-summary-label">${escapeHtml(communityText("gold"))}</div></div><div class="record-summary-box"><div class="record-summary-number">🥈 ${Number(stats.silver_count || 0)}</div><div class="record-summary-label">${escapeHtml(communityText("silver"))}</div></div><div class="record-summary-box"><div class="record-summary-number">🥉 ${Number(stats.bronze_count || 0)}</div><div class="record-summary-label">${escapeHtml(communityText("bronze"))}</div></div><div class="record-summary-box"><div class="record-summary-number">${Number(stats.win_rate || 0)}%</div><div class="record-summary-label">Win Rate</div></div><div class="record-summary-box"><div class="record-summary-number">${Number(stats.finish_rate || 0)}%</div><div class="record-summary-label">Finish Rate</div></div></div>${pastCompetitionCards}</div>`);
+      }
+
+      if (athlete.attendance) {
+        const attendance = athlete.attendance;
+        const monthly = Array.isArray(attendance.monthly) ? attendance.monthly : [];
+        sections.push(`<div class="community-detail-card"><div class="community-detail-heading">${escapeHtml(communityText("attendance"))}</div><div style="font-size:22px;font-weight:900;">${Math.round(Number(attendance.attendance_percentage || 0))}%</div><div class="muted small">${escapeHtml(communityText("attended"))}: ${Number(attendance.attended_trainings || 0)} / ${Number(attendance.total_trainings || 0)} ${escapeHtml(communityText("totalTrainings").toLowerCase())}</div>${monthly.length ? `<div class="progress-bars" style="margin-top:12px;">${monthly.map(item => { const value = Math.max(0, Math.min(100, Number(item.attendance_percentage || 0))); return `<div class="progress-row"><div class="progress-row-top"><span>${escapeHtml(formatMonth(item.month))}</span><strong>${Math.round(value)}%</strong></div><div class="progress-track"><div class="progress-fill" style="width:${value}%"></div></div></div>`; }).join("")}</div>` : ""}</div>`);
+      }
+
+      competitionElement.innerHTML = sections.join("");
     }
   }
 
@@ -7204,7 +7274,73 @@
 
     await loadNotificationPreferences();
 
+    await loadCommunityProfileVisibility();
+
     await loadCompetitionRecord();
+  }
+
+
+  async function loadCommunityProfileVisibility() {
+    if (!currentMember || !currentUser) return;
+
+    const message = document.getElementById("communityProfileVisibilityMessage");
+    const { data, error } = await supabaseClient
+      .from("members")
+      .select("community_show_upcoming_competition,community_show_competition_stats,community_show_attendance")
+      .eq("id", currentMember.id)
+      .maybeSingle();
+
+    if (error || !data) {
+      console.error("Could not load Community profile visibility:", error);
+      if (message) {
+        message.textContent = "Could not load visibility settings. Apply the athlete profile visibility SQL migration.";
+        message.className = "message error";
+      }
+      return;
+    }
+
+    currentMember = { ...currentMember, ...data };
+    document.getElementById("communityProfileShowCompetitionStats").checked = data.community_show_competition_stats === true;
+    document.getElementById("communityProfileShowUpcomingCompetition").checked = data.community_show_upcoming_competition !== false;
+    document.getElementById("communityProfileShowAttendance").checked = data.community_show_attendance === true;
+    if (message) {
+      message.textContent = "";
+      message.className = "message";
+    }
+  }
+
+
+  async function saveCommunityProfileVisibility() {
+    if (!currentMember || !currentUser) return;
+
+    const message = document.getElementById("communityProfileVisibilityMessage");
+    if (message) {
+      message.textContent = "Saving...";
+      message.className = "message";
+    }
+
+    const { error } = await supabaseClient.rpc("update_own_community_profile_visibility", {
+      p_show_upcoming_competition: document.getElementById("communityProfileShowUpcomingCompetition").checked,
+      p_show_competition_stats: document.getElementById("communityProfileShowCompetitionStats").checked,
+      p_show_attendance: document.getElementById("communityProfileShowAttendance").checked
+    });
+
+    if (error) {
+      console.error("Could not save Community profile visibility:", error);
+      if (message) {
+        message.textContent = "Could not save visibility settings. Apply the athlete profile visibility SQL migration and try again.";
+        message.className = "message error";
+      }
+      return;
+    }
+
+    currentMember.community_show_upcoming_competition = document.getElementById("communityProfileShowUpcomingCompetition").checked;
+    currentMember.community_show_competition_stats = document.getElementById("communityProfileShowCompetitionStats").checked;
+    currentMember.community_show_attendance = document.getElementById("communityProfileShowAttendance").checked;
+    if (message) {
+      message.textContent = "Saved. Your sports records were not changed.";
+      message.className = "message success-text";
+    }
   }
 
 
