@@ -6658,22 +6658,13 @@
       if (status) { status.textContent = communityText("pushError"); status.className = "message error"; }
       return;
     }
-    if (Number(pushResult.sent || 0) > 0 && pushResult.privateMessageDelivered) {
-      const bubble = document.querySelector(`[data-community-message-id="${messageId}"]`);
-      const receipt = bubble?.querySelector(".community-private-read-status");
-      if (receipt && !receipt.getAttribute("aria-label")?.includes(communityText("read"))) {
-        receipt.setAttribute("aria-label", communityText("delivered"));
-        receipt.innerHTML = `✓✓ ${escapeHtml(communityText("delivered"))}`;
-      }
-      return;
-    }
+    // A positive count only means the Web Push provider accepted the push.
+    // Keep the bubble at "sent" until the recipient app acknowledges the row.
+    if (Number(pushResult.sent || 0) > 0) return;
     const currentReceipt = document.querySelector(`[data-community-message-id="${messageId}"] .community-private-read-status`);
     const appAlreadyDelivered = [communityText("delivered"), communityText("read")].includes(currentReceipt?.getAttribute("aria-label"));
     if (status && !appAlreadyDelivered) {
-      if (Number(pushResult.sent || 0) > 0) {
-        status.textContent = communityText("pushError");
-        status.className = "message error";
-      } else if (Number(pushResult.failures || 0) > 0 || Number(pushResult.removed || 0) > 0) {
+      if (Number(pushResult.failures || 0) > 0 || Number(pushResult.removed || 0) > 0) {
         const codes = [...new Set((pushResult.failureStatusCodes || []).filter(Boolean))].join(", ");
         status.textContent = communityText("pushError") + (codes ? ` (${codes})` : "");
         status.className = "message error";
