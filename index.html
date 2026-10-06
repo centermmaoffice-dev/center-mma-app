@@ -8675,7 +8675,7 @@
 
     const monthLabel =
       calendarCursor.toLocaleDateString(
-        "en-GB",
+        typeof getLocale === "function" ? getLocale() : "en-GB",
         {
           month: "long",
           year: "numeric"
@@ -8709,15 +8709,11 @@
       ) * 7;
 
 
-    const weekdayNames = [
-      "Mon",
-      "Tue",
-      "Wed",
-      "Thu",
-      "Fri",
-      "Sat",
-      "Sun"
-    ];
+    const calendarLocale = typeof getLocale === "function" ? getLocale() : "en-GB";
+    const weekdayNames = Array.from({ length: 7 }, function (_, index) {
+      return new Intl.DateTimeFormat(calendarLocale, { weekday: "short", timeZone: "UTC" })
+        .format(new Date(Date.UTC(2024, 0, index + 1)));
+    });
 
 
     let dayButtons = "";
