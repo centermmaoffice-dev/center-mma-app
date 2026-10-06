@@ -4062,6 +4062,12 @@
     startChatUnreadRealtime();
     updateSectionUpdateBadges();
 
+    const pushedConversationId = new URLSearchParams(window.location.search).get("communityConversation");
+    if (/^[0-9a-f-]{36}$/i.test(pushedConversationId || "")) {
+      window.history.replaceState(window.history.state, "", window.location.pathname + window.location.hash);
+      setTimeout(() => { void openCommunityConversationFromNotification(pushedConversationId); }, 100);
+    }
+
     // Keep the device's Web Push subscription synchronized with the
     // currently logged-in account. This is what allows notifications to
     // arrive through the service worker even when the app is closed.
@@ -6180,7 +6186,7 @@
       member: "Mitglied", noMessagesYet: "Noch keine Nachricht", loadingConversation: "Gespräch wird geladen...", conversationError: "Dieses private Gespräch kann nicht geladen werden.",
       writeMessage: "Private Nachricht schreiben...", send: "SENDEN", emptyConversation: "Schreibe eine Nachricht, um das Gespräch zu beginnen.",
       delete: "Löschen", deleteConfirm: "Diese Nachricht für beide Teilnehmer löschen?", deleteDenied: "Nur der Absender kann diese Nachricht löschen.",
-      messageError: "Nachricht konnte nicht gesendet werden.", sent: "Gesendet", delivered: "Zugestellt", read: "Gelesen", viewedBy: "Gesehen von {count}",
+      messageError: "Nachricht konnte nicht gesendet werden.", sent: "Gesendet", delivered: "Zugestellt", read: "Gelesen", pushUnavailable: "Nachricht gesendet, aber kein aktives Push-Gerät des Empfängers gefunden.", pushDisabled: "Push-Nachrichten sind in den Benachrichtigungseinstellungen des Empfängers deaktiviert.", pushError: "Nachricht gesendet, Push-Zustellung konnte nicht bestätigt werden.", viewedBy: "Gesehen von {count}",
       messageFrom: "Neue Nachricht von", newPrivateMessage: "Neue private Nachricht", privateMessage: "Du hast eine neue private Nachricht.", open: "ÖFFNEN", unreadMessages: "Ungelesene private Nachrichten"
     },
     en: {
@@ -6195,7 +6201,7 @@
       member: "Member", noMessagesYet: "No messages yet", loadingConversation: "Loading conversation...", conversationError: "Could not load this private conversation.",
       writeMessage: "Write a private message...", send: "SEND", emptyConversation: "Say hello to start the conversation.",
       delete: "Delete", deleteConfirm: "Delete this message for both participants?", deleteDenied: "Only the sender can delete this message.",
-      messageError: "Message could not be sent.", sent: "Sent", delivered: "Delivered", read: "Read", viewedBy: "Seen by {count}",
+      messageError: "Message could not be sent.", sent: "Sent", delivered: "Delivered", read: "Read", pushUnavailable: "Message sent, but no active push subscription was found for the recipient.", pushDisabled: "The recipient has disabled chat notifications in notification settings.", pushError: "Message sent, but push delivery could not be confirmed.", viewedBy: "Seen by {count}",
       messageFrom: "New message from", newPrivateMessage: "New private message", privateMessage: "You have a new private message.", open: "OPEN", unreadMessages: "Unread private messages"
     },
     uk: {
@@ -6210,7 +6216,7 @@
       member: "Учасник", noMessagesYet: "Повідомлень ще немає", loadingConversation: "Завантаження розмови...", conversationError: "Не вдалося завантажити приватну розмову.",
       writeMessage: "Напишіть приватне повідомлення...", send: "НАДІСЛАТИ", emptyConversation: "Напишіть перше повідомлення, щоб почати розмову.",
       delete: "Видалити", deleteConfirm: "Видалити це повідомлення для обох учасників?", deleteDenied: "Видалити повідомлення може лише його автор.",
-      messageError: "Не вдалося надіслати повідомлення.", sent: "Надіслано", delivered: "Доставлено", read: "Прочитано", viewedBy: "Переглянуло: {count}",
+      messageError: "Не вдалося надіслати повідомлення.", sent: "Надіслано", delivered: "Доставлено", read: "Прочитано", pushUnavailable: "Повідомлення надіслано, але активну push-підписку одержувача не знайдено.", pushDisabled: "Одержувач вимкнув push-повідомлення чату в налаштуваннях сповіщень.", pushError: "Повідомлення надіслано, але доставку push не вдалося підтвердити.", viewedBy: "Переглянуло: {count}",
       messageFrom: "Нове повідомлення від", newPrivateMessage: "Нове приватне повідомлення", privateMessage: "У вас нове приватне повідомлення.", open: "ВІДКРИТИ", unreadMessages: "Непрочитані приватні повідомлення"
     }
   };
@@ -6634,13 +6640,51 @@
     );
     if (notificationError) {
       console.error("Could not create private-message notification:", notificationError);
+      const status = document.getElementById("communityPrivateStatus");
+      if (status) { status.textContent = communityText("pushError"); status.className = "message error"; }
       return;
     }
-    if (!notificationId) return;
-    const { error: pushError } = await supabaseClient.functions.invoke("send-push", {
+    if (!notificationId) {
+      const status = document.getElementById("communityPrivateStatus");
+      if (status) { status.textContent = communityText("pushError"); status.className = "message error"; }
+      return;
+    }
+    const { data: pushResult, error: pushError } = await supabaseClient.functions.invoke("send-push", {
       body: { notificationId }
     });
-    if (pushError) console.error("Could not send private-message push:", pushError);
+    const status = document.getElementById("communityPrivateStatus");
+    if (pushError || !pushResult) {
+      console.error("Could not send private-message push:", pushError);
+      if (status) { status.textContent = communityText("pushError"); status.className = "message error"; }
+      return;
+    }
+    if (Number(pushResult.sent || 0) > 0 && pushResult.privateMessageDelivered) {
+      const bubble = document.querySelector(`[data-community-message-id="${messageId}"]`);
+      const receipt = bubble?.querySelector(".community-private-read-status");
+      if (receipt && !receipt.getAttribute("aria-label")?.includes(communityText("read"))) {
+        receipt.setAttribute("aria-label", communityText("delivered"));
+        receipt.innerHTML = `✓✓ ${escapeHtml(communityText("delivered"))}`;
+      }
+      return;
+    }
+    const currentReceipt = document.querySelector(`[data-community-message-id="${messageId}"] .community-private-read-status`);
+    const appAlreadyDelivered = [communityText("delivered"), communityText("read")].includes(currentReceipt?.getAttribute("aria-label"));
+    if (status && !appAlreadyDelivered) {
+      if (Number(pushResult.sent || 0) > 0) {
+        status.textContent = communityText("pushError");
+        status.className = "message error";
+      } else if (Number(pushResult.failures || 0) > 0 || Number(pushResult.removed || 0) > 0) {
+        const codes = [...new Set((pushResult.failureStatusCodes || []).filter(Boolean))].join(", ");
+        status.textContent = communityText("pushError") + (codes ? ` (${codes})` : "");
+        status.className = "message error";
+      } else if (Number(pushResult.activeSubscriptions || 0) > 0 && Number(pushResult.eligibleSubscriptions || 0) === 0) {
+        status.textContent = communityText("pushDisabled");
+        status.className = "message error";
+      } else if (Number(pushResult.sent || 0) === 0) {
+        status.textContent = communityText("pushUnavailable");
+        status.className = "message error";
+      }
+    }
   }
 
   async function deleteCommunityPrivateMessage(messageId) {
@@ -6730,6 +6774,25 @@
         .subscribe();
       communityConversationsRealtimeChannels.push(channel);
     });
+    const incomingChannel = supabaseClient.channel(`community-incoming-messages-${currentUser.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "community_private_messages" }, payload => {
+        const message = payload.new;
+        if (!message?.id || message.sender_id === currentUser?.id || message.delivered_at) return;
+        void supabaseClient.from("community_private_messages")
+          .update({ delivered_at: new Date().toISOString() })
+          .eq("id", message.id)
+          .neq("sender_id", currentUser.id)
+          .is("delivered_at", null)
+          .then(({ error }) => {
+            if (error) console.error("Could not acknowledge incoming private message:", error);
+          });
+      })
+      .subscribe((state, error) => {
+        if (state === "CHANNEL_ERROR" || state === "TIMED_OUT") {
+          console.error("Private-message delivery channel failed:", state, error);
+        }
+      });
+    communityConversationsRealtimeChannels.push(incomingChannel);
     void updateCommunityUnreadBadge();
   }
 
