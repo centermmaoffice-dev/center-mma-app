@@ -20,13 +20,35 @@ self.addEventListener('push', function (event) {
     data: {
       notificationId: data.notificationId || null,
       linkSection: data.linkSection || null,
-      url: data.url || '/'
+      messageId: data.messageId || null,
+      url: data.url || '/',
+      deliveryAckToken: data.deliveryAckToken || null,
+      deliveryAckUrl: data.deliveryAckUrl || null,
+      deliveryAckKey: data.deliveryAckKey || null
     }
   };
 
-  event.waitUntil(
-    self.registration.showNotification(title, options)
-  );
+  event.waitUntil((async function () {
+    // Only acknowledge after the browser has successfully displayed the push.
+    await self.registration.showNotification(title, options);
+
+    if (data.deliveryAckToken && data.deliveryAckUrl && data.deliveryAckKey) {
+      const response = await fetch(data.deliveryAckUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': data.deliveryAckKey,
+          'Authorization': 'Bearer ' + data.deliveryAckKey
+        },
+        body: JSON.stringify({ p_token: data.deliveryAckToken })
+      });
+      if (!response.ok) {
+        console.error('Private-message push receipt acknowledgement failed:', response.status);
+      }
+    }
+  })().catch(function (error) {
+    console.error('Could not display or acknowledge push notification:', error);
+  }));
 });
 
 self.addEventListener('notificationclick', function (event) {
