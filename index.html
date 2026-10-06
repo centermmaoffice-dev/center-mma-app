@@ -1043,6 +1043,7 @@
       object-fit: cover;
       display: block;
     }
+    button.chat-avatar-profile { border:0; padding:0; margin:0; width:38px; height:38px; flex:0 0 38px; cursor:pointer; }
 
     .chat-bubble-wrap {
       max-width: calc(85% - 43px);
@@ -6179,7 +6180,7 @@
       member: "Mitglied", noMessagesYet: "Noch keine Nachricht", loadingConversation: "Gespräch wird geladen...", conversationError: "Dieses private Gespräch kann nicht geladen werden.",
       writeMessage: "Private Nachricht schreiben...", send: "SENDEN", emptyConversation: "Schreibe eine Nachricht, um das Gespräch zu beginnen.",
       delete: "Löschen", deleteConfirm: "Diese Nachricht für beide Teilnehmer löschen?", deleteDenied: "Nur der Absender kann diese Nachricht löschen.",
-      messageError: "Nachricht konnte nicht gesendet werden.", sent: "Gesendet", read: "Gelesen",
+      messageError: "Nachricht konnte nicht gesendet werden.", sent: "Gesendet", delivered: "Zugestellt", read: "Gelesen", viewedBy: "Gesehen von {count}",
       messageFrom: "Neue Nachricht von", newPrivateMessage: "Neue private Nachricht", privateMessage: "Du hast eine neue private Nachricht.", open: "ÖFFNEN", unreadMessages: "Ungelesene private Nachrichten"
     },
     en: {
@@ -6194,7 +6195,7 @@
       member: "Member", noMessagesYet: "No messages yet", loadingConversation: "Loading conversation...", conversationError: "Could not load this private conversation.",
       writeMessage: "Write a private message...", send: "SEND", emptyConversation: "Say hello to start the conversation.",
       delete: "Delete", deleteConfirm: "Delete this message for both participants?", deleteDenied: "Only the sender can delete this message.",
-      messageError: "Message could not be sent.", sent: "Sent", read: "Read",
+      messageError: "Message could not be sent.", sent: "Sent", delivered: "Delivered", read: "Read", viewedBy: "Seen by {count}",
       messageFrom: "New message from", newPrivateMessage: "New private message", privateMessage: "You have a new private message.", open: "OPEN", unreadMessages: "Unread private messages"
     },
     uk: {
@@ -6209,7 +6210,7 @@
       member: "Учасник", noMessagesYet: "Повідомлень ще немає", loadingConversation: "Завантаження розмови...", conversationError: "Не вдалося завантажити приватну розмову.",
       writeMessage: "Напишіть приватне повідомлення...", send: "НАДІСЛАТИ", emptyConversation: "Напишіть перше повідомлення, щоб почати розмову.",
       delete: "Видалити", deleteConfirm: "Видалити це повідомлення для обох учасників?", deleteDenied: "Видалити повідомлення може лише його автор.",
-      messageError: "Не вдалося надіслати повідомлення.", sent: "Надіслано", read: "Прочитано",
+      messageError: "Не вдалося надіслати повідомлення.", sent: "Надіслано", delivered: "Доставлено", read: "Прочитано", viewedBy: "Переглянуло: {count}",
       messageFrom: "Нове повідомлення від", newPrivateMessage: "Нове приватне повідомлення", privateMessage: "У вас нове приватне повідомлення.", open: "ВІДКРИТИ", unreadMessages: "Непрочитані приватні повідомлення"
     }
   };
@@ -6470,6 +6471,15 @@
       element.innerHTML = `<div class="empty">${escapeHtml(communityText("noConversations"))}</div>`;
       return;
     }
+    const conversationIds = rows.map(row => row.conversation_id).filter(Boolean);
+    if (conversationIds.length) {
+      const { error: deliveryError } = await supabaseClient.from("community_private_messages")
+        .update({ delivered_at: new Date().toISOString() })
+        .in("conversation_id", conversationIds)
+        .neq("sender_id", currentUser.id)
+        .is("delivered_at", null);
+      if (deliveryError) console.error("Could not mark private messages as delivered:", deliveryError);
+    }
     const profiles = await getChatProfiles(rows.map(row => row.other_user_id));
     rows.sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
     element.innerHTML = rows.map(row => {
@@ -6523,8 +6533,10 @@
     const deleteButton = mine && !pending
       ? `<button type="button" class="community-private-delete" onclick="deleteCommunityPrivateMessage('${escapeHtml(message.id)}')" aria-label="${escapeHtml(communityText("delete"))}">${escapeHtml(communityText("delete"))}</button>`
       : "";
+    const stateKey = message.read_at ? "read" : message.delivered_at ? "delivered" : "sent";
+    const stateMark = message.read_at ? "✓✓" : message.delivered_at ? "✓✓" : "✓";
     const readStatus = mine && !pending
-      ? `<span class="community-private-read-status" aria-label="${escapeHtml(message.read_at ? communityText("read") : communityText("sent"))}">${message.read_at ? "✓✓" : "✓"} ${escapeHtml(message.read_at ? communityText("read") : communityText("sent"))}</span>`
+      ? `<span class="community-private-read-status" aria-label="${escapeHtml(communityText(stateKey))}">${stateMark} ${escapeHtml(communityText(stateKey))}</span>`
       : "";
     const time = message.created_at
       ? new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
@@ -6539,7 +6551,7 @@
     const loadToken = ++communityPrivateMessagesLoadToken;
     element.innerHTML = `<div class="empty">${escapeHtml(communityText("loadingConversation"))}</div>`;
     const { data, error } = await supabaseClient.from("community_private_messages")
-      .select("id, conversation_id, sender_id, body, created_at, read_at")
+      .select("id, conversation_id, sender_id, body, created_at, delivered_at, read_at")
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: true })
       .limit(500);
@@ -6597,7 +6609,7 @@
       conversation_id: conversationId,
       sender_id: currentUser.id,
       body
-    }).select("id,conversation_id,sender_id,body,created_at,read_at").single();
+    }).select("id,conversation_id,sender_id,body,created_at,delivered_at,read_at").single();
     if (button) button.disabled = false;
     if (error) {
       console.error("Could not send private message:", error);
@@ -6670,12 +6682,13 @@
         }, 100);
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "community_private_messages", filter: `conversation_id=eq.${conversationId}` }, payload => {
-        if (currentPrivateConversationId !== conversationId || payload.new?.sender_id !== currentUser?.id || !payload.new?.read_at) return;
+        if (currentPrivateConversationId !== conversationId || payload.new?.sender_id !== currentUser?.id || (!payload.new?.delivered_at && !payload.new?.read_at)) return;
         const bubble = document.querySelector(`[data-community-message-id="${payload.new.id}"]`);
         const receipt = bubble?.querySelector(".community-private-read-status");
         if (receipt) {
-          receipt.setAttribute("aria-label", communityText("read"));
-          receipt.innerHTML = `✓✓ ${escapeHtml(communityText("read"))}`;
+          const stateKey = payload.new.read_at ? "read" : payload.new.delivered_at ? "delivered" : "sent";
+          receipt.setAttribute("aria-label", communityText(stateKey));
+          receipt.innerHTML = `${payload.new.read_at || payload.new.delivered_at ? "✓✓" : "✓"} ${escapeHtml(communityText(stateKey))}`;
         }
       })
       .subscribe();
@@ -10446,6 +10459,42 @@
     `;
   }
 
+  async function openCommunityProfileFromChat(userId) {
+    if (!userId || !currentUser) return;
+    openSection("community");
+    const { data, error } = await supabaseClient.rpc("get_community_directory");
+    if (error) {
+      console.error("Could not open Community profile from chat:", error);
+      return;
+    }
+    const member = (data || []).find(row => row.user_id === userId);
+    if (!member) return;
+    let photoUrl = "";
+    if (member.photo_path) photoUrl = (await getCommunityPhotoUrls([member.photo_path])).get(member.photo_path) || "";
+    const profile = { ...member, profile: { photo_url: photoUrl } };
+    communityAthletes = [profile, ...communityAthletes.filter(row => row.user_id !== userId)];
+    await openCommunityAthlete(member.id);
+  }
+
+  async function updateClubChatViewReceipts(messages) {
+    if (!currentUser || !Array.isArray(messages) || !messages.length) return;
+    const ids = messages.map(row => row.id).filter(Boolean);
+    if (!ids.length) return;
+    const { error: insertError } = await supabaseClient.from("chat_message_views").upsert(
+      ids.map(message_id => ({ message_id, user_id: currentUser.id })),
+      { onConflict: "message_id,user_id", ignoreDuplicates: true }
+    );
+    if (insertError) { console.error("Could not save club chat views:", insertError); return; }
+    const { data, error } = await supabaseClient.rpc("get_chat_message_view_counts", { p_message_ids: ids });
+    if (error) { console.error("Could not load club chat view counts:", error); return; }
+    const counts = new Map((data || []).map(row => [row.message_id, Number(row.viewer_count || 0)]));
+    document.querySelectorAll("[data-chat-message-id]").forEach(row => {
+      const count = counts.get(row.dataset.chatMessageId) || 0;
+      const label = row.querySelector(".chat-view-count");
+      if (label) { label.textContent = count ? communityText("viewedBy").replace("{count}", String(count)) : ""; label.classList.toggle("hidden", count === 0); }
+    });
+  }
+
 
   async function loadChatMessages(
     preserveScroll = false
@@ -10569,13 +10618,13 @@
 
             return `
 
-              <div
+              <div data-chat-message-id="${escapeHtml(item.id)}"
                 class="chat-row ${
                   mine ? "mine" : ""
                 }"
               >
 
-                ${renderChatAvatar(profile)}
+                <button type="button" class="chat-avatar chat-avatar-profile" aria-label="Open ${escapeHtml(senderName)} Community profile" onclick="openCommunityProfileFromChat('${escapeHtml(item.user_id)}')">${profile?.photo_url ? `<img loading="lazy" decoding="async" src="${escapeHtml(profile.photo_url)}" alt="">` : "👤"}</button>
 
                 <div class="chat-bubble-wrap">
 
@@ -10605,6 +10654,8 @@
                         )}
                       </span>
 
+                      <span class="chat-view-count muted small hidden"></span>
+
                       ${deleteButton}
 
                     </div>
@@ -10629,6 +10680,7 @@
       element.scrollTop =
         element.scrollHeight;
     }
+    void updateClubChatViewReceipts(messages);
   }
 
 
@@ -10852,6 +10904,17 @@
                 },
                 180
               );
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "chat_message_views" },
+          function () {
+            if (chatRefreshTimer) clearTimeout(chatRefreshTimer);
+            chatRefreshTimer = setTimeout(() => {
+              const chatSection = document.getElementById("chatSection");
+              if (chatSection && !chatSection.classList.contains("hidden")) loadChatMessages(true);
+            }, 180);
           }
         )
         .subscribe();
