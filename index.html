@@ -4260,7 +4260,6 @@
     `;
   }
 
-
   async function ensureTomorrowBirthdayNotifications() {
     // Only an administrator has permission to read the full member list and
     // create notifications for other accounts. Running this on every admin
@@ -4287,7 +4286,7 @@
 
       const { data: members, error: membersError } = await supabaseClient
         .from("members")
-        .select("id,user_id,first_name,last_name,email,birth_date,is_active")
+        .select("id,user_id,first_name,last_name,email,birth_date,is_active,role")
         .not("birth_date", "is", null);
 
       if (membersError) {
@@ -4300,6 +4299,7 @@
         return Boolean(
           member.user_id &&
           member.is_active !== false &&
+          member.role !== "admin" &&
           dateParts.length === 3 &&
           dateParts[1] === tomorrowMonth &&
           dateParts[2] === tomorrowDay
@@ -4311,6 +4311,7 @@
         return Boolean(
           member.user_id &&
           member.is_active !== false &&
+          member.role !== "admin" &&
           dateParts.length === 3 &&
           dateParts[1] === todayMonth &&
           dateParts[2] === todayDay
@@ -4642,6 +4643,21 @@
     if (!isAdmin) {
       return;
     }
+
+    const adminBirthParts = String(currentMember?.birth_date || "").split("-").map(Number);
+    const validAdminBirthDate = adminBirthParts.length === 3 && adminBirthParts.every(Number.isFinite);
+    const officialBirthday = validAdminBirthDate
+      ? `${String(adminBirthParts[2]).padStart(2, "0")}.${String(adminBirthParts[1]).padStart(2, "0")}.${adminBirthParts[0]}`
+      : "Administrator profile birthday is not set";
+    const officialAge = validAdminBirthDate ? new Date().getFullYear() - adminBirthParts[0] : null;
+    element.innerHTML += `
+      <div class="card">
+        <h3>CENTER MMA Official Birthday</h3>
+        <div class="info-row"><span class="info-label">Official date (administrator's birthday)</span><span class="info-value">${escapeHtml(officialBirthday)}</span></div>
+        ${officialAge !== null ? `<div class="info-row"><span class="info-label">Years celebrated this year</span><span class="info-value">${officialAge}</span></div>` : ""}
+        <p class="muted small" style="margin-top:10px;">The club and app send an anniversary greeting with the club's age on this date.</p>
+      </div>
+    `;
 
     const {
       data: members,
@@ -6197,7 +6213,7 @@
       member: "Mitglied", noMessagesYet: "Noch keine Nachricht", loadingConversation: "Gespräch wird geladen...", conversationError: "Dieses private Gespräch kann nicht geladen werden.",
       writeMessage: "Private Nachricht schreiben...", send: "SENDEN", emptyConversation: "Schreibe eine Nachricht, um das Gespräch zu beginnen.",
       delete: "Löschen", deleteConfirm: "Diese Nachricht für beide Teilnehmer löschen?", deleteDenied: "Nur der Absender kann diese Nachricht löschen.",
-      messageError: "Nachricht konnte nicht gesendet werden.", sent: "Gesendet", delivered: "Zugestellt", read: "Gelesen", pushUnavailable: "Nachricht gesendet, aber kein aktives Push-Gerät des Empfängers gefunden.", pushDisabled: "Push-Nachrichten sind in den Benachrichtigungseinstellungen des Empfängers deaktiviert.", pushError: "Nachricht gesendet, Push-Zustellung konnte nicht bestätigt werden.", viewedBy: "Gesehen von {count}",
+      messageError: "Nachricht konnte nicht gesendet werden.", sent: "Gesendet", delivered: "Zugestellt", read: "Gelesen", pushUnavailable: "Nachricht gesendet, aber kein aktives Push-Gerät des Empfängers gefunden.", pushDisabled: "Push-Nachrichten sind in den Benachrichtigungseinstellungen des Empfängers deaktiviert.", pushError: "Nachricht gesendet, Push-Zustellung konnte nicht bestätigt werden.",
       messageFrom: "Neue Nachricht von", newPrivateMessage: "Neue private Nachricht", privateMessage: "Du hast eine neue private Nachricht.", open: "ÖFFNEN", unreadMessages: "Ungelesene private Nachrichten"
     },
     en: {
@@ -6212,7 +6228,7 @@
       member: "Member", noMessagesYet: "No messages yet", loadingConversation: "Loading conversation...", conversationError: "Could not load this private conversation.",
       writeMessage: "Write a private message...", send: "SEND", emptyConversation: "Say hello to start the conversation.",
       delete: "Delete", deleteConfirm: "Delete this message for both participants?", deleteDenied: "Only the sender can delete this message.",
-      messageError: "Message could not be sent.", sent: "Sent", delivered: "Delivered", read: "Read", pushUnavailable: "Message sent, but no active push subscription was found for the recipient.", pushDisabled: "The recipient has disabled chat notifications in notification settings.", pushError: "Message sent, but push delivery could not be confirmed.", viewedBy: "Seen by {count}",
+      messageError: "Message could not be sent.", sent: "Sent", delivered: "Delivered", read: "Read", pushUnavailable: "Message sent, but no active push subscription was found for the recipient.", pushDisabled: "The recipient has disabled chat notifications in notification settings.", pushError: "Message sent, but push delivery could not be confirmed.",
       messageFrom: "New message from", newPrivateMessage: "New private message", privateMessage: "You have a new private message.", open: "OPEN", unreadMessages: "Unread private messages"
     },
     uk: {
@@ -6227,7 +6243,7 @@
       member: "Учасник", noMessagesYet: "Повідомлень ще немає", loadingConversation: "Завантаження розмови...", conversationError: "Не вдалося завантажити приватну розмову.",
       writeMessage: "Напишіть приватне повідомлення...", send: "НАДІСЛАТИ", emptyConversation: "Напишіть перше повідомлення, щоб почати розмову.",
       delete: "Видалити", deleteConfirm: "Видалити це повідомлення для обох учасників?", deleteDenied: "Видалити повідомлення може лише його автор.",
-      messageError: "Не вдалося надіслати повідомлення.", sent: "Надіслано", delivered: "Доставлено", read: "Прочитано", pushUnavailable: "Повідомлення надіслано, але активну push-підписку одержувача не знайдено.", pushDisabled: "Одержувач вимкнув push-повідомлення чату в налаштуваннях сповіщень.", pushError: "Повідомлення надіслано, але доставку push не вдалося підтвердити.", viewedBy: "Переглянуло: {count}",
+      messageError: "Не вдалося надіслати повідомлення.", sent: "Надіслано", delivered: "Доставлено", read: "Прочитано", pushUnavailable: "Повідомлення надіслано, але активну push-підписку одержувача не знайдено.", pushDisabled: "Одержувач вимкнув push-повідомлення чату в налаштуваннях сповіщень.", pushError: "Повідомлення надіслано, але доставку push не вдалося підтвердити.",
       messageFrom: "Нове повідомлення від", newPrivateMessage: "Нове приватне повідомлення", privateMessage: "У вас нове приватне повідомлення.", open: "ВІДКРИТИ", unreadMessages: "Непрочитані приватні повідомлення"
     }
   };
@@ -10629,26 +10645,6 @@
     await openCommunityAthlete(member.id);
   }
 
-  async function updateClubChatViewReceipts(messages) {
-    if (!currentUser || !Array.isArray(messages) || !messages.length) return;
-    const ids = messages.map(row => row.id).filter(Boolean);
-    if (!ids.length) return;
-    const { error: insertError } = await supabaseClient.from("chat_message_views").upsert(
-      ids.map(message_id => ({ message_id, user_id: currentUser.id })),
-      { onConflict: "message_id,user_id", ignoreDuplicates: true }
-    );
-    if (insertError) { console.error("Could not save club chat views:", insertError); return; }
-    const { data, error } = await supabaseClient.rpc("get_chat_message_view_counts", { p_message_ids: ids });
-    if (error) { console.error("Could not load club chat view counts:", error); return; }
-    const counts = new Map((data || []).map(row => [row.message_id, Number(row.viewer_count || 0)]));
-    document.querySelectorAll("[data-chat-message-id]").forEach(row => {
-      const count = counts.get(row.dataset.chatMessageId) || 0;
-      const label = row.querySelector(".chat-view-count");
-      if (label) { label.textContent = count ? communityText("viewedBy").replace("{count}", String(count)) : ""; label.classList.toggle("hidden", count === 0); }
-    });
-  }
-
-
   async function loadChatMessages(
     preserveScroll = false
   ) {
@@ -10809,8 +10805,6 @@
                         )}
                       </span>
 
-                      <span class="chat-view-count muted small hidden"></span>
-
                       ${deleteButton}
 
                     </div>
@@ -10837,7 +10831,6 @@
       element.scrollTop =
         element.scrollHeight;
     }
-    void updateClubChatViewReceipts(messages);
   }
 
 
@@ -11061,17 +11054,6 @@
                 },
                 180
               );
-          }
-        )
-        .on(
-          "postgres_changes",
-          { event: "INSERT", schema: "public", table: "chat_message_views" },
-          function () {
-            if (chatRefreshTimer) clearTimeout(chatRefreshTimer);
-            chatRefreshTimer = setTimeout(() => {
-              const chatSection = document.getElementById("chatSection");
-              if (chatSection && !chatSection.classList.contains("hidden")) loadChatMessages(true);
-            }, 180);
           }
         )
         .on(
@@ -27281,3 +27263,5 @@ async function loadPayments() {
 </script>
 </body>
 </html>
+
+
