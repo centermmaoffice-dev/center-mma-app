@@ -6795,8 +6795,25 @@
       .is("read_at", null)
       .then(({ error: readError }) => {
         if (readError) console.error("Could not mark private messages as read:", readError);
-        else void updateCommunityUnreadBadge();
+        else {
+          void updateCommunityUnreadBadge();
+          if (messages.some(message => message.sender_id !== currentUser.id)) {
+            void removeViewedPrivateMessageNotifications(conversationId);
+          }
+        }
       });
+  }
+
+  async function removeViewedPrivateMessageNotifications(conversationId) {
+    if (!currentUser || !conversationId) return;
+    const { error } = await supabaseClient.rpc("consume_community_private_message_notifications", {
+      p_conversation_id: conversationId
+    });
+    if (error) {
+      console.error("Could not remove viewed private-message notifications:", error);
+      return;
+    }
+    await loadNotificationBadge();
   }
 
   async function sendCommunityPrivateMessage() {
