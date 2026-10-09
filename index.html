@@ -550,6 +550,16 @@
     .community-private-bubble { max-width:82%; padding:9px 12px; border-radius:14px; background:#202020; align-self:flex-start; overflow-wrap:anywhere; }
     .community-private-bubble.mine { background:#292929; border:1px solid #713030; align-self:flex-end; }
     .community-private-bubble.pending { opacity:.68; }
+    .message-reactions { display:flex; align-items:center; gap:8px; margin-top:6px; }
+    .message-reaction { display:inline-flex; align-items:center; gap:3px; width:auto; min-width:29px; margin:0; padding:2px 4px; border:0; border-radius:7px; background:transparent; color:#8a8a8a; font-size:12px; line-height:1.2; font-weight:500; cursor:pointer; }
+    .message-reaction:hover { background:#252525; }
+    .message-reaction:disabled { opacity:.65; cursor:default; }
+    .message-reaction .reaction-emoji { font-size:14px; }
+    .message-reaction.is-active[data-emoji="👍"] { color:#f2c94c; background:rgba(242,201,76,.12); }
+    .message-reaction.is-active[data-emoji="❤️"] { color:#ff6b6b; background:rgba(255,107,107,.12); }
+    .message-reaction.is-active[data-emoji="😊"] { color:#f0a35e; background:rgba(240,163,94,.12); }
+    .community-private-bubble .message-reactions { justify-content:flex-start; }
+    .chat-reactions { margin-top:5px; }
     .community-private-delete { display:block; width:auto; padding:0; margin:5px 0 0 auto; color:#ff8b8b; background:transparent; border:0; font-size:10px; cursor:pointer; }
     .community-private-delete:hover { text-decoration:underline; }
     .community-private-time { color:#999; font-size:10px; text-align:right; margin-top:4px; }
@@ -3346,6 +3356,7 @@
   let notificationRealtimeChannel = null;
   let communityPrivateRealtimeChannel = null;
   let communityPrivateRefreshTimer = null;
+  let communityPrivateReactionPollTimer = null;
   let communityPrivateMessagesLoadToken = 0;
   let communityConversationsRealtimeChannels = [];
   let communityRealtimeUserId = null;
@@ -6534,6 +6545,85 @@
     await loadCommunityPrivateMessages();
   }
 
+  const MESSAGE_REACTION_OPTIONS = ["👍", "❤️", "😊"];
+  const MESSAGE_REACTION_TABLES = { chat: "message_reactions", private: "community_private_message_reactions" };
+  const messageReactionState = { chat: new Map(), private: new Map() };
+  const messageReactionRequests = new Set();
+
+  function renderMessageReactions(messageId, kind) {
+    const safeId = escapeHtml(messageId);
+    return `<div class="message-reactions${kind === "chat" ? " chat-reactions" : ""}" data-reaction-kind="${kind}" data-reaction-message-id="${safeId}" aria-label="Message reactions">${MESSAGE_REACTION_OPTIONS.map(emoji => `<button type="button" class="message-reaction" data-emoji="${emoji}" data-reaction-count="0" aria-label="React with ${emoji}" disabled onclick="toggleMessageReaction('${safeId}','${kind}','${emoji}')"><span class="reaction-emoji">${emoji}</span><span class="reaction-count">0</span></button>`).join("")}</div>`;
+  }
+
+  async function loadMessageReactionState(messages, kind) {
+    const ids = [...new Set((messages || []).map(row => row.id).filter(Boolean))];
+    if (!ids.length || !currentUser) return;
+    const rows = [];
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await supabaseClient.from(MESSAGE_REACTION_TABLES[kind])
+        .select("message_id,user_id,emoji").in("message_id", ids).range(offset, offset + 999);
+      if (error) {
+        console.error("Could not load message reactions:", error);
+        const knownIds = messageReactionState[kind];
+        document.querySelectorAll(`[data-reaction-kind="${kind}"] .message-reaction:disabled`).forEach(button => {
+          const messageId = button.closest("[data-reaction-message-id]")?.dataset.reactionMessageId;
+          if (knownIds.has(messageId)) button.disabled = false;
+        });
+        return;
+      }
+      rows.push(...(data || []));
+      if ((data || []).length < 1000) break;
+    }
+    const next = new Map(ids.map(id => [id, { counts: { "👍": 0, "❤️": 0, "😊": 0 }, mine: null }]));
+    for (const row of rows) {
+      const state = next.get(row.message_id);
+      if (!state || !MESSAGE_REACTION_OPTIONS.includes(row.emoji)) continue;
+      state.counts[row.emoji] += 1;
+      if (row.user_id === currentUser.id) state.mine = row.emoji;
+    }
+    const store = messageReactionState[kind];
+    for (const [id, state] of next) store.set(id, state);
+    document.querySelectorAll(`[data-reaction-kind="${kind}"]`).forEach(container => {
+      const state = next.get(container.dataset.reactionMessageId);
+      if (!state) return;
+      container.querySelectorAll(".message-reaction").forEach(button => {
+        const emoji = button.dataset.emoji;
+        const count = state.counts[emoji] || 0;
+        button.dataset.reactionCount = String(count);
+        button.querySelector(".reaction-count").textContent = String(count);
+        button.classList.toggle("is-active", state.mine === emoji);
+        button.disabled = false;
+        button.setAttribute("aria-pressed", String(state.mine === emoji));
+      });
+    });
+  }
+
+  async function toggleMessageReaction(messageId, kind, emoji) {
+    if (!currentUser || !MESSAGE_REACTION_OPTIONS.includes(emoji)) return;
+    const requestKey = `${kind}:${messageId}`;
+    if (messageReactionRequests.has(requestKey)) return;
+    const store = messageReactionState[kind];
+    const previous = store.get(messageId);
+    if (!previous) return;
+    messageReactionRequests.add(requestKey);
+    document.querySelectorAll(`[data-reaction-kind="${kind}"][data-reaction-message-id="${messageId}"] .message-reaction`).forEach(button => { button.disabled = true; });
+    const table = supabaseClient.from(MESSAGE_REACTION_TABLES[kind]);
+    let result;
+    if (previous.mine === emoji) {
+      result = await table.delete().eq("message_id", messageId).eq("user_id", currentUser.id);
+    } else {
+      result = await table.upsert({ message_id: messageId, user_id: currentUser.id, emoji }, { onConflict: "message_id,user_id" });
+    }
+    messageReactionRequests.delete(requestKey);
+    if (result.error) console.error("Could not save message reaction:", result.error);
+    await loadMessageReactionState([{ id: messageId }], kind);
+  }
+
+  function refreshVisibleMessageReactions(kind) {
+    const ids = [...new Set([...document.querySelectorAll(`[data-reaction-kind="${kind}"]`)].map(node => node.dataset.reactionMessageId).filter(Boolean))];
+    if (ids.length) void loadMessageReactionState(ids.map(id => ({ id })), kind);
+  }
+
   function renderCommunityPrivateMessage(message, pending = false) {
     const mine = message.sender_id === currentUser?.id;
     const deleteButton = mine && !pending
@@ -6547,7 +6637,7 @@
     const time = message.created_at
       ? new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
       : "";
-    return `<div class="community-private-bubble${mine ? " mine" : ""}${pending ? " pending" : ""}" data-community-message-id="${escapeHtml(message.id)}">${escapeHtml(message.body)}${deleteButton}<div class="community-private-meta"><div class="community-private-time">${escapeHtml(time)}</div>${readStatus}</div></div>`;
+    return `<div class="community-private-bubble${mine ? " mine" : ""}${pending ? " pending" : ""}" data-community-message-id="${escapeHtml(message.id)}">${escapeHtml(message.body)}${deleteButton}${pending ? "" : renderMessageReactions(message.id, "private")}<div class="community-private-meta"><div class="community-private-time">${escapeHtml(time)}</div>${readStatus}</div></div>`;
   }
 
   async function loadCommunityPrivateMessages() {
@@ -6571,6 +6661,7 @@
     element.innerHTML = messages.length
       ? messages.map(message => renderCommunityPrivateMessage(message)).join("")
       : `<div class="empty">${escapeHtml(communityText("emptyConversation"))}</div>`;
+    if (messages.length) void loadMessageReactionState(messages, "private");
     element.scrollTop = element.scrollHeight;
     const input = document.getElementById("communityPrivateInput");
     input?.focus({ preventScroll: true });
@@ -6727,6 +6818,10 @@
         }
       })
       .subscribe();
+    if (communityPrivateReactionPollTimer) clearInterval(communityPrivateReactionPollTimer);
+    communityPrivateReactionPollTimer = setInterval(() => {
+      if (currentPrivateConversationId === conversationId) refreshVisibleMessageReactions("private");
+    }, 4000);
   }
 
   async function openCommunityConversationFromNotification(conversationId) {
@@ -6809,6 +6904,10 @@
     if (communityPrivateRefreshTimer) {
       clearTimeout(communityPrivateRefreshTimer);
       communityPrivateRefreshTimer = null;
+    }
+    if (communityPrivateReactionPollTimer) {
+      clearInterval(communityPrivateReactionPollTimer);
+      communityPrivateReactionPollTimer = null;
     }
     if (communityPrivateRealtimeChannel) {
       supabaseClient.removeChannel(communityPrivateRealtimeChannel);
@@ -10700,6 +10799,8 @@
                       )}
                     </div>
 
+                    ${renderMessageReactions(item.id, "chat")}
+
                     <div class="chat-meta">
 
                       <span>
@@ -10725,6 +10826,8 @@
           }
         )
         .join("");
+
+    void loadMessageReactionState(messages, "chat");
 
     if (
       !preserveScroll ||
@@ -10969,6 +11072,16 @@
               const chatSection = document.getElementById("chatSection");
               if (chatSection && !chatSection.classList.contains("hidden")) loadChatMessages(true);
             }, 180);
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "message_reactions" },
+          function (payload) {
+            const messageId = payload.new?.message_id || payload.old?.message_id;
+            if (!messageId || !document.querySelector(`[data-reaction-kind="chat"][data-reaction-message-id="${messageId}"]`)) return;
+            if (chatRefreshTimer) clearTimeout(chatRefreshTimer);
+            chatRefreshTimer = setTimeout(() => { chatRefreshTimer = null; refreshVisibleMessageReactions("chat"); }, 120);
           }
         )
         .subscribe();
