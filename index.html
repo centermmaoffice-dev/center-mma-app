@@ -1744,6 +1744,12 @@
       display: none !important;
     }
 
+    .admin-score-table-wrap { overflow-x:auto; margin:12px -4px; }
+    .admin-score-table { width:100%; min-width:850px; border-collapse:collapse; font-size:12px; }
+    .admin-score-table th,.admin-score-table td { padding:9px 8px; border-bottom:1px solid #2b2b2b; text-align:left; white-space:nowrap; }
+    .admin-score-table th { color:#aaa; font-weight:700; }
+    .admin-login-change { margin:10px 0 4px; padding:10px; background:#111; border:1px solid #333; border-radius:9px; }
+
     .cm-payment-member { padding:0; overflow:hidden; }
     .cm-payment-member > summary,
     .cm-payment-record > summary {
@@ -2173,6 +2179,10 @@
 
       <button onclick="login()">LOGIN</button>
 
+      <div class="login-switch" style="margin-top:10px;">
+        <span onclick="showForgotPassword()">Forgot password?</span>
+      </div>
+
       <div id="loginMessage" class="message"></div>
 
       <div class="login-switch">
@@ -2205,6 +2215,27 @@
         Already have an account?
         <span onclick="showLogin()">Login</span>
       </div>
+    </div>
+
+    <div id="forgotPasswordBox" class="card hidden">
+      <h1>Reset password</h1>
+      <p class="muted small">Enter the email address currently used as your login. We will send a password reset link if an account matches.</p>
+      <label>Email / login</label>
+      <input id="forgotPasswordEmail" type="email" autocomplete="username" placeholder="your@email.com">
+      <button id="forgotPasswordButton" onclick="requestPasswordReset()">SEND RESET LINK</button>
+      <div id="forgotPasswordMessage" class="message"></div>
+      <div class="login-switch"><span onclick="showLogin()">Back to login</span></div>
+    </div>
+
+    <div id="passwordRecoveryBox" class="card hidden">
+      <h1>Choose a new password</h1>
+      <p class="muted small">Enter your new password twice to finish account recovery.</p>
+      <label>New password</label>
+      <input id="recoveryPassword" type="password" autocomplete="new-password" minlength="6" placeholder="Minimum 6 characters">
+      <label>Confirm new password</label>
+      <input id="recoveryPasswordConfirm" type="password" autocomplete="new-password" minlength="6" placeholder="Repeat password">
+      <button id="saveRecoveredPasswordButton" onclick="saveRecoveredPassword()">SAVE NEW PASSWORD</button>
+      <div id="passwordRecoveryMessage" class="message"></div>
     </div>
 
   </div>
@@ -3368,6 +3399,16 @@
       SUPABASE_KEY
     );
 
+  let isPasswordRecoveryFlow = false;
+  let recoveryLoginEmail = "";
+  supabaseClient.auth.onAuthStateChange((event, session) => {
+    if (event === "PASSWORD_RECOVERY") {
+      isPasswordRecoveryFlow = true;
+      recoveryLoginEmail = session?.user?.email || "";
+      setTimeout(showPasswordRecovery, 0);
+    }
+  });
+
 
   /* =========================
      GLOBAL VARIABLES
@@ -3470,6 +3511,8 @@
       return;
     }
 
+
+    if (isPasswordRecoveryFlow) return;
 
     if (data.session) {
 
@@ -3959,6 +4002,9 @@
     document
       .getElementById("registerBox")
       .classList.add("hidden");
+    document.getElementById("forgotPasswordBox")?.classList.add("hidden");
+    document.getElementById("passwordRecoveryBox")?.classList.add("hidden");
+    document.getElementById("loginBox")?.classList.remove("hidden");
   }
 
 
@@ -3971,6 +4017,94 @@
     document
       .getElementById("registerBox")
       .classList.remove("hidden");
+    document.getElementById("forgotPasswordBox")?.classList.add("hidden");
+    document.getElementById("passwordRecoveryBox")?.classList.add("hidden");
+  }
+
+  function showForgotPassword() {
+    const loginEmail = document.getElementById("loginEmail")?.value.trim() || "";
+    const recoveryEmail = document.getElementById("forgotPasswordEmail");
+    if (recoveryEmail && loginEmail.includes("@")) recoveryEmail.value = loginEmail;
+    document.getElementById("loginBox")?.classList.add("hidden");
+    document.getElementById("registerBox")?.classList.add("hidden");
+    document.getElementById("passwordRecoveryBox")?.classList.add("hidden");
+    document.getElementById("forgotPasswordBox")?.classList.remove("hidden");
+    document.getElementById("forgotPasswordMessage").textContent = "";
+  }
+
+  function showPasswordRecovery() {
+    document.getElementById("authScreen")?.classList.remove("hidden");
+    document.getElementById("appScreen")?.classList.add("hidden");
+    document.getElementById("bottomNav")?.classList.add("hidden");
+    document.getElementById("mandatoryPushGate")?.classList.add("hidden");
+    document.getElementById("loginBox")?.classList.add("hidden");
+    document.getElementById("registerBox")?.classList.add("hidden");
+    document.getElementById("forgotPasswordBox")?.classList.add("hidden");
+    document.getElementById("passwordRecoveryBox")?.classList.remove("hidden");
+    document.getElementById("passwordRecoveryMessage").textContent = "";
+  }
+
+  async function requestPasswordReset() {
+    const emailInput = document.getElementById("forgotPasswordEmail");
+    const email = emailInput?.value.trim() || "";
+    const message = document.getElementById("forgotPasswordMessage");
+    const button = document.getElementById("forgotPasswordButton");
+    if (!email || !emailInput.checkValidity()) {
+      message.textContent = "Enter a valid email address.";
+      message.className = "message error";
+      return;
+    }
+    button.disabled = true;
+    message.textContent = "Sending request...";
+    message.className = "message";
+    const redirectTo = `${window.location.origin}${window.location.pathname}?password_recovery=1`;
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo });
+    button.disabled = false;
+    if (error) {
+      console.error("Password recovery request failed:", error);
+      message.textContent = "Could not send the reset request. Please try again later or contact the club.";
+      message.className = "message error";
+      return;
+    }
+    message.textContent = "If an account uses this email, a password reset link will arrive shortly.";
+    message.className = "message success-text";
+  }
+
+  async function saveRecoveredPassword() {
+    const password = document.getElementById("recoveryPassword")?.value || "";
+    const confirmation = document.getElementById("recoveryPasswordConfirm")?.value || "";
+    const message = document.getElementById("passwordRecoveryMessage");
+    const button = document.getElementById("saveRecoveredPasswordButton");
+    if (password.length < 6) {
+      message.textContent = "Password must contain at least 6 characters.";
+      message.className = "message error";
+      return;
+    }
+    if (password !== confirmation) {
+      message.textContent = "The passwords do not match.";
+      message.className = "message error";
+      return;
+    }
+    button.disabled = true;
+    message.textContent = "Updating password...";
+    message.className = "message";
+    const { error } = await supabaseClient.auth.updateUser({ password });
+    button.disabled = false;
+    if (error) {
+      console.error("Could not update recovered password:", error);
+      message.textContent = "The reset link may have expired. Request a new one and try again.";
+      message.className = "message error";
+      return;
+    }
+    await supabaseClient.auth.signOut();
+    isPasswordRecoveryFlow = false;
+    showLogin();
+    const loginInput = document.getElementById("loginEmail");
+    if (loginInput && recoveryLoginEmail) loginInput.value = recoveryLoginEmail;
+    document.getElementById("loginMessage").textContent = "Password changed. Sign in with your new password.";
+    document.getElementById("loginMessage").className = "message success-text";
+    document.getElementById("recoveryPassword").value = "";
+    document.getElementById("recoveryPasswordConfirm").value = "";
   }
 
 
@@ -13379,6 +13513,15 @@
           <div class="feature-text">Visibility, profile details and displayed groups</div>
         </div>
 
+        <div
+          class="feature"
+          onclick="openAdminSection('athlete-scores')"
+        >
+          <div class="feature-icon">🏅</div>
+          <div class="feature-title">Athlete Points</div>
+          <div class="feature-text">Private scoring list · administrator only</div>
+        </div>
+
         ${currentUser?.id === SHOP_ADMIN_USER_ID ? `
         <div
           class="feature"
@@ -13452,6 +13595,38 @@
     `;
   }
 
+  async function loadAdminAthleteScores(element) {
+    if (!isAdmin || !element) return;
+    element.innerHTML = `<div class="card"><div class="empty">Loading athlete scores...</div></div>`;
+    const { data, error } = await supabaseClient.rpc("get_community_hall_dashboard", { p_period: "month" });
+    if (error || !Array.isArray(data?.admin_scores)) {
+      console.error("Could not load the administrator-only athlete score list:", error || data?.error);
+      element.innerHTML = `<div class="card"><div class="message error">Could not load all athlete scores. Run the updated Community hall dashboard SQL in Supabase.</div></div>`;
+      return;
+    }
+    const rows = data.admin_scores;
+    element.innerHTML = `
+      <div class="card">
+        <h3>All athlete points</h3>
+        <p class="muted small">This private list uses the same score calculation as the Community Top 3. Only active administrators can receive it.</p>
+        <input type="search" id="adminAthleteScoreSearch" placeholder="Search athlete..." oninput="filterAdminAthleteScores()">
+        <div class="admin-score-table-wrap">
+          <table class="admin-score-table">
+            <thead><tr><th>Rank</th><th>Athlete</th><th>Points</th><th>Competitions</th><th>Fights</th><th>Wins</th><th>Win %</th><th>Early wins</th><th>Early win %</th><th>Attendance %</th><th>Medals</th></tr></thead>
+            <tbody id="adminAthleteScoreRows">${rows.map(row => `<tr data-athlete-search="${escapeHtml(String(row.name || "").toLocaleLowerCase())}"><td>${Number(row.place) || "—"}</td><td>${escapeHtml(row.name || "Athlete")}</td><td><strong>${Number(row.score || 0).toFixed(1)}</strong></td><td>${Number(row.competitions || 0)}</td><td>${Number(row.fights || 0)}</td><td>${Number(row.wins || 0)}</td><td>${Number(row.win_rate || 0)}%</td><td>${Number(row.finishes || 0)}</td><td>${Number(row.finish_rate || 0)}%</td><td>${Number(row.attendance || 0).toFixed(1)}%</td><td>${Number(row.medals || 0)}</td></tr>`).join("") || `<tr><td colspan="11" class="muted">No athlete scores yet.</td></tr>`}</tbody>
+          </table>
+        </div>
+        <div class="muted small">${rows.length} athletes in the scoring list.</div>
+      </div>`;
+  }
+
+  function filterAdminAthleteScores() {
+    const query = String(document.getElementById("adminAthleteScoreSearch")?.value || "").trim().toLocaleLowerCase();
+    document.querySelectorAll("#adminAthleteScoreRows tr[data-athlete-search]").forEach(row => {
+      row.classList.toggle("hidden", !row.dataset.athleteSearch.includes(query));
+    });
+  }
+
 
   async function openAdminSection(
     section
@@ -13515,6 +13690,8 @@
         "Groups",
       community:
         "Community Management",
+      "athlete-scores":
+        "Athlete Points · Admin Only",
       shop:
         "Shop Management",
       notifications:
@@ -13631,6 +13808,10 @@
       await loadAdminCommunityManagement(
         content
       );
+
+    } else if (section === "athlete-scores") {
+
+      await loadAdminAthleteScores(content);
 
     } else if (
       section === "shop"
@@ -17122,6 +17303,17 @@
                   Login: ${escapeHtml(member.email || "")}
                 </div>
 
+                ${member.user_id ? `
+                  <div class="admin-login-change">
+                    <label for="adminLoginEmail-${member.id}">Login email (used for sign-in and password recovery)</label>
+                    <input id="adminLoginEmail-${member.id}" type="email" maxlength="254" autocomplete="off" value="${escapeHtml(member.email || "")}">
+                    <button type="button" class="secondary" onclick="copyMemberContactEmailToLogin('${member.id}')">USE MEMBER CONTACT EMAIL</button>
+                    <button type="button" class="secondary" onclick="changeAdminMemberLogin('${member.id}')">UPDATE LOGIN EMAIL</button>
+                    <div id="adminLoginStatus-${member.id}" class="message small"></div>
+                    <div class="muted small">This updates the sign-in email in Supabase. It does not change the member contact email.</div>
+                  </div>
+                ` : `<div class="muted small" style="margin-top:8px">This member has no linked login account.</div>`}
+
                 <div
                   style="
                     margin-top:10px;
@@ -17608,7 +17800,49 @@
     await loadAdminPanel();
   }
 
+  async function changeAdminMemberLogin(memberId) {
+    if (!isAdmin) return;
+    const input = document.getElementById("adminLoginEmail-" + memberId);
+    const status = document.getElementById("adminLoginStatus-" + memberId);
+    const button = input?.parentElement?.querySelector("button");
+    const newEmail = String(input?.value || "").trim();
+    if (!input || !status || !input.checkValidity() || !newEmail) {
+      if (status) { status.textContent = "Enter a valid email address."; status.className = "message small error"; }
+      return;
+    }
+    if (!confirm(`Change this member's sign-in login to ${newEmail}? Their password will stay the same. Password recovery will go to this address.`)) return;
+    if (button) button.disabled = true;
+    status.textContent = "Updating login email...";
+    status.className = "message small";
+    const { data, error } = await supabaseClient.functions.invoke("admin-change-login-email", {
+      body: { member_id: memberId, new_email: newEmail }
+    });
+    if (button) button.disabled = false;
+    if (error || data?.error) {
+      console.error("Could not update member login email:", error || data?.error);
+      status.textContent = data?.error || error?.message || "Could not update login email.";
+      status.className = "message small error";
+      return;
+    }
+    status.textContent = "Login email updated. The password is unchanged.";
+    status.className = "message small success-text";
+    await loadAdminPanel();
+  }
 
+
+
+  function copyMemberContactEmailToLogin(memberId) {
+    if (!isAdmin) return;
+    const contactEmail = document.getElementById("cmEmail-" + memberId)?.value.trim() || "";
+    const loginInput = document.getElementById("adminLoginEmail-" + memberId);
+    const status = document.getElementById("adminLoginStatus-" + memberId);
+    if (!contactEmail) {
+      if (status) { status.textContent = "No member contact email is saved in the profile."; status.className = "message small error"; }
+      return;
+    }
+    if (loginInput) loginInput.value = contactEmail;
+    if (status) { status.textContent = "Member contact email copied. Review it, then choose Update Login Email."; status.className = "message small"; }
+  }
 
   async function setMemberActive(
     memberId,
@@ -24068,7 +24302,7 @@
   async function checkMandatoryPushGate() {
     const gate = document.getElementById("mandatoryPushGate");
     const status = document.getElementById("mandatoryPushGateStatus");
-    if (!gate || !currentUser) return;
+    if (!gate || !currentUser || isPasswordRecoveryFlow) return;
 
     updatePushNotificationLanguage(getCurrentInterfaceLanguage());
     if (status) status.textContent = "";
