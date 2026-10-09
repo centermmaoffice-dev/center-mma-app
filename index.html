@@ -6658,7 +6658,7 @@
     }
     if (data.visibility?.leaders !== false) {
       const rows = Array.isArray(data.leaders?.overall) ? data.leaders.overall : [];
-      sections.push(`<section class="community-hall-section"><div class="community-detail-heading">${escapeHtml(communityText("hallTopOverall"))}</div>${rows.length ? `<div class="community-hall-leaders">${rows.slice(0, 3).map((row, index) => `<div class="community-hall-leader"><span class="community-hall-rank">${index + 1}.</span><span class="community-hall-leader-name">${escapeHtml(row.name || communityText("athlete"))}</span><span class="community-hall-leader-value">${Number(row.score || 0).toFixed(1)} ${escapeHtml(communityText("hallPoints"))}</span></div>`).join("")}</div>` : `<div class="muted small">${escapeHtml(communityText("hallNoLeaders"))}</div>`}</section>`);
+      sections.push(`<section class="community-hall-section"><div class="community-detail-heading">${escapeHtml(communityText("hallTopOverall"))}</div>${rows.length ? `<div class="community-hall-leaders">${rows.slice(0, 3).map((row, index) => { const firstName = String(row.first_name || row.name || communityText("athlete")).trim().split(/\s+/)[0]; return `<div class="community-hall-leader"><span class="community-hall-rank">${index + 1}.</span><span class="community-hall-leader-name">${escapeHtml(firstName)}</span><span class="community-hall-leader-value">${Number(row.score || 0).toFixed(1)} ${escapeHtml(communityText("hallPoints"))}</span></div>`; }).join("")}</div>` : `<div class="muted small">${escapeHtml(communityText("hallNoLeaders"))}</div>`}</section>`);
     }
     content.innerHTML = sections.join("") || `<div class="muted small">${escapeHtml(communityText("hallHidden"))}</div>`;
   }
@@ -17820,7 +17820,14 @@
     if (button) button.disabled = false;
     if (error || data?.error) {
       console.error("Could not update member login email:", error || data?.error);
-      status.textContent = data?.error || error?.message || "Could not update login email.";
+      let detail = data?.error || "";
+      if (!detail && error?.context && typeof error.context.clone === "function") {
+        try {
+          const responseBody = await error.context.clone().json();
+          detail = responseBody?.error || responseBody?.message || "";
+        } catch (_) {}
+      }
+      status.textContent = detail || error?.message || "Could not update login email.";
       status.className = "message small error";
       return;
     }
