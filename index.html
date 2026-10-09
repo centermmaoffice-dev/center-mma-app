@@ -528,12 +528,34 @@
     .community-profile-avatar { width:112px; height:112px; margin:0 auto 14px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; background:#242424; color:#bbb; font-size:36px; font-weight:800; }
     .community-profile-avatar img { width:100%; height:100%; object-fit:cover; }
     .community-profile-name { font-size:23px; font-weight:900; overflow-wrap:anywhere; }
+    .community-hall-badge { display:inline-flex; align-items:center; gap:6px; margin-top:8px; padding:5px 10px; border:1px solid #8f6b25; border-radius:999px; background:linear-gradient(135deg,#30250f,#17130a); color:#ffd979; font-size:11px; font-weight:800; letter-spacing:.5px; }
+    .community-hall-section { padding:16px; margin-top:12px; border:1px solid #8f6b25; border-radius:14px; background:linear-gradient(145deg,#1c1912,#121212 58%); }
+    .community-hall-section .community-detail-heading { color:#ffd979; }
+    .community-hall-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+    .community-hall-stat { min-width:0; padding:12px 10px; border:1px solid #332b1a; border-radius:11px; background:#111; text-align:center; }
+    .community-hall-number { font-size:22px; font-weight:900; color:#fff; }
+    .community-hall-label { margin-top:4px; color:#aaa; font-size:11px; line-height:1.35; }
+    .community-hall-chart { display:flex; align-items:flex-end; gap:5px; min-height:150px; overflow-x:auto; padding:12px 2px 0; border-bottom:1px solid #48402c; }
+    .community-hall-bar-wrap { display:flex; flex:1 0 22px; flex-direction:column; align-items:center; justify-content:flex-end; gap:5px; height:138px; }
+    .community-hall-bar { width:min(20px,75%); min-height:2px; border-radius:5px 5px 0 0; background:linear-gradient(180deg,#ffd979,#a77417); }
+    .community-hall-bar-label { color:#999; font-size:9px; white-space:nowrap; }
+    .community-hall-periods { display:flex; gap:7px; margin-top:10px; }
+    .community-hall-periods button { width:auto; margin:0; padding:7px 10px; font-size:11px; }
+    .community-hall-periods button.active { border-color:#d4a83e; color:#ffd979; }
+    .community-hall-leaders { display:grid; gap:7px; }
+    .community-hall-leader { display:flex; align-items:center; gap:9px; padding:8px 10px; border-radius:9px; background:#111; }
+    .community-hall-rank { color:#ffd979; font-size:13px; font-weight:900; }
+    .community-hall-leader-name { flex:1; font-size:12px; font-weight:700; }
+    .community-hall-leader-value { color:#ccc; font-size:12px; font-weight:800; white-space:nowrap; }
+    @media (max-width:360px) { .community-hall-grid { grid-template-columns:1fr 1fr; gap:6px; } .community-hall-number { font-size:19px; } }
     .community-detail-card { padding:16px; background:#151515; border:1px solid #272727; border-radius:14px; margin-top:12px; }
     .community-detail-heading { color:#888; font-size:11px; text-transform:uppercase; letter-spacing:1px; margin-bottom:9px; }
     .community-message-button { width:100%; margin-top:16px; cursor:pointer; }
     .community-message-button:disabled { opacity:.7; cursor:not-allowed; }
     .community-athlete-card { color:#fff; text-align:left; font-family:inherit; cursor:pointer; }
     .community-athlete-card:hover { border-color:#555; }
+    .community-athlete-card.community-hall-card { border-color:#8f6b25; background:linear-gradient(135deg,#201a0e,#151515 72%); }
+    .community-hall-card-subtitle { margin-top:4px; color:#e2bd67; font-size:10px; font-weight:700; }
     .community-social-actions { display:flex; justify-content:flex-end; margin:0 0 12px; }
     .community-messages-list { display:flex; flex-direction:column; gap:8px; }
     .community-conversation { width:100%; display:flex; align-items:center; gap:11px; padding:12px; text-align:left; color:#fff; background:#151515; border:1px solid #272727; border-radius:12px; cursor:pointer; }
@@ -2894,6 +2916,13 @@
 
         <button onclick="saveCommunityProfileVisibility()">SAVE VISIBILITY SETTINGS</button>
         <div id="communityProfileVisibilityMessage" class="message"></div>
+        <div id="communityHallVisibilitySettings" class="hidden" style="margin-top:18px;padding-top:14px;border-top:1px solid #292929;">
+          <h3 style="margin:0 0 6px;">CENTER MMA community card</h3>
+          <p class="muted small">Choose which hall information appears on your CENTER MMA card in Community.</p>
+          <div class="notification-setting-row"><div class="notification-setting-copy"><div class="notification-setting-title">🏆 Hall achievements and results</div></div><input id="communityHallShowAchievements" type="checkbox" class="notification-checkbox"></div>
+          <div class="notification-setting-row"><div class="notification-setting-copy"><div class="notification-setting-title">📊 Training attendance chart</div></div><input id="communityHallShowAttendance" type="checkbox" class="notification-checkbox"></div>
+          <div class="notification-setting-row"><div class="notification-setting-copy"><div class="notification-setting-title">🥇 Top three athletes</div></div><input id="communityHallShowLeaders" type="checkbox" class="notification-checkbox"></div>
+        </div>
       </div>
 
 
@@ -6214,7 +6243,8 @@
       writeMessage: "Private Nachricht schreiben...", send: "SENDEN", emptyConversation: "Schreibe eine Nachricht, um das Gespräch zu beginnen.",
       delete: "Löschen", deleteConfirm: "Diese Nachricht für beide Teilnehmer löschen?", deleteDenied: "Nur der Absender kann diese Nachricht löschen.",
       messageError: "Nachricht konnte nicht gesendet werden.", sent: "Gesendet", delivered: "Zugestellt", read: "Gelesen", pushUnavailable: "Nachricht gesendet, aber kein aktives Push-Gerät des Empfängers gefunden.", pushDisabled: "Push-Nachrichten sind in den Benachrichtigungseinstellungen des Empfängers deaktiviert.", pushError: "Nachricht gesendet, Push-Zustellung konnte nicht bestätigt werden.",
-      messageFrom: "Neue Nachricht von", newPrivateMessage: "Neue private Nachricht", privateMessage: "Du hast eine neue private Nachricht.", open: "ÖFFNEN", unreadMessages: "Ungelesene private Nachrichten"
+      messageFrom: "Neue Nachricht von", newPrivateMessage: "Neue private Nachricht", privateMessage: "Du hast eine neue private Nachricht.", open: "ÖFFNEN", unreadMessages: "Ungelesene private Nachrichten",
+      hallCardBadge: "HALLENLEISTUNGEN", hallAchievements: "CENTER MMA · LEISTUNGEN DER HALLE", hallCompetitions: "Vergangene Wettkämpfe", hallWinRate: "Siegesquote", hallEarlyWins: "Vorzeitige Siege", hallEarlyWinRate: "Vorzeitige Siege · Quote", hallTotalMedals: "Medaillen insgesamt", hallAttendanceChart: "Trainingsbesuche", hallNoAttendance: "Noch keine Anwesenheitsdaten.", hallWeek: "Woche", hallMonth: "Monat", hallYear: "Jahr", hallTopCompetitions: "Top 3 · Wettkämpfe", hallTopWins: "Top 3 · Siege", hallTopWinRate: "Top 3 · Siegesquote", hallTopFinishes: "Top 3 · Vorzeitige Siege", hallTopFinishRate: "Top 3 · Vorzeitige Siege · Quote", hallTopAttendance: "Top 3 · Anwesenheit", hallTopMedals: "Top 3 · Medaillen", hallNoLeaders: "Noch keine Ergebnisse.", hallHidden: "Die Halleninformationen sind derzeit ausgeblendet.", hallStatsUnavailable: "Die Hallenstatistik konnte nicht geladen werden. Bitte wende die Community-Hallenstatistik-Migration an."
     },
     en: {
       back: "← BACK", community: "Community", myMessages: "My Messages", search: "Search athletes by name",
@@ -6229,7 +6259,8 @@
       writeMessage: "Write a private message...", send: "SEND", emptyConversation: "Say hello to start the conversation.",
       delete: "Delete", deleteConfirm: "Delete this message for both participants?", deleteDenied: "Only the sender can delete this message.",
       messageError: "Message could not be sent.", sent: "Sent", delivered: "Delivered", read: "Read", pushUnavailable: "Message sent, but no active push subscription was found for the recipient.", pushDisabled: "The recipient has disabled chat notifications in notification settings.", pushError: "Message sent, but push delivery could not be confirmed.",
-      messageFrom: "New message from", newPrivateMessage: "New private message", privateMessage: "You have a new private message.", open: "OPEN", unreadMessages: "Unread private messages"
+      messageFrom: "New message from", newPrivateMessage: "New private message", privateMessage: "You have a new private message.", open: "OPEN", unreadMessages: "Unread private messages",
+      hallCardBadge: "HALL ACHIEVEMENTS", hallAchievements: "CENTER MMA · HALL ACHIEVEMENTS", hallCompetitions: "Completed competitions", hallWinRate: "Win rate", hallEarlyWins: "Early wins", hallEarlyWinRate: "Early wins · rate", hallTotalMedals: "Total medals", hallAttendanceChart: "Training attendance", hallNoAttendance: "No attendance data yet.", hallWeek: "Week", hallMonth: "Month", hallYear: "Year", hallTopCompetitions: "Top 3 · Competitions", hallTopWins: "Top 3 · Wins", hallTopWinRate: "Top 3 · Win rate", hallTopFinishes: "Top 3 · Early wins", hallTopFinishRate: "Top 3 · Early win rate", hallTopAttendance: "Top 3 · Attendance", hallTopMedals: "Top 3 · Medals", hallNoLeaders: "No results yet.", hallHidden: "Hall information is currently hidden.", hallStatsUnavailable: "Hall statistics could not be loaded. Apply the Community hall statistics database migration."
     },
     uk: {
       back: "← НАЗАД", community: "Спільнота", myMessages: "Мої повідомлення", search: "Пошук спортсменів за ім’ям",
@@ -6244,7 +6275,12 @@
       writeMessage: "Напишіть приватне повідомлення...", send: "НАДІСЛАТИ", emptyConversation: "Напишіть перше повідомлення, щоб почати розмову.",
       delete: "Видалити", deleteConfirm: "Видалити це повідомлення для обох учасників?", deleteDenied: "Видалити повідомлення може лише його автор.",
       messageError: "Не вдалося надіслати повідомлення.", sent: "Надіслано", delivered: "Доставлено", read: "Прочитано", pushUnavailable: "Повідомлення надіслано, але активну push-підписку одержувача не знайдено.", pushDisabled: "Одержувач вимкнув push-повідомлення чату в налаштуваннях сповіщень.", pushError: "Повідомлення надіслано, але доставку push не вдалося підтвердити.",
-      messageFrom: "Нове повідомлення від", newPrivateMessage: "Нове приватне повідомлення", privateMessage: "У вас нове приватне повідомлення.", open: "ВІДКРИТИ", unreadMessages: "Непрочитані приватні повідомлення"
+      messageFrom: "Нове повідомлення від", newPrivateMessage: "Нове приватне повідомлення", privateMessage: "У вас нове приватне повідомлення.", open: "ВІДКРИТИ", unreadMessages: "Непрочитані приватні повідомлення",
+      hallCardBadge: "ДОСЯГНЕННЯ ЗАЛУ", hallAchievements: "CENTER MMA · ДОСЯГНЕННЯ ЗАЛУ", hallCompetitions: "Змагання, що відбулися", hallWinRate: "Відсоток перемог", hallEarlyWins: "Дострокові перемоги", hallEarlyWinRate: "Дострокові перемоги · частка", hallTotalMedals: "Усього медалей", hallAttendanceChart: "Відвідування тренувань", hallNoAttendance: "Даних про відвідування ще немає.", hallWeek: "Тиждень", hallMonth: "Місяць", hallYear: "Рік", hallTopCompetitions: "Топ-3 · Змагання", hallTopWins: "Топ-3 · Перемоги", hallTopWinRate: "Топ-3 · Відсоток перемог", hallTopFinishes: "Топ-3 · Дострокові перемоги", hallTopFinishRate: "Топ-3 · Частка дострокових перемог", hallTopAttendance: "Топ-3 · Відвідуваність", hallTopMedals: "Топ-3 · Медалі", hallNoLeaders: "Результатів ще немає.", hallHidden: "Інформацію залу наразі приховано.", hallStatsUnavailable: "Не вдалося завантажити статистику залу. Застосуйте міграцію Community hall statistics."
+    },
+    ru: {
+      message: "Написать", athlete: "Спортсмен", loadingAthlete: "Загрузка карточки...",
+      hallCardBadge: "ДОСТИЖЕНИЯ ЗАЛА", hallAchievements: "ЦЕНТР ММА · ДОСТИЖЕНИЯ ЗАЛА", hallCompetitions: "Прошедшие соревнования", hallWinRate: "Процент побед", hallEarlyWins: "Досрочные победы", hallEarlyWinRate: "Процент досрочных побед", hallTotalMedals: "Всего медалей", hallAttendanceChart: "Посещаемость тренировок", hallNoAttendance: "Данных о посещаемости пока нет.", hallWeek: "Неделя", hallMonth: "Месяц", hallYear: "Год", hallTopCompetitions: "Топ-3 · соревнования", hallTopWins: "Топ-3 · победы", hallTopWinRate: "Топ-3 · процент побед", hallTopFinishes: "Топ-3 · досрочные победы", hallTopFinishRate: "Топ-3 · доля досрочных побед", hallTopAttendance: "Топ-3 · посещаемость", hallTopMedals: "Топ-3 · медали", hallNoLeaders: "Пока нет результатов.", hallHidden: "Информация зала сейчас скрыта.", hallStatsUnavailable: "Не удалось загрузить статистику зала. Примените миграцию статистики Комьюнити."
     }
   };
 
@@ -6274,6 +6310,7 @@
   }
 
   let communityAthletes = [];
+  let communityHallAdminId = null;
   const communityPhotoUrlCache = new Map();
   let communityDirectoryLoadToken = 0;
 
@@ -6325,10 +6362,15 @@
     }
 
     const members = (data || []).filter(member => member.user_id);
+    communityHallAdminId = members.find(member => member.role === "admin")?.id || null;
+    if (!communityHallAdminId) {
+      const { data: adminId, error: adminLookupError } = await supabaseClient.rpc("get_community_hall_admin_member_id");
+      if (!adminLookupError && adminId) communityHallAdminId = adminId;
+    }
     communityAthletes = members.map(member => ({
       ...member,
       profile: { photo_url: communityPhotoUrlCache.get(member.photo_path)?.url || "" }
-    }));
+    })).sort((a, b) => Number(b.id === communityHallAdminId || b.role === "admin") - Number(a.id === communityHallAdminId || a.role === "admin"));
     filterCommunityAthletes();
     const photoPaths = members.map(member => member.photo_path).filter(Boolean);
     if (photoPaths.some(path => !communityPhotoUrlCache.has(path) || communityPhotoUrlCache.get(path).expiresAt <= Date.now() + 60000)) {
@@ -6355,6 +6397,10 @@
     const element = document.getElementById("communityAthleteDetails");
     if (!element) return;
     element.innerHTML = `<div class="empty">${escapeHtml(communityText("loadingAthlete"))}</div>`;
+    if (cachedAthlete.role === "admin" || cachedAthlete.id === communityHallAdminId || (isAdmin && cachedAthlete.id === currentMember?.id)) {
+      await loadCommunityHallCard(cachedAthlete, element);
+      return;
+    }
     const { data, error } = await supabaseClient.rpc("get_community_athlete_details", {
       p_member_id: memberId
     });
@@ -6431,6 +6477,65 @@
 
       competitionElement.innerHTML = sections.join("");
     }
+  }
+
+  let communityHallPeriod = "month";
+
+  async function loadCommunityHallCard(adminMember, element = document.getElementById("communityAthleteDetails")) {
+    if (!element) return;
+    const isSelf = adminMember.user_id === currentUser?.id;
+    const name = String(adminMember.first_name || "CENTER MMA").trim() || "CENTER MMA";
+    const messageButton = isSelf
+      ? `<button type="button" class="secondary community-message-button" disabled aria-disabled="true">${escapeHtml(communityText("message"))}</button>`
+      : `<button type="button" class="community-message-button" onclick="startCommunityPrivateMessage('${escapeHtml(adminMember.id)}')">${escapeHtml(communityText("message"))}</button>`;
+    element.innerHTML = `<div class="community-profile" style="border-color:#8f6b25;background:linear-gradient(145deg,#211b10,#151515 60%);"><div class="community-profile-avatar" style="border:2px solid #8f6b25;">${adminMember.profile?.photo_url ? `<img loading="lazy" decoding="async" src="${escapeHtml(adminMember.profile.photo_url)}" alt="">` : escapeHtml(name.charAt(0).toUpperCase())}</div><div class="community-profile-name">${escapeHtml(name)}</div><div class="community-hall-badge">🏆 ${escapeHtml(communityText("hallCardBadge"))}</div>${messageButton}</div><div id="communityHallContent"><div class="empty">${escapeHtml(communityText("loadingAthlete"))}</div></div>`;
+    const content = document.getElementById("communityHallContent");
+    if (!content) return;
+    const { data, error } = await supabaseClient.rpc("get_community_hall_dashboard", { p_period: communityHallPeriod });
+    if (error || !data || data.error) {
+      console.error("Could not load CENTER MMA hall statistics:", error || data?.error);
+      content.innerHTML = `<div class="message error">${escapeHtml(communityText("hallStatsUnavailable"))}</div>`;
+      return;
+    }
+    const sections = [];
+    const stats = data.achievements || {};
+    if (data.visibility?.achievements !== false) {
+      const values = [
+        [stats.competitions || 0, communityText("hallCompetitions")],
+        [stats.fights || 0, communityText("fights")],
+        [stats.wins || 0, communityText("wins")],
+        [`${stats.win_rate || 0}%`, communityText("hallWinRate")],
+        [stats.finishes || 0, communityText("hallEarlyWins")],
+        [`${stats.finish_rate || 0}%`, communityText("hallEarlyWinRate")],
+        [stats.medals || 0, communityText("hallTotalMedals")],
+        [`🥇 ${stats.gold || 0}`, communityText("gold")],
+        [`🥈 ${stats.silver || 0}`, communityText("silver")],
+        [`🥉 ${stats.bronze || 0}`, communityText("bronze")]
+      ];
+      sections.push(`<section class="community-hall-section"><div class="community-detail-heading">${escapeHtml(communityText("hallAchievements"))}</div><div class="community-hall-grid">${values.map(([value, label]) => `<div class="community-hall-stat"><div class="community-hall-number">${escapeHtml(String(value))}</div><div class="community-hall-label">${escapeHtml(label)}</div></div>`).join("")}</div></section>`);
+    }
+    if (data.visibility?.attendance !== false) {
+      const points = Array.isArray(data.attendance_chart) ? data.attendance_chart : [];
+      const max = Math.max(1, ...points.map(point => Number(point.count || 0)));
+      const chart = points.length ? `<div class="community-hall-chart" role="img" aria-label="${escapeHtml(communityText("hallAttendanceChart"))}">${points.map(point => { const count = Number(point.count || 0); const height = Math.max(2, Math.round((count / max) * 112)); return `<div class="community-hall-bar-wrap" title="${escapeHtml(point.label)}: ${count}"><div class="community-hall-bar" style="height:${height}px"></div><div class="community-hall-bar-label">${escapeHtml(point.label || "")}</div></div>`; }).join("")}</div>` : `<div class="muted small">${escapeHtml(communityText("hallNoAttendance"))}</div>`;
+      sections.push(`<section class="community-hall-section"><div class="community-detail-heading">${escapeHtml(communityText("hallAttendanceChart"))}</div>${chart}<div class="community-hall-periods"><button type="button" class="secondary ${communityHallPeriod === "week" ? "active" : ""}" onclick="setCommunityHallPeriod('week','${escapeHtml(adminMember.id)}')">${escapeHtml(communityText("hallWeek"))}</button><button type="button" class="secondary ${communityHallPeriod === "month" ? "active" : ""}" onclick="setCommunityHallPeriod('month','${escapeHtml(adminMember.id)}')">${escapeHtml(communityText("hallMonth"))}</button><button type="button" class="secondary ${communityHallPeriod === "year" ? "active" : ""}" onclick="setCommunityHallPeriod('year','${escapeHtml(adminMember.id)}')">${escapeHtml(communityText("hallYear"))}</button></div></section>`);
+    }
+    if (data.visibility?.leaders !== false) {
+      const titleByKey = { competitions: communityText("hallTopCompetitions"), wins: communityText("hallTopWins"), win_rate: communityText("hallTopWinRate"), finishes: communityText("hallTopFinishes"), finish_rate: communityText("hallTopFinishRate"), attendance: communityText("hallTopAttendance"), medals: communityText("hallTopMedals") };
+      const valueFor = (key, row) => key === "win_rate" || key === "attendance" ? `${Number(row.value || 0)}%` : String(Number(row.value || 0));
+      Object.keys(titleByKey).forEach(key => {
+        const rows = Array.isArray(data.leaders?.[key]) ? data.leaders[key] : [];
+        sections.push(`<section class="community-hall-section"><div class="community-detail-heading">${escapeHtml(titleByKey[key])}</div>${rows.length ? `<div class="community-hall-leaders">${rows.slice(0, 3).map((row, index) => `<div class="community-hall-leader"><span class="community-hall-rank">${index + 1}.</span><span class="community-hall-leader-name">${escapeHtml(row.name || communityText("athlete"))}</span><span class="community-hall-leader-value">${escapeHtml(valueFor(key, row))}</span></div>`).join("")}</div>` : `<div class="muted small">${escapeHtml(communityText("hallNoLeaders"))}</div>`}</section>`);
+      });
+    }
+    content.innerHTML = sections.join("") || `<div class="muted small">${escapeHtml(communityText("hallHidden"))}</div>`;
+  }
+
+  async function setCommunityHallPeriod(period, adminMemberId) {
+    if (!["week", "month", "year"].includes(period)) return;
+    communityHallPeriod = period;
+    const adminMember = communityAthletes.find(member => member.id === adminMemberId);
+    if (adminMember) await loadCommunityHallCard(adminMember);
   }
 
   function closeCommunityAthlete() {
@@ -6947,10 +7052,11 @@
 
     element.innerHTML = filtered.map(member => {
       const name = String(member.first_name || "Athlete").trim();
+      const isHallAdmin = member.role === "admin" || member.id === communityHallAdminId || (isAdmin && member.id === currentMember?.id);
       const photo = member.profile.photo_url
         ? `<img src="${escapeHtml(member.profile.photo_url)}" alt="">`
         : escapeHtml(name.charAt(0).toUpperCase());
-      return `<button type="button" class="community-athlete-card" data-community-member-id="${escapeHtml(member.id)}" onclick="openCommunityAthlete('${escapeHtml(member.id)}')"><div class="community-athlete-avatar">${photo}</div><div class="community-athlete-name">${escapeHtml(name)}</div></button>`;
+      return `<button type="button" class="community-athlete-card ${isHallAdmin ? "community-hall-card" : ""}" data-community-member-id="${escapeHtml(member.id)}" onclick="openCommunityAthlete('${escapeHtml(member.id)}')"><div class="community-athlete-avatar">${photo}</div><div><div class="community-athlete-name">${escapeHtml(name)}</div>${isHallAdmin ? `<div class="community-hall-card-subtitle">${escapeHtml(communityText("hallCardBadge"))}</div>` : ""}</div></button>`;
     }).join("");
   }
   function renderMembershipSummary() {
@@ -7468,7 +7574,7 @@
     const message = document.getElementById("communityProfileVisibilityMessage");
     const { data, error } = await supabaseClient
       .from("members")
-      .select("community_show_upcoming_competition,community_show_competition_stats,community_show_attendance")
+      .select("community_show_upcoming_competition,community_show_competition_stats,community_show_attendance,community_show_hall_achievements,community_show_hall_attendance,community_show_hall_leaders")
       .eq("id", currentMember.id)
       .maybeSingle();
 
@@ -7485,6 +7591,15 @@
     document.getElementById("communityProfileShowCompetitionStats").checked = data.community_show_competition_stats === true;
     document.getElementById("communityProfileShowUpcomingCompetition").checked = data.community_show_upcoming_competition !== false;
     document.getElementById("communityProfileShowAttendance").checked = data.community_show_attendance === true;
+    const hallSettings = document.getElementById("communityHallVisibilitySettings");
+    if (hallSettings) {
+      hallSettings.classList.toggle("hidden", !isAdmin);
+      if (isAdmin) {
+        document.getElementById("communityHallShowAchievements").checked = data.community_show_hall_achievements !== false;
+        document.getElementById("communityHallShowAttendance").checked = data.community_show_hall_attendance !== false;
+        document.getElementById("communityHallShowLeaders").checked = data.community_show_hall_leaders !== false;
+      }
+    }
     if (message) {
       message.textContent = "";
       message.className = "message";
@@ -7514,6 +7629,22 @@
         message.className = "message error";
       }
       return;
+    }
+
+    if (isAdmin) {
+      const { error: hallError } = await supabaseClient.rpc("update_own_community_hall_visibility", {
+        p_show_achievements: document.getElementById("communityHallShowAchievements").checked,
+        p_show_attendance: document.getElementById("communityHallShowAttendance").checked,
+        p_show_leaders: document.getElementById("communityHallShowLeaders").checked
+      });
+      if (hallError) {
+        console.error("Could not save Community hall visibility:", hallError);
+        if (message) {
+          message.textContent = "Your profile settings were saved, but hall visibility could not be saved. Apply the Community hall statistics database migration and try again.";
+          message.className = "message error";
+        }
+        return;
+      }
     }
 
     currentMember.community_show_upcoming_competition = document.getElementById("communityProfileShowUpcomingCompetition").checked;
