@@ -566,6 +566,7 @@
     .community-conversation-name { font-size:14px; font-weight:800; }
     .community-conversation-time { color:#888; font-size:11px; white-space:nowrap; }
     .community-conversation-preview { color:#999; font-size:12px; margin-top:4px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    .community-conversation-status { display:inline-block; margin-top:4px; color:#ff8b8b; font-size:10px; white-space:nowrap; }
     .community-unread-badge { min-width:20px; height:20px; padding:0 6px; display:flex; align-items:center; justify-content:center; border-radius:12px; background:#ff2b2b; color:#fff; font-size:11px; font-weight:800; }
     .community-private-chat { display:flex; flex-direction:column; height:calc(100dvh - 220px); min-height:280px; }
     .community-private-messages { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding:12px 2px; }
@@ -6280,6 +6281,7 @@
     },
     ru: {
       message: "Написать", athlete: "Спортсмен", loadingAthlete: "Загрузка карточки...",
+      sent: "Отправлено", delivered: "Доставлено", read: "Прочитано",
       hallCardBadge: "ДОСТИЖЕНИЯ ЗАЛА", hallAchievements: "ЦЕНТР ММА · ДОСТИЖЕНИЯ ЗАЛА", hallCompetitions: "Прошедшие соревнования", hallWinRate: "Процент побед", hallEarlyWins: "Досрочные победы", hallEarlyWinRate: "Процент досрочных побед", hallTotalMedals: "Всего медалей", hallAttendanceChart: "Посещаемость тренировок", hallNoAttendance: "Данных о посещаемости пока нет.", hallWeek: "Неделя", hallMonth: "Месяц", hallYear: "Год", hallTopOverall: "Топ-3 спортсмена", hallPoints: "баллов", hallNoLeaders: "Пока нет результатов.", hallHidden: "Информация зала сейчас скрыта.", hallStatsUnavailable: "Не удалось загрузить статистику зала. Примените миграцию статистики Комьюнити."
     }
   };
@@ -6614,6 +6616,17 @@
         .is("delivered_at", null);
       if (deliveryError) console.error("Could not mark private messages as delivered:", deliveryError);
     }
+    const latestMessages = await Promise.all(rows.map(async row => {
+      const { data: latest, error: latestError } = await supabaseClient.from("community_private_messages")
+        .select("id,sender_id,delivered_at,read_at")
+        .eq("conversation_id", row.conversation_id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (latestError) console.error("Could not load latest private-message status:", latestError);
+      return [row.conversation_id, latest || null];
+    }));
+    const latestByConversation = Object.fromEntries(latestMessages);
     const profiles = await getChatProfiles(rows.map(row => row.other_user_id));
     rows.sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
     element.innerHTML = rows.map(row => {
@@ -6622,7 +6635,11 @@
       const avatar = profile.photo_url ? `<img loading="lazy" decoding="async" src="${escapeHtml(profile.photo_url)}" alt="">` : escapeHtml(name.charAt(0).toUpperCase());
       const preview = String(row.last_message || communityText("noMessagesYet")).slice(0, 140);
       const unread = Number(row.unread_count || 0);
-      return `<button type="button" class="community-conversation" onclick="openCommunityPrivateConversation('${escapeHtml(row.conversation_id)}','${escapeHtml(row.other_user_id)}','${escapeHtml(name)}')"><div class="community-conversation-avatar">${avatar}</div><div class="community-conversation-copy"><div class="community-conversation-top"><span class="community-conversation-name">${escapeHtml(name)}</span><span class="community-conversation-time">${escapeHtml(communityMessageTime(row.last_message_at))}</span></div><div class="community-conversation-preview">${escapeHtml(preview)}</div></div>${unread ? `<span class="community-unread-badge">${unread > 99 ? "99+" : unread}</span>` : ""}</button>`;
+      const latest = latestByConversation[row.conversation_id];
+      const latestIsMine = latest?.sender_id === currentUser.id;
+      const latestState = latest?.read_at ? "read" : latest?.delivered_at ? "delivered" : "sent";
+      const status = latestIsMine ? `<span class="community-conversation-status" aria-label="${escapeHtml(communityText(latestState))}">${latestState === "sent" ? "✓" : "✓✓"} ${escapeHtml(communityText(latestState))}</span>` : "";
+      return `<button type="button" class="community-conversation" onclick="openCommunityPrivateConversation('${escapeHtml(row.conversation_id)}','${escapeHtml(row.other_user_id)}','${escapeHtml(name)}')"><div class="community-conversation-avatar">${avatar}</div><div class="community-conversation-copy"><div class="community-conversation-top"><span class="community-conversation-name">${escapeHtml(name)}</span><span class="community-conversation-time">${escapeHtml(communityMessageTime(row.last_message_at))}</span></div><div class="community-conversation-preview">${escapeHtml(preview)}</div>${status}</div>${!latestIsMine && unread ? `<span class="community-unread-badge">${unread > 99 ? "99+" : unread}</span>` : ""}</button>`;
     }).join("");
   }
 
@@ -7005,7 +7022,13 @@
           .is("delivered_at", null)
           .then(({ error }) => {
             if (error) console.error("Could not acknowledge incoming private message:", error);
+            else void refresh();
           });
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "community_private_messages" }, payload => {
+        const oldMessage = payload.old || {};
+        const message = payload.new || {};
+        if (oldMessage.delivered_at !== message.delivered_at || oldMessage.read_at !== message.read_at) void refresh();
       })
       .subscribe((state, error) => {
         if (state === "CHANNEL_ERROR" || state === "TIMED_OUT") {
