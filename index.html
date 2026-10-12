@@ -6282,7 +6282,10 @@
   function useJournalTrainingTitle(select) {
     const session = journalTrainingOptions.find(item => (item.source_session_id || item.id) === select.value);
     if (session) select.closest(".journal-training-entry")?.querySelector(".journal-training-title")?.setAttribute("value",session.title || session.training || "Training");
-    if (session) select.closest(".journal-training-entry")?.querySelector(".journal-training-title").value = session.title || session.training || "Training";
+    if (session) {
+      const titleInput = select.closest(".journal-training-entry")?.querySelector(".journal-training-title");
+      if (titleInput) titleInput.value = session.title || session.training || "Training";
+    }
   }
 
   function openJournalForDate(date) {
