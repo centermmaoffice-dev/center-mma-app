@@ -3441,6 +3441,8 @@
   const VAPID_PUBLIC_KEY =
     "BIJi6qQE8PfytW7crRpWCDtNu9N2i31_rRZ2mQScR4hPTtGM7RjyuuzWqLbw97bJnuFkbVkCJthO3YpKH0gPlHw";
 
+  const SERVICE_WORKER_URL = "/sw.js?v=20261012-1";
+
   const supabaseClient =
     supabase.createClient(
       SUPABASE_URL,
@@ -24080,7 +24082,7 @@
     if ("serviceWorker" in navigator) {
 
       navigator.serviceWorker
-        .register("/sw.js?v=20260906-1", { updateViaCache: "none" })
+        .register(SERVICE_WORKER_URL, { updateViaCache: "none" })
         .catch(function (error) {
           console.error(
             "Service worker registration failed:",
@@ -24270,7 +24272,7 @@
     // Always register the current versioned service worker URL so browsers
     // do not stay on a stale cached sw.js after a deployment.
     registration = await navigator.serviceWorker.register(
-      "/sw.js?v=20261006-2",
+      SERVICE_WORKER_URL,
       { updateViaCache: "none" }
     );
 
