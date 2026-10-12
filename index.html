@@ -2341,6 +2341,18 @@
           </div>
         </div>
 
+        <div class="home-tile" onclick="openSection('journal')">
+          <div class="home-tile-icon">📓</div>
+          <div class="home-tile-title">Athlete Journal</div>
+          <div class="home-tile-text">Your private daily training and wellbeing log</div>
+        </div>
+
+        <div class="home-tile" onclick="openSection('library')">
+          <div class="home-tile-icon">📚</div>
+          <div class="home-tile-title">Training Library</div>
+          <div class="home-tile-text">Articles and guides for reading</div>
+        </div>
+
         <div class="home-tile" onclick="openSection('events')">
           <span id="homeEventsUpdateBadge" class="section-update-badge hidden" aria-hidden="true"></span>
           <div class="home-tile-icon">🏆</div>
@@ -2998,6 +3010,48 @@
 
       <div id="calendarDayEvents"></div>
 
+    </div>
+
+    <!-- PERSONAL ATHLETE JOURNAL -->
+    <div id="journalSection" class="hidden">
+      <div class="section-title">
+        <button class="secondary back-button" onclick="goBackInApp()">← BACK</button>
+        <h2>Athlete Journal</h2>
+      </div>
+      <div class="card">
+        <p class="muted small">Private to you on this device. Your journal is not shared with coaches.</p>
+        <label for="journalDate">Day</label><input id="journalDate" type="date" onchange="loadAthleteJournalEntry(this.value)">
+        <label for="journalSleep">Sleep (hours)</label><input id="journalSleep" type="number" min="0" max="24" step="0.25" placeholder="e.g. 8">
+        <label for="journalSleepQuality">Sleep quality (1–10)</label><input id="journalSleepQuality" type="number" min="1" max="10" step="1">
+        <label for="journalStress">Stress outside sport (1–10)</label><input id="journalStress" type="number" min="1" max="10" step="1" placeholder="Work, school, family, travel…">
+        <label for="journalStressNote">Stress source or note (optional)</label><input id="journalStressNote" type="text" maxlength="160">
+        <label for="journalWeight">Weight (kg)</label><input id="journalWeight" type="number" min="0" step="0.1">
+        <label for="journalFood">Food and water notes</label><textarea id="journalFood" placeholder="Optional notes about meals and hydration"></textarea>
+        <label for="journalBefore">How did you feel before training? (1–10)</label><input id="journalBefore" type="number" min="1" max="10" step="1">
+        <label for="journalTraining">Training completed</label><textarea id="journalTraining" placeholder="Session, rounds, duration and effort"></textarea>
+        <label for="journalAfter">How did you feel after training? (1–10)</label><input id="journalAfter" type="number" min="1" max="10" step="1">
+        <label for="journalNote">Pain, restriction or personal note (optional)</label><textarea id="journalNote"></textarea>
+        <label for="journalDayScore">Overall day score (1–10)</label><input id="journalDayScore" type="number" min="1" max="10" step="1" aria-describedby="journalScoreHint">
+        <div id="journalScoreHint" class="muted small" style="margin-top:6px">1 = very difficult day · 10 = felt excellent. Your own optional rating.</div>
+        <button onclick="saveAthleteJournalEntry()">SAVE MY ENTRY</button>
+        <div id="journalSaveMessage" class="message" aria-live="polite"></div>
+      </div>
+      <div class="card"><h3>Day scores</h3><div class="community-hall-periods"><button class="secondary active" onclick="renderJournalChart(7,this)">Week</button><button class="secondary" onclick="renderJournalChart(30,this)">Month</button><button class="secondary" onclick="renderJournalChart(90,this)">3 months</button><button class="secondary" onclick="renderJournalChart(365,this)">Year</button><button class="secondary" onclick="renderJournalChart(0,this)">Season</button></div><div id="journalScoreChart" class="empty">Add day scores to see your history.</div></div>
+      <div class="card"><h3>Competition preparation</h3><p class="muted small">Your daily entries can be linked to a competition you have entered. Choose it here to view your journal in that preparation context.</p><label for="journalCompetition">My competition</label><select id="journalCompetition"><option value="">No competition selected</option></select></div>
+    </div>
+
+    <!-- READ-ONLY TRAINING LIBRARY -->
+    <div id="librarySection" class="hidden">
+      <div class="section-title">
+        <button class="secondary back-button" onclick="goBackInApp()">← BACK</button>
+        <h2>Training Library</h2>
+      </div>
+      <div class="card"><p class="muted small">Articles and guides for reading. Library content does not create calendar events or journal entries.</p></div>
+      <div class="card"><h3>Training fundamentals</h3><p class="muted small">Guides to planning consistent training, balancing hard and easy sessions, and building a foundation for combat sports.</p></div>
+      <div class="card"><h3>Striking</h3><p class="muted small">Reading materials on stance, footwork, distance, combinations, pad work and technical practice.</p></div>
+      <div class="card"><h3>Wrestling and grappling</h3><p class="muted small">Guides on positional practice, takedowns, escapes, transitions and technical drilling.</p></div>
+      <div class="card"><h3>Strength, conditioning and recovery</h3><p class="muted small">Articles about conditioning, strength work, rest and recovery for martial arts athletes.</p></div>
+      <div class="card"><h3>Competition preparation</h3><p class="muted small">Educational material about planning, routines and reflection around competition day.</p></div>
     </div>
 
 
@@ -5807,6 +5861,8 @@
       "profile",
       "community",
       "calendar",
+      "journal",
+      "library",
       "attendance",
       "documents",
       "documentViewer",
@@ -6152,6 +6208,99 @@
 
 
   /* =========================
+     PERSONAL JOURNAL PROTOTYPE
+  ========================= */
+
+  const journalFields = ["journalSleep","journalSleepQuality","journalStress","journalStressNote","journalWeight","journalFood","journalBefore","journalTraining","journalAfter","journalNote","journalDayScore"];
+  let journalRequestedCompetitionId = "";
+
+  function journalStorageKey() {
+    return "centerMmaAthleteJournal:" + (currentMember?.id || "local");
+  }
+
+  function readJournalEntries() {
+    try { return JSON.parse(localStorage.getItem(journalStorageKey()) || "{}"); }
+    catch (error) { console.warn("Could not read journal entries", error); return {}; }
+  }
+
+  function loadAthleteJournalEntry(date) {
+    const entry = readJournalEntries()[date] || {};
+    journalFields.forEach(function (id) {
+      const input = document.getElementById(id);
+      if (input) input.value = entry[id] ?? "";
+    });
+    const competition = document.getElementById("journalCompetition");
+    if (competition) competition.value = entry.competitionId || "";
+    const message = document.getElementById("journalSaveMessage");
+    if (message) message.textContent = "";
+    renderJournalChart(7);
+  }
+
+  function openJournalForDate(date) {
+    const input = document.getElementById("journalDate");
+    if (input) input.value = date || getLocalDateString();
+    openSection("journal");
+  }
+
+  function openJournalForCompetition(competitionId) {
+    journalRequestedCompetitionId = competitionId || "";
+    openJournalForDate(getLocalDateString());
+  }
+
+  function saveAthleteJournalEntry() {
+    const date = document.getElementById("journalDate")?.value;
+    const message = document.getElementById("journalSaveMessage");
+    if (!date) { if (message) { message.textContent = "Choose a date first."; message.className = "message error"; } return; }
+    const entries = readJournalEntries();
+    const entry = { date: date, competitionId: document.getElementById("journalCompetition")?.value || "" };
+    journalFields.forEach(function (id) { entry[id] = document.getElementById(id)?.value || ""; });
+    entries[date] = entry;
+    try {
+      localStorage.setItem(journalStorageKey(), JSON.stringify(entries));
+      if (message) { message.textContent = "Saved on this device."; message.className = "message success-text"; }
+      renderJournalChart(7);
+    } catch (error) {
+      if (message) { message.textContent = "Could not save on this device."; message.className = "message error"; }
+    }
+  }
+
+  function renderJournalChart(days, button) {
+    const target = document.getElementById("journalScoreChart");
+    if (!target) return;
+    document.querySelectorAll("#journalSection .community-hall-periods button").forEach(function (item) { item.classList.toggle("active", item === button); });
+    const entries = readJournalEntries();
+    const today = new Date();
+    const seasonStart = new Date(today.getFullYear(), 7, 1);
+    const start = days === 0 ? seasonStart : new Date(today.getFullYear(), today.getMonth(), today.getDate() - days + 1);
+    const rows = Object.values(entries).filter(function (entry) {
+      const date = new Date((entry.date || "") + "T12:00:00");
+      return date >= start && date <= today && Number(entry.journalDayScore) >= 1 && Number(entry.journalDayScore) <= 10;
+    }).sort(function (a,b) { return String(a.date).localeCompare(String(b.date)); });
+    if (!rows.length) { target.className = "empty"; target.textContent = "No day scores recorded in this period yet."; return; }
+    target.className = "community-hall-chart";
+    target.innerHTML = rows.map(function (entry) {
+      const score = Number(entry.journalDayScore);
+      return `<div class="community-hall-bar-wrap" title="${escapeHtml(entry.date)} · ${score}/10"><div class="community-hall-bar" style="height:${score * 10}%"></div><div class="community-hall-bar-label">${escapeHtml(entry.date.slice(5))}</div></div>`;
+    }).join("");
+  }
+
+  async function loadJournalCompetitions() {
+    const select = document.getElementById("journalCompetition");
+    if (!select || !currentMember) return;
+    const result = await supabaseClient.from("competition_registrations").select("competition_id, status, competitions(id,title,date,location)").eq("member_id", currentMember.id);
+    if (result.error) { console.warn("Could not load athlete competitions", result.error); return; }
+    const selected = select.value;
+    select.innerHTML = `<option value="">No competition selected</option>` + (result.data || []).map(function (row) {
+      const competition = row.competitions || {};
+      return `<option value="${escapeHtml(row.competition_id)}">${escapeHtml(competition.title || "Competition")} · ${escapeHtml(competition.date || "")}</option>`;
+    }).join("");
+    if (journalRequestedCompetitionId) {
+      select.value = journalRequestedCompetitionId;
+      journalRequestedCompetitionId = "";
+    } else if (selected) select.value = selected;
+  }
+
+  /* =========================
      NAVIGATION
   ========================= */
 
@@ -6222,6 +6371,8 @@
       "profile",
       "community",
       "calendar",
+      "journal",
+      "library",
       "attendance",
       "documents",
       "chat",
@@ -6293,6 +6444,13 @@
     if (section === "calendar") {
       void markSectionNotificationsRead(["calendar", "training"]);
       loadClubCalendar();
+    }
+
+    if (section === "journal") {
+      const dateInput = document.getElementById("journalDate");
+      if (dateInput && !dateInput.value) dateInput.value = getLocalDateString();
+      loadAthleteJournalEntry(dateInput?.value || getLocalDateString());
+      void loadJournalCompetitions();
     }
 
     if (section === "attendance") {
@@ -9618,6 +9776,7 @@
           <div class="empty">
             No events this day.
           </div>
+          <button class="secondary" onclick="openJournalForDate('${calendarSelectedDate}')">OPEN MY JOURNAL FOR THIS DAY</button>
 
         </div>
 
@@ -9819,6 +9978,8 @@
           }
         ).join("")
       }
+
+      <button class="secondary" onclick="openJournalForDate('${calendarSelectedDate}')">OPEN MY JOURNAL FOR THIS DAY</button>
 
     `;
   }
@@ -12852,6 +13013,7 @@
                       : ""
                   }
 
+                  ${registration ? `<button class="secondary" onclick="openJournalForCompetition('${competition.id}')">MY PREPARATION & JOURNAL</button>` : ""}
                   ${participationContent}
 
                 </div>
