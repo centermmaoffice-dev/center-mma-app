@@ -3019,17 +3019,19 @@
         <h2>Athlete Journal</h2>
       </div>
       <div class="card">
-        <p class="muted small">Private to you on this device. Your journal is not shared with coaches.</p>
+        <p class="muted small">Saved to your account and visible only to you. Your journal is not shared with coaches or admins.</p>
         <label for="journalDate">Day</label><input id="journalDate" type="date" onchange="loadAthleteJournalEntry(this.value)">
         <label for="journalSleep">Sleep (hours)</label><input id="journalSleep" type="number" min="0" max="24" step="0.25" placeholder="e.g. 8">
         <label for="journalSleepQuality">Sleep quality (1–10)</label><input id="journalSleepQuality" type="number" min="1" max="10" step="1">
         <label for="journalStress">Stress outside sport (1–10)</label><input id="journalStress" type="number" min="1" max="10" step="1" placeholder="Work, school, family, travel…">
         <label for="journalStressNote">Stress source or note (optional)</label><input id="journalStressNote" type="text" maxlength="160">
         <label for="journalWeight">Weight (kg)</label><input id="journalWeight" type="number" min="0" step="0.1">
-        <label for="journalFood">Food and water notes</label><textarea id="journalFood" placeholder="Optional notes about meals and hydration"></textarea>
-        <label for="journalBefore">How did you feel before training? (1–10)</label><input id="journalBefore" type="number" min="1" max="10" step="1">
-        <label for="journalTraining">Training completed</label><textarea id="journalTraining" placeholder="Session, rounds, duration and effort"></textarea>
-        <label for="journalAfter">How did you feel after training? (1–10)</label><input id="journalAfter" type="number" min="1" max="10" step="1">
+        <label for="journalFood">Meals and food notes</label><textarea id="journalFood" placeholder="Meals or notes about what you ate"></textarea>
+        <label for="journalWater">Water (litres, optional)</label><input id="journalWater" type="number" min="0" max="20" step="0.1">
+        <h3 style="margin-top:20px">Training sessions</h3>
+        <div class="muted small">Add each session separately. You can link it to a class in the calendar.</div>
+        <div id="journalTrainingEntries"></div>
+        <button type="button" class="secondary" onclick="addJournalTrainingEntry()">＋ ADD TRAINING SESSION</button>
         <label for="journalNote">Pain, restriction or personal note (optional)</label><textarea id="journalNote"></textarea>
         <label for="journalDayScore">Overall day score (1–10)</label><input id="journalDayScore" type="number" min="1" max="10" step="1" aria-describedby="journalScoreHint">
         <div id="journalScoreHint" class="muted small" style="margin-top:6px">1 = very difficult day · 10 = felt excellent. Your own optional rating.</div>
@@ -6208,32 +6210,79 @@
      PERSONAL JOURNAL PROTOTYPE
   ========================= */
 
-  const journalFields = ["journalSleep","journalSleepQuality","journalStress","journalStressNote","journalWeight","journalFood","journalBefore","journalTraining","journalAfter","journalNote","journalDayScore"];
+  const journalFields = ["journalSleep","journalSleepQuality","journalStress","journalStressNote","journalWeight","journalFood","journalWater","journalNote","journalDayScore"];
   let journalRequestedCompetitionId = "";
+  let journalTrainingOptions = [];
   let libraryCurrentCategoryId = "";
   let libraryCurrentArticleId = "";
   let libraryCurrentPage = 0;
 
-  function journalStorageKey() {
-    return "centerMmaAthleteJournal:" + (currentMember?.id || "local");
+  const journalColumnByField = {journalSleep:"sleep_hours",journalSleepQuality:"sleep_quality",journalStress:"outside_stress",journalStressNote:"stress_source",journalWeight:"weight_kg",journalFood:"food_notes",journalWater:"water_liters",journalNote:"daily_note",journalDayScore:"day_score"};
+
+  async function loadJournalScreen(date) {
+    await loadJournalCompetitions();
+    await loadAthleteJournalEntry(date);
   }
 
-  function readJournalEntries() {
-    try { return JSON.parse(localStorage.getItem(journalStorageKey()) || "{}"); }
-    catch (error) { console.warn("Could not read journal entries", error); return {}; }
-  }
-
-  function loadAthleteJournalEntry(date) {
-    const entry = readJournalEntries()[date] || {};
+  async function loadAthleteJournalEntry(date) {
+    const message = document.getElementById("journalSaveMessage");
+    journalFields.forEach(function (id) { const input = document.getElementById(id); if (input) input.value = ""; });
+    if (message) message.textContent = "";
+    const sessionsBox = document.getElementById("journalTrainingEntries");
+    if (sessionsBox) sessionsBox.innerHTML = `<div class="empty">Loading training entries…</div>`;
+    const [entryResult, trainingOptions] = await Promise.all([
+      supabaseClient.from("athlete_journal_days").select("*").eq("user_id",currentUser.id).eq("log_date",date).maybeSingle(),
+      loadJournalTrainingOptions(date)
+    ]);
+    if (entryResult.error) {
+      if (message) { message.textContent = "Journal storage is not ready. Apply journal-setup.sql first. " + entryResult.error.message; message.className = "message error"; }
+      if (sessionsBox) sessionsBox.innerHTML = "";
+      return;
+    }
+    const entry = entryResult.data;
     journalFields.forEach(function (id) {
       const input = document.getElementById(id);
-      if (input) input.value = entry[id] ?? "";
+      const column = journalColumnByField[id];
+      if (input && entry?.[column] != null) input.value = entry[column];
     });
     const competition = document.getElementById("journalCompetition");
-    if (competition) competition.value = entry.competitionId || "";
-    const message = document.getElementById("journalSaveMessage");
-    if (message) message.textContent = "";
+    if (competition && entry) competition.value = entry.competition_id || "";
+    if (sessionsBox) {
+      if (entry?.id) {
+        const { data: sessions, error } = await supabaseClient.from("athlete_journal_training_sessions").select("*").eq("journal_day_id",entry.id).eq("user_id",currentUser.id).order("created_at");
+        if (error) { sessionsBox.innerHTML = `<div class="message error">Could not load training entries: ${escapeHtml(error.message)}</div>`; return; }
+        sessionsBox.innerHTML = (sessions || []).map(journalTrainingEditorHtml).join("");
+      } else sessionsBox.innerHTML = "";
+    }
     renderJournalChart(7);
+  }
+
+  async function loadJournalTrainingOptions(date) {
+    const { data: baseRows, error } = await supabaseClient.from("training_sessions").select("*").lte("training_date",date).order("training_date");
+    if (error) { journalTrainingOptions = []; return []; }
+    const occurrences = expandTrainingSessionsForRange(baseRows || [],date,date);
+    const groupIds = await getCurrentMemberGroupIds();
+    journalTrainingOptions = filterTrainingSessionsForMember(occurrences,groupIds);
+    return journalTrainingOptions;
+  }
+
+  function journalTrainingEditorHtml(session = {}) {
+    const options = `<option value="">Personal / other session</option>` + journalTrainingOptions.map(item => {
+      const id = item.source_session_id || item.id;
+      const label = `${String(item.start_time || "").slice(0,5)} · ${item.title || item.training || "Club training"}`;
+      return `<option value="${escapeHtml(id)}" ${session.training_session_id === id ? "selected" : ""}>${escapeHtml(label)}</option>`;
+    }).join("");
+    return `<div class="card journal-training-entry" data-entry-id="${escapeHtml(session.id || "")}"><div style="display:flex;justify-content:space-between;align-items:center"><h3>Training session</h3><button class="danger" style="width:auto;margin:0;padding:8px" type="button" onclick="this.closest('.journal-training-entry').remove()">REMOVE</button></div><label>Link to calendar training</label><select class="journal-training-link" onchange="useJournalTrainingTitle(this)">${options}</select><label>Session name</label><input class="journal-training-title" maxlength="180" value="${escapeHtml(session.title || "")}" placeholder="e.g. MMA sparring"><label>Type</label><select class="journal-training-type"><option value="technique" ${session.session_type === "technique" ? "selected" : ""}>Technique</option><option value="striking" ${session.session_type === "striking" ? "selected" : ""}>Striking</option><option value="wrestling" ${session.session_type === "wrestling" ? "selected" : ""}>Wrestling / grappling</option><option value="sparring" ${session.session_type === "sparring" ? "selected" : ""}>Sparring</option><option value="strength" ${session.session_type === "strength" ? "selected" : ""}>Strength & conditioning</option><option value="recovery" ${session.session_type === "recovery" ? "selected" : ""}>Recovery</option><option value="other" ${session.session_type === "other" ? "selected" : ""}>Other</option></select><div class="community-hall-grid"><div><label>Duration (min)</label><input class="journal-training-duration" type="number" min="0" max="600" step="1" value="${escapeHtml(session.duration_minutes ?? "")}"></div><div><label>Rounds</label><input class="journal-training-rounds" type="number" min="0" max="100" step="1" value="${escapeHtml(session.rounds ?? "")}"></div></div><label>Effort (1–10)</label><input class="journal-training-effort" type="number" min="1" max="10" step="1" value="${escapeHtml(session.effort ?? "")}"><label>How did you feel before? (1–10)</label><input class="journal-training-before" type="number" min="1" max="10" step="1" value="${escapeHtml(session.feeling_before ?? "")}"><label>How did you feel after? (1–10)</label><input class="journal-training-after" type="number" min="1" max="10" step="1" value="${escapeHtml(session.feeling_after ?? "")}"><label>Session notes</label><textarea class="journal-training-notes">${escapeHtml(session.notes || "")}</textarea></div>`;
+  }
+
+  function addJournalTrainingEntry() {
+    document.getElementById("journalTrainingEntries")?.insertAdjacentHTML("beforeend",journalTrainingEditorHtml());
+  }
+
+  function useJournalTrainingTitle(select) {
+    const session = journalTrainingOptions.find(item => (item.source_session_id || item.id) === select.value);
+    if (session) select.closest(".journal-training-entry")?.querySelector(".journal-training-title")?.setAttribute("value",session.title || session.training || "Training");
+    if (session) select.closest(".journal-training-entry")?.querySelector(".journal-training-title").value = session.title || session.training || "Training";
   }
 
   function openJournalForDate(date) {
@@ -6247,40 +6296,64 @@
     openJournalForDate(getLocalDateString());
   }
 
-  function saveAthleteJournalEntry() {
+  async function saveAthleteJournalEntry() {
     const date = document.getElementById("journalDate")?.value;
     const message = document.getElementById("journalSaveMessage");
     if (!date) { if (message) { message.textContent = "Choose a date first."; message.className = "message error"; } return; }
-    const entries = readJournalEntries();
-    const entry = { date: date, competitionId: document.getElementById("journalCompetition")?.value || "" };
-    journalFields.forEach(function (id) { entry[id] = document.getElementById(id)?.value || ""; });
-    entries[date] = entry;
+    const payload = {user_id:currentUser.id,member_id:currentMember.id,log_date:date,competition_id:document.getElementById("journalCompetition")?.value || null};
+    journalFields.forEach(function (id) {
+      const column = journalColumnByField[id];
+      const input = document.getElementById(id);
+      const raw = input?.value ?? "";
+      payload[column] = input?.type === "number" ? (raw === "" ? null : Number(raw)) : (String(raw).trim() || null);
+    });
+    const saveButton = document.querySelector("#journalSection button[onclick='saveAthleteJournalEntry()']");
+    if (saveButton) saveButton.disabled = true;
+    if (message) { message.textContent = "Saving to your account…"; message.className = "message"; }
     try {
-      localStorage.setItem(journalStorageKey(), JSON.stringify(entries));
-      if (message) { message.textContent = "Saved on this device."; message.className = "message success-text"; }
+      const { data: day, error } = await supabaseClient.from("athlete_journal_days").upsert(payload,{onConflict:"user_id,log_date"}).select("id").single();
+      if (error) throw error;
+      const existingResult = await supabaseClient.from("athlete_journal_training_sessions").select("id").eq("journal_day_id",day.id).eq("user_id",currentUser.id);
+      if (existingResult.error) throw existingResult.error;
+      const blocks = Array.from(document.querySelectorAll("#journalTrainingEntries .journal-training-entry"));
+      const keptIds = [];
+      for (const block of blocks) {
+        const id = block.dataset.entryId;
+        const row = {user_id:currentUser.id,journal_day_id:day.id,training_session_id:block.querySelector(".journal-training-link")?.value || null,title:block.querySelector(".journal-training-title")?.value.trim() || "Training",session_type:block.querySelector(".journal-training-type")?.value || "other",duration_minutes:Number(block.querySelector(".journal-training-duration")?.value) || null,rounds:Number(block.querySelector(".journal-training-rounds")?.value) || null,effort:Number(block.querySelector(".journal-training-effort")?.value) || null,feeling_before:Number(block.querySelector(".journal-training-before")?.value) || null,feeling_after:Number(block.querySelector(".journal-training-after")?.value) || null,notes:block.querySelector(".journal-training-notes")?.value.trim() || null};
+        if (id) {
+          const { error: updateError } = await supabaseClient.from("athlete_journal_training_sessions").update(row).eq("id",id).eq("user_id",currentUser.id);
+          if (updateError) throw updateError;
+          keptIds.push(id);
+        } else {
+          const { data: created, error: insertError } = await supabaseClient.from("athlete_journal_training_sessions").insert(row).select("id").single();
+          if (insertError) throw insertError;
+          keptIds.push(created.id);
+        }
+      }
+      const removedIds = (existingResult.data || []).map(item => item.id).filter(id => !keptIds.includes(id));
+      if (removedIds.length) { const { error: deleteError } = await supabaseClient.from("athlete_journal_training_sessions").delete().in("id",removedIds).eq("user_id",currentUser.id); if (deleteError) throw deleteError; }
+      if (message) { message.textContent = "Saved to your account."; message.className = "message success-text"; }
+      await loadAthleteJournalEntry(date);
       renderJournalChart(7);
     } catch (error) {
-      if (message) { message.textContent = "Could not save on this device."; message.className = "message error"; }
-    }
+      if (message) { message.textContent = "Could not save your journal: " + error.message; message.className = "message error"; }
+    } finally { if (saveButton) saveButton.disabled = false; }
   }
 
-  function renderJournalChart(days, button) {
+  async function renderJournalChart(days, button) {
     const target = document.getElementById("journalScoreChart");
     if (!target) return;
     document.querySelectorAll("#journalSection .community-hall-periods button").forEach(function (item) { item.classList.toggle("active", item === button); });
-    const entries = readJournalEntries();
-    const today = new Date();
-    const seasonStart = new Date(today.getFullYear(), 7, 1);
-    const start = days === 0 ? seasonStart : new Date(today.getFullYear(), today.getMonth(), today.getDate() - days + 1);
-    const rows = Object.values(entries).filter(function (entry) {
-      const date = new Date((entry.date || "") + "T12:00:00");
-      return date >= start && date <= today && Number(entry.journalDayScore) >= 1 && Number(entry.journalDayScore) <= 10;
-    }).sort(function (a,b) { return String(a.date).localeCompare(String(b.date)); });
-    if (!rows.length) { target.className = "empty"; target.textContent = "No day scores recorded in this period yet."; return; }
+    const today = getLocalDateString();
+    const startDate = days === 0 ? `${today.slice(0,4)}-08-01` : addDaysToDateString(today,-days + 1);
+    target.className = "empty"; target.textContent = "Loading scores…";
+    const { data: rows, error } = await supabaseClient.from("athlete_journal_days").select("log_date,day_score").eq("user_id",currentUser.id).gte("log_date",startDate).lte("log_date",today).not("day_score","is",null).order("log_date");
+    if (error) { target.textContent = "Could not load scores: " + error.message; return; }
+    if (!(rows || []).length) { target.className = "empty"; target.textContent = "No day scores recorded in this period yet."; return; }
     target.className = "community-hall-chart";
     target.innerHTML = rows.map(function (entry) {
-      const score = Number(entry.journalDayScore);
-      return `<div class="community-hall-bar-wrap" title="${escapeHtml(entry.date)} · ${score}/10"><div class="community-hall-bar" style="height:${score * 10}%"></div><div class="community-hall-bar-label">${escapeHtml(entry.date.slice(5))}</div></div>`;
+      const score = Number(entry.day_score);
+      return `<button type="button" class="community-hall-bar-wrap" title="${escapeHtml(entry.log_date)} · ${score}/10" style="width:42px;flex:0 0 42px;margin:0;padding:0;background:transparent;border-radius:0" onclick="openJournalForDate('${escapeHtml(entry.log_date)}')"><div class="community-hall-bar" style="height:${score * 10}%"></div><div class="community-hall-bar-label">${escapeHtml(entry.log_date.slice(5))}</div></button>`;
     }).join("");
   }
 
@@ -6704,8 +6777,7 @@
     if (section === "journal") {
       const dateInput = document.getElementById("journalDate");
       if (dateInput && !dateInput.value) dateInput.value = getLocalDateString();
-      loadAthleteJournalEntry(dateInput?.value || getLocalDateString());
-      void loadJournalCompetitions();
+      void loadJournalScreen(dateInput?.value || getLocalDateString());
     }
 
     if (section === "library") {
