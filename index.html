@@ -2639,9 +2639,8 @@
 
       <div class="card">
         <h3>Athlete tools</h3>
-        <p class="muted small">Your private diary, training history and reading library.</p>
-        <button class="secondary" onclick="openJournalForDate(getLocalDateString())">📔 ATHLETE DIARY</button>
-        <button class="secondary" onclick="openTrainingJournal()">🥊 TRAINING JOURNAL</button>
+        <p class="muted small">Track daily wellbeing and training in one journal, or browse the training library.</p>
+        <button class="secondary" onclick="openJournalForDate(getLocalDateString())">📔 ATHLETE JOURNAL</button>
         <button class="secondary" onclick="openSection('library')">📚 TRAINING LIBRARY</button>
       </div>
 
@@ -6208,7 +6207,6 @@
 
   const journalFields = ["journalSleep","journalSleepQuality","journalStress","journalStressNote","journalWeight","journalFood","journalWater","journalNote","journalDayScore"];
   let journalRequestedCompetitionId = "";
-  let journalRequestedFocus = "";
   let journalTrainingOptions = [];
   let libraryCurrentCategoryId = "";
   let libraryCurrentArticleId = "";
@@ -6219,10 +6217,6 @@
   async function loadJournalScreen(date) {
     await loadJournalCompetitions();
     await loadAthleteJournalEntry(date);
-    if (journalRequestedFocus === "training") {
-      journalRequestedFocus = "";
-      document.getElementById("journalTrainingEntries")?.scrollIntoView({behavior:"smooth",block:"center"});
-    }
   }
 
   async function loadAthleteJournalEntry(date) {
@@ -6293,11 +6287,6 @@
     const input = document.getElementById("journalDate");
     if (input) input.value = date || getLocalDateString();
     openSection("journal");
-  }
-
-  function openTrainingJournal() {
-    journalRequestedFocus = "training";
-    openJournalForDate(getLocalDateString());
   }
 
   function openJournalForCompetition(competitionId) {
