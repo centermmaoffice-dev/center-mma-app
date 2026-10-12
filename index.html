@@ -3047,11 +3047,8 @@
         <h2>Training Library</h2>
       </div>
       <div class="card"><p class="muted small">Articles and guides for reading. Library content does not create calendar events or journal entries.</p></div>
-      <div class="card"><h3>Training fundamentals</h3><p class="muted small">Guides to planning consistent training, balancing hard and easy sessions, and building a foundation for combat sports.</p></div>
-      <div class="card"><h3>Striking</h3><p class="muted small">Reading materials on stance, footwork, distance, combinations, pad work and technical practice.</p></div>
-      <div class="card"><h3>Wrestling and grappling</h3><p class="muted small">Guides on positional practice, takedowns, escapes, transitions and technical drilling.</p></div>
-      <div class="card"><h3>Strength, conditioning and recovery</h3><p class="muted small">Articles about conditioning, strength work, rest and recovery for martial arts athletes.</p></div>
-      <div class="card"><h3>Competition preparation</h3><p class="muted small">Educational material about planning, routines and reflection around competition day.</p></div>
+      <div id="libraryCategoryList"><div class="empty">Loading library…</div></div>
+      <div id="libraryArticleViewer" class="hidden"></div>
     </div>
 
 
@@ -6213,6 +6210,9 @@
 
   const journalFields = ["journalSleep","journalSleepQuality","journalStress","journalStressNote","journalWeight","journalFood","journalBefore","journalTraining","journalAfter","journalNote","journalDayScore"];
   let journalRequestedCompetitionId = "";
+  let libraryCurrentCategoryId = "";
+  let libraryCurrentArticleId = "";
+  let libraryCurrentPage = 0;
 
   function journalStorageKey() {
     return "centerMmaAthleteJournal:" + (currentMember?.id || "local");
@@ -6298,6 +6298,261 @@
       select.value = journalRequestedCompetitionId;
       journalRequestedCompetitionId = "";
     } else if (selected) select.value = selected;
+  }
+
+  async function loadTrainingLibrary() {
+    const target = document.getElementById("libraryCategoryList");
+    const viewer = document.getElementById("libraryArticleViewer");
+    if (!target) return;
+    viewer?.classList.add("hidden");
+    target.classList.remove("hidden");
+    target.innerHTML = `<div class="empty">Loading library…</div>`;
+    const { data, error } = await supabaseClient.from("training_library_categories").select("id,slug,title,description,sort_order").eq("is_active", true).order("sort_order");
+    if (error) { target.innerHTML = `<div class="card"><div class="message error">Library is not ready yet. Apply the library database setup first. ${escapeHtml(error.message)}</div></div>`; return; }
+    target.innerHTML = (data || []).map(function (category) {
+      return `<button class="secondary" style="text-align:left;margin:0 0 10px" onclick="openLibraryCategory('${category.id}')"><strong>${escapeHtml(category.title)}</strong><div class="muted small" style="margin-top:5px">${escapeHtml(category.description || "Read articles and guides")}</div></button>`;
+    }).join("") || `<div class="card"><div class="empty">No library categories are available.</div></div>`;
+  }
+
+  async function openLibraryCategory(categoryId) {
+    libraryCurrentCategoryId = categoryId;
+    const target = document.getElementById("libraryCategoryList");
+    const viewer = document.getElementById("libraryArticleViewer");
+    const { data: category, error: categoryError } = await supabaseClient.from("training_library_categories").select("id,title,description").eq("id",categoryId).single();
+    if (categoryError) { if (target) target.innerHTML = `<div class="message error">${escapeHtml(categoryError.message)}</div>`; return; }
+    const { data: articles, error } = await supabaseClient.from("training_library_articles").select("id,title,summary,cover_path,content_type,created_at").eq("category_id",categoryId).eq("status","published").order("sort_order").order("created_at",{ascending:false});
+    if (error) { if (target) target.innerHTML = `<div class="message error">${escapeHtml(error.message)}</div>`; return; }
+    if (viewer) viewer.classList.add("hidden");
+    if (!target) return;
+    target.classList.remove("hidden");
+    target.innerHTML = `<button class="secondary" onclick="loadTrainingLibrary()">← ALL CATEGORIES</button><div class="card"><h3>${escapeHtml(category.title)}</h3><div class="muted small">${escapeHtml(category.description || "")}</div></div>` + ((articles || []).map(function (article) {
+      return `<button class="secondary" style="text-align:left;margin:0 0 10px" onclick="openLibraryArticle('${article.id}')"><strong>${escapeHtml(article.title)}</strong><div class="muted small" style="margin-top:5px">${escapeHtml(article.summary || (article.content_type === "pdf" ? "PDF document" : article.content_type === "booklet" ? "Illustrated booklet" : "Article"))}</div></button>`;
+    }).join("") || `<div class="card"><div class="empty">No published materials in this category yet.</div></div>`);
+  }
+
+  async function librarySignedUrl(path) {
+    if (!path) return "";
+    const { data, error } = await supabaseClient.storage.from("training-library").createSignedUrl(path, 1800);
+    if (error) throw error;
+    return data.signedUrl;
+  }
+
+  async function openLibraryArticle(articleId) {
+    libraryCurrentArticleId = articleId;
+    libraryCurrentPage = 0;
+    const target = document.getElementById("libraryCategoryList");
+    const viewer = document.getElementById("libraryArticleViewer");
+    if (!target || !viewer) return;
+    target.classList.add("hidden"); viewer.classList.remove("hidden");
+    viewer.innerHTML = `<div class="empty">Opening article…</div>`;
+    const [{ data: article, error }, { data: pages, error: pageError }, { data: assets, error: assetError }] = await Promise.all([
+      supabaseClient.from("training_library_articles").select("*").eq("id",articleId).single(),
+      supabaseClient.from("training_library_pages").select("*").eq("article_id",articleId).order("page_number"),
+      supabaseClient.from("training_library_assets").select("*").eq("article_id",articleId).order("sort_order")
+    ]);
+    if (error || pageError || assetError) { viewer.innerHTML = `<div class="card"><div class="message error">${escapeHtml((error || pageError || assetError).message)}</div></div>`; return; }
+    if (article.content_type === "pdf") {
+      const pdf = (assets || []).find(item => item.role === "pdf");
+      try {
+        const url = await librarySignedUrl(pdf?.object_path);
+        viewer.innerHTML = `<button class="secondary" onclick="openLibraryCategory('${libraryCurrentCategoryId}')">← BACK TO ARTICLES</button><div class="card"><h2>${escapeHtml(article.title)}</h2><p class="muted small">${escapeHtml(article.summary || "")}</p>${url ? `<iframe title="${escapeHtml(article.title)}" src="${escapeHtml(url)}#toolbar=1" style="width:100%;height:70vh;border:0;border-radius:10px;background:#fff"></iframe><a href="${escapeHtml(url)}" target="_blank" rel="noopener">Open or download PDF</a>` : `<div class="empty">PDF is not attached.</div>`}</div>`;
+      } catch (urlError) { viewer.innerHTML = `<div class="message error">Could not open PDF: ${escapeHtml(urlError.message)}</div>`; }
+      return;
+    }
+    renderLibraryArticlePage(article, pages || [], assets || [], 0);
+  }
+
+  async function renderLibraryArticlePage(article, pages, assets, pageIndex) {
+    const viewer = document.getElementById("libraryArticleViewer");
+    if (!viewer) return;
+    const page = pages[pageIndex];
+    if (!page) { viewer.innerHTML = `<button class="secondary" onclick="openLibraryCategory('${libraryCurrentCategoryId}')">← BACK TO ARTICLES</button><div class="card"><h2>${escapeHtml(article.title)}</h2><div class="empty">This article has no pages yet.</div></div>`; return; }
+    const pageAssets = assets.filter(item => item.page_id === page.id && item.role === "image");
+    let images = "";
+    try {
+      images = (await Promise.all(pageAssets.map(async item => `<img src="${escapeHtml(await librarySignedUrl(item.object_path))}" alt="${escapeHtml(item.file_name)}" style="width:100%;height:auto;border-radius:10px;margin-top:12px">`))).join("");
+    } catch (urlError) { images = `<div class="message error">Could not load an image: ${escapeHtml(urlError.message)}</div>`; }
+    viewer.innerHTML = `<button class="secondary" onclick="openLibraryCategory('${libraryCurrentCategoryId}')">← BACK TO ARTICLES</button><div class="card"><div class="muted small">${escapeHtml(article.summary || "")}</div><h2 style="margin-top:12px">${escapeHtml(article.title)}</h2><div class="muted small">Page ${pageIndex + 1} of ${pages.length}</div>${page.heading ? `<h3 style="margin-top:18px">${escapeHtml(page.heading)}</h3>` : ""}<div style="white-space:pre-wrap;line-height:1.7;margin-top:12px">${escapeHtml(page.body || "")}</div>${images}<div class="admin-actions" style="margin-top:18px"><button class="secondary" ${pageIndex === 0 ? "disabled" : ""} onclick="renderLibraryArticlePage(window.libraryArticleCache.article,window.libraryArticleCache.pages,window.libraryArticleCache.assets,${pageIndex - 1})">← PREVIOUS</button><button class="secondary" ${pageIndex >= pages.length - 1 ? "disabled" : ""} onclick="renderLibraryArticlePage(window.libraryArticleCache.article,window.libraryArticleCache.pages,window.libraryArticleCache.assets,${pageIndex + 1})">NEXT →</button></div></div>`;
+    window.libraryArticleCache = { article: article, pages: pages, assets: assets };
+  }
+
+  async function loadAdminLibrary(element) {
+    if (!isAdmin || !element) return;
+    const { data: categories, error } = await supabaseClient.from("training_library_categories").select("id,title,sort_order").order("sort_order");
+    if (error) { element.innerHTML = `<div class="card"><div class="message error">Library database is not ready. Apply training-library-setup.sql first. ${escapeHtml(error.message)}</div></div>`; return; }
+    const categoryOptions = (categories || []).map(category => `<option value="${category.id}">${escapeHtml(category.title)}</option>`).join("");
+    element.innerHTML = `<div class="card"><h3>Training Library</h3><p class="muted small">Create reading material for members. Articles can contain pages and photos; PDF files are displayed in the reader.</p><label>Category</label><select id="adminLibraryCategory">${categoryOptions}</select><button onclick="renderAdminLibraryArticles()">SHOW ARTICLES</button><button class="success" onclick="renderLibraryEditor()">＋ CREATE ARTICLE</button></div><div id="adminLibraryArticles"></div><div id="adminLibraryEditor"></div>`;
+    await renderAdminLibraryArticles();
+  }
+
+  async function renderAdminLibraryArticles() {
+    if (!isAdmin) return;
+    const target = document.getElementById("adminLibraryArticles");
+    const categoryId = document.getElementById("adminLibraryCategory")?.value;
+    if (!target || !categoryId) return;
+    target.innerHTML = `<div class="empty">Loading articles…</div>`;
+    const { data, error } = await supabaseClient.from("training_library_articles").select("id,title,summary,content_type,status,sort_order").eq("category_id",categoryId).order("sort_order").order("created_at",{ascending:false});
+    if (error) { target.innerHTML = `<div class="card"><div class="message error">${escapeHtml(error.message)}</div></div>`; return; }
+    target.innerHTML = (data || []).map(article => `<div class="card"><div style="display:flex;justify-content:space-between;gap:12px"><div><strong>${escapeHtml(article.title)}</strong><div class="muted small">${escapeHtml(article.content_type)} · ${escapeHtml(article.status)}</div></div></div><div class="muted small" style="margin-top:6px">${escapeHtml(article.summary || "")}</div><div class="admin-actions"><button class="secondary" onclick="renderLibraryEditor('${article.id}')">EDIT</button><button class="danger" onclick="deleteLibraryArticle('${article.id}')">DELETE</button></div></div>`).join("") || `<div class="card"><div class="empty">No articles in this category yet.</div></div>`;
+  }
+
+  function libraryPageEditorHtml(page = {}) {
+    const id = page.id || "";
+    return `<div class="card library-page-editor" data-page-id="${escapeHtml(id)}"><div style="display:flex;justify-content:space-between;align-items:center"><h3>Page</h3><button class="danger" style="width:auto;margin:0;padding:8px" onclick="this.closest('.library-page-editor').remove()">REMOVE PAGE</button></div><label>Page heading</label><input class="library-page-heading" maxlength="180" value="${escapeHtml(page.heading || "")}"><label>Text</label><textarea class="library-page-body" style="min-height:150px">${escapeHtml(page.body || "")}</textarea><label>Add photos (JPG, PNG or WebP; up to 20 MB each)</label><input class="library-page-images" type="file" accept="image/jpeg,image/png,image/webp" multiple><div class="muted small">Existing photos are kept when you edit this page.</div></div>`;
+  }
+
+  function addLibraryPageEditor() {
+    document.getElementById("adminLibraryPages")?.insertAdjacentHTML("beforeend", libraryPageEditorHtml());
+  }
+
+  async function renderLibraryEditor(articleId) {
+    if (!isAdmin) return;
+    const target = document.getElementById("adminLibraryEditor");
+    if (!target) return;
+    const categoryId = document.getElementById("adminLibraryCategory")?.value || "";
+    let article = null, pages = [];
+    if (articleId) {
+      const [{ data, error }, { data: pageRows, error: pageError }] = await Promise.all([
+        supabaseClient.from("training_library_articles").select("*").eq("id",articleId).single(),
+        supabaseClient.from("training_library_pages").select("*").eq("article_id",articleId).order("page_number")
+      ]);
+      if (error || pageError) { target.innerHTML = `<div class="message error">${escapeHtml((error || pageError).message)}</div>`; return; }
+      article = data; pages = pageRows || [];
+    }
+    target.innerHTML = `<div class="card" id="adminLibraryEditorForm" data-article-id="${escapeHtml(article?.id || "")}"><h3>${article ? "Edit material" : "New material"}</h3><label>Title</label><input id="libraryEditTitle" maxlength="180" value="${escapeHtml(article?.title || "")}"><label>Short description</label><textarea id="libraryEditSummary" maxlength="600">${escapeHtml(article?.summary || "")}</textarea><label>Category</label><select id="libraryEditCategory">${Array.from(document.getElementById("adminLibraryCategory")?.options || []).map(option => `<option value="${escapeHtml(option.value)}" ${option.value === (article?.category_id || categoryId) ? "selected" : ""}>${escapeHtml(option.textContent)}</option>`).join("")}</select><label>Format</label><select id="libraryEditType" onchange="toggleLibraryEditorType()"><option value="article" ${article?.content_type === "article" ? "selected" : ""}>Article</option><option value="booklet" ${article?.content_type === "booklet" ? "selected" : ""}>Multi-page booklet</option><option value="pdf" ${article?.content_type === "pdf" ? "selected" : ""}>PDF document</option></select><label>Publication status</label><select id="libraryEditStatus"><option value="draft" ${!article || article.status === "draft" ? "selected" : ""}>Draft</option><option value="published" ${article?.status === "published" ? "selected" : ""}>Published</option><option value="archived" ${article?.status === "archived" ? "selected" : ""}>Archived</option></select><label>Cover photo (optional)</label><input id="libraryCoverFile" type="file" accept="image/jpeg,image/png,image/webp"><div id="libraryPdfEditorFields"><label>PDF file (for PDF format)</label><input id="libraryPdfFile" type="file" accept="application/pdf"></div><div id="adminLibraryPages">${(pages.length ? pages : article?.content_type === "pdf" ? [] : [{}]).map(libraryPageEditorHtml).join("")}</div><button class="secondary" id="libraryAddPageButton" onclick="addLibraryPageEditor()">＋ ADD PAGE</button><button class="success" onclick="saveLibraryArticle()">SAVE MATERIAL</button><button class="secondary" onclick="document.getElementById('adminLibraryEditor').innerHTML=''">CANCEL</button><div id="libraryEditorMessage" class="message"></div></div>`;
+    toggleLibraryEditorType();
+  }
+
+  function toggleLibraryEditorType() {
+    const pdf = document.getElementById("libraryEditType")?.value === "pdf";
+    const pages = document.getElementById("adminLibraryPages");
+    const add = document.getElementById("libraryAddPageButton");
+    if (pages) pages.classList.toggle("hidden", pdf);
+    if (add) add.classList.toggle("hidden", pdf);
+    const pdfFields = document.getElementById("libraryPdfEditorFields");
+    if (pdfFields) pdfFields.classList.toggle("hidden", !pdf);
+  }
+
+  function safeLibraryFilename(name) {
+    return String(name || "file").normalize("NFKD").replace(/[^a-zA-Z0-9._-]+/g,"-").slice(-100) || "file";
+  }
+
+  async function uploadLibraryFile(articleId, file) {
+    if (!file) return null;
+    if (file.size > 20 * 1024 * 1024) throw new Error("Each file must be 20 MB or smaller.");
+    const path = `${articleId}/${crypto.randomUUID()}_${safeLibraryFilename(file.name)}`;
+    const { error } = await supabaseClient.storage.from("training-library").upload(path,file,{contentType:file.type,upsert:false});
+    if (error) throw error;
+    return { object_path:path,file_name:file.name,mime_type:file.type };
+  }
+
+  async function saveLibraryArticle() {
+    if (!isAdmin) return;
+    const form = document.getElementById("adminLibraryEditorForm");
+    const message = document.getElementById("libraryEditorMessage");
+    const title = document.getElementById("libraryEditTitle")?.value.trim();
+    const categoryId = document.getElementById("libraryEditCategory")?.value;
+    const contentType = document.getElementById("libraryEditType")?.value || "article";
+    const status = document.getElementById("libraryEditStatus")?.value || "draft";
+    if (!title || !categoryId) { if (message) { message.textContent = "Enter a title and choose a category."; message.className = "message error"; } return; }
+    if (contentType === "pdf" && !document.getElementById("libraryPdfFile")?.files?.[0] && !form.dataset.articleId) { if (message) { message.textContent = "Choose the PDF file."; message.className = "message error"; } return; }
+    const button = form.querySelector("button.success"); if (button) button.disabled = true;
+    if (message) { message.textContent = "Saving…"; message.className = "message"; }
+    const articleId = form.dataset.articleId || crypto.randomUUID();
+    let oldPages = [], oldAssets = [];
+    if (form.dataset.articleId) {
+      const [{ data: p }, { data: a }] = await Promise.all([
+        supabaseClient.from("training_library_pages").select("id,page_number").eq("article_id",articleId).order("page_number"),
+        supabaseClient.from("training_library_assets").select("*").eq("article_id",articleId)
+      ]);
+      oldPages = p || []; oldAssets = a || [];
+    }
+    const oldCover = oldAssets.find(asset => asset.role === "cover");
+    const oldPdf = oldAssets.find(asset => asset.role === "pdf");
+    const selectedPdfFile = document.getElementById("libraryPdfFile")?.files?.[0];
+    if (contentType === "pdf" && !selectedPdfFile && !oldPdf) {
+      if (message) { message.textContent = "Choose the PDF file."; message.className = "message error"; }
+      if (button) button.disabled = false;
+      return;
+    }
+    let coverPath = oldCover?.object_path || null;
+    const payload = {category_id:categoryId,title:title,summary:document.getElementById("libraryEditSummary")?.value.trim() || "",content_type:contentType,status:status,updated_at:new Date().toISOString(),published_at:status === "published" ? new Date().toISOString() : null};
+    try {
+      if (!form.dataset.articleId) {
+        const { error } = await supabaseClient.from("training_library_articles").insert({...payload,id:articleId,created_by:currentUser.id});
+        if (error) throw error;
+      } else {
+        const { error } = await supabaseClient.from("training_library_articles").update(payload).eq("id",articleId);
+        if (error) throw error;
+      }
+      const coverFile = document.getElementById("libraryCoverFile")?.files?.[0];
+      if (coverFile) {
+        const uploaded = await uploadLibraryFile(articleId,coverFile);
+        if (oldCover) { await supabaseClient.storage.from("training-library").remove([oldCover.object_path]); await supabaseClient.from("training_library_assets").delete().eq("id",oldCover.id); }
+        coverPath = uploaded.object_path;
+        const { error } = await supabaseClient.from("training_library_assets").insert({...uploaded,article_id:articleId,role:"cover",sort_order:0});
+        if (error) throw error;
+      }
+      if (coverPath !== null || document.getElementById("libraryCoverFile")?.files?.length) {
+        const { error } = await supabaseClient.from("training_library_articles").update({cover_path:coverPath}).eq("id",articleId); if (error) throw error;
+      }
+      const pdfFile = document.getElementById("libraryPdfFile")?.files?.[0];
+      if (pdfFile) {
+        const uploaded = await uploadLibraryFile(articleId,pdfFile);
+        if (oldPdf) { await supabaseClient.storage.from("training-library").remove([oldPdf.object_path]); await supabaseClient.from("training_library_assets").delete().eq("id",oldPdf.id); }
+        const { error } = await supabaseClient.from("training_library_assets").insert({...uploaded,article_id:articleId,role:"pdf",sort_order:0}); if (error) throw error;
+      } else if (oldPdf && contentType !== "pdf") {
+        await supabaseClient.storage.from("training-library").remove([oldPdf.object_path]);
+        const { error } = await supabaseClient.from("training_library_assets").delete().eq("id",oldPdf.id); if (error) throw error;
+      }
+      const pageBlocks = contentType === "pdf" ? [] : Array.from(document.querySelectorAll("#adminLibraryPages .library-page-editor"));
+      const pageAssets = oldAssets.filter(asset => asset.role === "image");
+      if (oldPages.length) {
+        const { error } = await supabaseClient.from("training_library_assets").update({page_id:null}).eq("article_id",articleId).eq("role","image"); if (error) throw error;
+        const { error: deletePagesError } = await supabaseClient.from("training_library_pages").delete().eq("article_id",articleId); if (deletePagesError) throw deletePagesError;
+      }
+      const retainedAssetIds = new Set();
+      for (let i = 0; i < pageBlocks.length; i++) {
+        const block = pageBlocks[i];
+        const { data: page, error } = await supabaseClient.from("training_library_pages").insert({article_id:articleId,page_number:i+1,heading:block.querySelector(".library-page-heading")?.value.trim() || "",body:block.querySelector(".library-page-body")?.value || ""}).select("id").single();
+        if (error) throw error;
+        const previousPage = oldPages[i];
+        for (const asset of pageAssets.filter(item => item.page_id === previousPage?.id)) {
+          const { error: attachError } = await supabaseClient.from("training_library_assets").update({page_id:page.id,sort_order:asset.sort_order}).eq("id",asset.id);
+          if (attachError) throw attachError;
+          retainedAssetIds.add(asset.id);
+        }
+        for (const file of Array.from(block.querySelector(".library-page-images")?.files || [])) {
+          const uploaded = await uploadLibraryFile(articleId,file);
+          const { data: savedAsset, error: assetError } = await supabaseClient.from("training_library_assets").insert({...uploaded,article_id:articleId,page_id:page.id,role:"image",sort_order:pageAssets.length + i}).select("id").single();
+          if (assetError) throw assetError;
+          retainedAssetIds.add(savedAsset.id);
+        }
+      }
+      const obsolete = pageAssets.filter(asset => !retainedAssetIds.has(asset.id));
+      if (obsolete.length) {
+        await supabaseClient.storage.from("training-library").remove(obsolete.map(asset => asset.object_path));
+        const { error } = await supabaseClient.from("training_library_assets").delete().in("id",obsolete.map(asset => asset.id)); if (error) throw error;
+      }
+      if (status === "published") {
+        const { error } = await supabaseClient.from("training_library_articles").update({published_at:new Date().toISOString()}).eq("id",articleId); if (error) throw error;
+      }
+      if (message) { message.textContent = "Material saved."; message.className = "message success-text"; }
+      await renderAdminLibraryArticles();
+    } catch (error) {
+      if (message) { message.textContent = "Could not save the material: " + error.message; message.className = "message error"; }
+    } finally { if (button) button.disabled = false; }
+  }
+
+  async function deleteLibraryArticle(articleId) {
+    if (!isAdmin || !confirm("Delete this material and its uploaded files?")) return;
+    const { data: assets, error: listError } = await supabaseClient.from("training_library_assets").select("object_path").eq("article_id",articleId);
+    if (listError) { alert("Could not list files: " + listError.message); return; }
+    const paths = (assets || []).map(item => item.object_path);
+    if (paths.length) { const { error } = await supabaseClient.storage.from("training-library").remove(paths); if (error) { alert("Could not delete uploaded files: " + error.message); return; } }
+    const { error } = await supabaseClient.from("training_library_articles").delete().eq("id",articleId);
+    if (error) { alert("Could not delete article: " + error.message); return; }
+    await renderAdminLibraryArticles();
   }
 
   /* =========================
@@ -6451,6 +6706,10 @@
       if (dateInput && !dateInput.value) dateInput.value = getLocalDateString();
       loadAthleteJournalEntry(dateInput?.value || getLocalDateString());
       void loadJournalCompetitions();
+    }
+
+    if (section === "library") {
+      void loadTrainingLibrary();
     }
 
     if (section === "attendance") {
@@ -13567,6 +13826,12 @@
           </div>
         </div>
 
+        <div class="feature" onclick="openAdminSection('library')">
+          <div class="feature-icon">📚</div>
+          <div class="feature-title">Training Library</div>
+          <div class="feature-text">Create articles, booklets and PDF guides</div>
+        </div>
+
 
         <div
           class="feature"
@@ -13836,6 +14101,8 @@
     const sectionTitles = {
       training:
         "Training Sessions",
+      library:
+        "Training Library",
       attendance:
         "Attendance",
       competitions:
@@ -13906,6 +14173,10 @@
       await loadAdminTrainingSessions(
         content
       );
+
+    } else if (section === "library") {
+
+      await loadAdminLibrary(content);
 
     } else if (
       section === "attendance"
