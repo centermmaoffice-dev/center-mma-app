@@ -1,3 +1,16 @@
+const CENTER_MMA_SW_VERSION = '20261012-1';
+
+self.addEventListener('install', function (event) {
+  // Activate the current push handler immediately after deployment.
+  event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener('activate', function (event) {
+  // Make the updated handler control existing app windows without waiting
+  // for every older app tab to close.
+  event.waitUntil(self.clients.claim());
+});
+
 self.addEventListener('push', function (event) {
   let data = {};
 
