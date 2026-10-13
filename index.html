@@ -16042,6 +16042,21 @@
           !item.user_id ||
           item.user_id === currentUser.id;
       });
+    const historyIds = history.map(item => item.id);
+    const viewCountByNotification = new Map();
+    if (historyIds.length) {
+      const { data: viewCounts, error: viewCountError } = await supabaseClient.rpc(
+        "get_notification_view_counts",
+        { notification_ids: historyIds }
+      );
+      if (viewCountError) {
+        console.error("Could not load notification view counts:", viewCountError);
+      } else {
+        (viewCounts || []).forEach(row => {
+          viewCountByNotification.set(row.notification_id, Number(row.view_count || 0));
+        });
+      }
+    }
 
     element.innerHTML += `
 
@@ -16298,6 +16313,10 @@
                   ${formatDateTime(
                     item.created_at
                   )}
+                </div>
+
+                <div class="muted small" style="margin-top:8px;">
+                  👁 Viewed by ${viewCountByNotification.get(item.id) ?? 0} people
                 </div>
 
                 <button
