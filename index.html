@@ -7506,12 +7506,12 @@
     if (notificationError) {
       console.error("Could not create private-message notification:", notificationError);
       const status = document.getElementById("communityPrivateStatus");
-      if (status) { status.textContent = communityText("pushError"); status.className = "message error"; }
+      if (status) { status.textContent = communityText("pushError") + ` (${notificationError.message || String(notificationError)})`; status.className = "message error"; }
       return;
     }
     if (!notificationId) {
       const status = document.getElementById("communityPrivateStatus");
-      if (status) { status.textContent = communityText("pushError"); status.className = "message error"; }
+      if (status) { status.textContent = communityText("pushError") + " (No notification record was created.)"; status.className = "message error"; }
       return;
     }
     const { data: pushResult, error: pushError } = await supabaseClient.functions.invoke("send-push", {
@@ -7520,7 +7520,15 @@
     const status = document.getElementById("communityPrivateStatus");
     if (pushError || !pushResult) {
       console.error("Could not send private-message push:", pushError);
-      if (status) { status.textContent = communityText("pushError"); status.className = "message error"; }
+      let detail = pushError?.message || "The push function returned no result.";
+      try {
+        const response = pushError?.context;
+        if (response && typeof response.clone === "function") {
+          const body = await response.clone().json();
+          if (body?.error) detail += `: ${body.error}`;
+        }
+      } catch (_) {}
+      if (status) { status.textContent = communityText("pushError") + ` (${detail})`; status.className = "message error"; }
       return;
     }
     // A positive count only means the Web Push provider accepted the push.
@@ -7531,7 +7539,12 @@
     if (status && !appAlreadyDelivered) {
       if (Number(pushResult.failures || 0) > 0 || Number(pushResult.removed || 0) > 0) {
         const codes = [...new Set((pushResult.failureStatusCodes || []).filter(Boolean))].join(", ");
-        status.textContent = communityText("pushError") + (codes ? ` (${codes})` : "");
+        const detail = [
+          codes ? `provider status ${codes}` : "",
+          Number(pushResult.failures || 0) ? `${Number(pushResult.failures)} failed` : "",
+          Number(pushResult.removed || 0) ? `${Number(pushResult.removed)} expired device subscription(s) removed` : ""
+        ].filter(Boolean).join("; ");
+        status.textContent = communityText("pushError") + (detail ? ` (${detail})` : "");
         status.className = "message error";
       } else if (Number(pushResult.activeSubscriptions || 0) > 0 && Number(pushResult.eligibleSubscriptions || 0) === 0) {
         status.textContent = communityText("pushDisabled");
