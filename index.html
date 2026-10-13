@@ -6398,9 +6398,19 @@
     if (viewer) viewer.classList.add("hidden");
     if (!target) return;
     target.classList.remove("hidden");
-    target.innerHTML = `<button class="secondary" onclick="loadTrainingLibrary()">← ALL CATEGORIES</button><div class="card"><h3>${escapeHtml(category.title)}</h3><div class="muted small">${escapeHtml(category.description || "")}</div></div>` + ((articles || []).map(function (article) {
-      return `<button class="secondary" style="text-align:left;margin:0 0 10px" onclick="openLibraryArticle('${article.id}')"><strong>${escapeHtml(article.title)}</strong><div class="muted small" style="margin-top:5px">${escapeHtml(article.summary || (article.content_type === "pdf" ? "PDF document" : article.content_type === "booklet" ? "Illustrated booklet" : "Article"))}</div></button>`;
-    }).join("") || `<div class="card"><div class="empty">No published materials in this category yet.</div></div>`);
+    const articleCards = await Promise.all((articles || []).map(async function (article) {
+      let cover = "";
+      if (article.cover_path) {
+        try {
+          const coverUrl = await librarySignedUrl(article.cover_path);
+          if (coverUrl) cover = `<img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(article.title)}" style="width:88px;height:68px;object-fit:cover;border-radius:8px;flex:0 0 auto">`;
+        } catch (coverError) {
+          console.warn("Could not load training library cover:", coverError);
+        }
+      }
+      return `<button class="secondary" style="text-align:left;margin:0 0 10px;width:100%" onclick="openLibraryArticle('${article.id}')"><span style="display:flex;align-items:center;gap:12px">${cover}<span style="min-width:0"><strong>${escapeHtml(article.title)}</strong><span class="muted small" style="display:block;margin-top:5px">${escapeHtml(article.summary || (article.content_type === "pdf" ? "PDF document" : article.content_type === "booklet" ? "Illustrated booklet" : "Article"))}</span></span></span></button>`;
+    }));
+    target.innerHTML = `<button class="secondary" onclick="loadTrainingLibrary()">← ALL CATEGORIES</button><div class="card"><h3>${escapeHtml(category.title)}</h3><div class="muted small">${escapeHtml(category.description || "")}</div></div>` + (articleCards.join("") || `<div class="card"><div class="empty">No published materials in this category yet.</div></div>`);
   }
 
   async function librarySignedUrl(path) {
@@ -6424,11 +6434,24 @@
       supabaseClient.from("training_library_assets").select("*").eq("article_id",articleId).order("sort_order")
     ]);
     if (error || pageError || assetError) { viewer.innerHTML = `<div class="card"><div class="message error">${escapeHtml((error || pageError || assetError).message)}</div></div>`; return; }
+    if (article.status === "published" && currentUser) {
+      const { error: viewError } = await supabaseClient.rpc("record_training_library_article_view", { p_article_id: articleId });
+      if (viewError) console.warn("Could not record training library article view:", viewError);
+    }
+    let coverMarkup = "";
+    if (article.cover_path) {
+      try {
+        const coverUrl = await librarySignedUrl(article.cover_path);
+        if (coverUrl) coverMarkup = `<img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(article.title)}" style="display:block;width:100%;max-height:380px;object-fit:contain;border-radius:10px;margin:0 0 16px;background:#0b0b0b">`;
+      } catch (coverError) {
+        console.warn("Could not load training library cover:", coverError);
+      }
+    }
     if (article.content_type === "pdf") {
       const pdf = (assets || []).find(item => item.role === "pdf");
       try {
         const url = await librarySignedUrl(pdf?.object_path);
-        viewer.innerHTML = `<button class="secondary" onclick="openLibraryCategory('${libraryCurrentCategoryId}')">← BACK TO ARTICLES</button><div class="card"><h2>${escapeHtml(article.title)}</h2><p class="muted small">${escapeHtml(article.summary || "")}</p>${url ? `<iframe title="${escapeHtml(article.title)}" src="${escapeHtml(url)}#toolbar=1" style="width:100%;height:70vh;border:0;border-radius:10px;background:#fff"></iframe><a href="${escapeHtml(url)}" target="_blank" rel="noopener">Open or download PDF</a>` : `<div class="empty">PDF is not attached.</div>`}</div>`;
+        viewer.innerHTML = `<button class="secondary" onclick="openLibraryCategory('${libraryCurrentCategoryId}')">← BACK TO ARTICLES</button><div class="card">${coverMarkup}<h2>${escapeHtml(article.title)}</h2><p class="muted small">${escapeHtml(article.summary || "")}</p>${url ? `<iframe title="${escapeHtml(article.title)}" src="${escapeHtml(url)}#toolbar=1" style="width:100%;height:70vh;border:0;border-radius:10px;background:#fff"></iframe><a href="${escapeHtml(url)}" target="_blank" rel="noopener">Open or download PDF</a>` : `<div class="empty">PDF is not attached.</div>`}</div>`;
       } catch (urlError) { viewer.innerHTML = `<div class="message error">Could not open PDF: ${escapeHtml(urlError.message)}</div>`; }
       return;
     }
@@ -6440,12 +6463,21 @@
     if (!viewer) return;
     const page = pages[pageIndex];
     if (!page) { viewer.innerHTML = `<button class="secondary" onclick="openLibraryCategory('${libraryCurrentCategoryId}')">← BACK TO ARTICLES</button><div class="card"><h2>${escapeHtml(article.title)}</h2><div class="empty">This article has no pages yet.</div></div>`; return; }
+    let coverMarkup = "";
+    if (pageIndex === 0 && article.cover_path) {
+      try {
+        const coverUrl = await librarySignedUrl(article.cover_path);
+        if (coverUrl) coverMarkup = `<img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(article.title)}" style="display:block;width:100%;max-height:380px;object-fit:contain;border-radius:10px;margin:0 0 16px;background:#0b0b0b">`;
+      } catch (coverError) {
+        console.warn("Could not load training library cover:", coverError);
+      }
+    }
     const pageAssets = assets.filter(item => item.page_id === page.id && item.role === "image");
     let images = "";
     try {
       images = (await Promise.all(pageAssets.map(async item => `<img src="${escapeHtml(await librarySignedUrl(item.object_path))}" alt="${escapeHtml(item.file_name)}" style="width:100%;height:auto;border-radius:10px;margin-top:12px">`))).join("");
     } catch (urlError) { images = `<div class="message error">Could not load an image: ${escapeHtml(urlError.message)}</div>`; }
-    viewer.innerHTML = `<button class="secondary" onclick="openLibraryCategory('${libraryCurrentCategoryId}')">← BACK TO ARTICLES</button><div class="card"><div class="muted small">${escapeHtml(article.summary || "")}</div><h2 style="margin-top:12px">${escapeHtml(article.title)}</h2><div class="muted small">Page ${pageIndex + 1} of ${pages.length}</div>${page.heading ? `<h3 style="margin-top:18px">${escapeHtml(page.heading)}</h3>` : ""}<div style="white-space:pre-wrap;line-height:1.7;margin-top:12px">${escapeHtml(page.body || "")}</div>${images}<div class="admin-actions" style="margin-top:18px"><button class="secondary" ${pageIndex === 0 ? "disabled" : ""} onclick="renderLibraryArticlePage(window.libraryArticleCache.article,window.libraryArticleCache.pages,window.libraryArticleCache.assets,${pageIndex - 1})">← PREVIOUS</button><button class="secondary" ${pageIndex >= pages.length - 1 ? "disabled" : ""} onclick="renderLibraryArticlePage(window.libraryArticleCache.article,window.libraryArticleCache.pages,window.libraryArticleCache.assets,${pageIndex + 1})">NEXT →</button></div></div>`;
+    viewer.innerHTML = `<button class="secondary" onclick="openLibraryCategory('${libraryCurrentCategoryId}')">← BACK TO ARTICLES</button><div class="card">${coverMarkup}<div class="muted small">${escapeHtml(article.summary || "")}</div><h2 style="margin-top:12px">${escapeHtml(article.title)}</h2><div class="muted small">Page ${pageIndex + 1} of ${pages.length}</div>${page.heading ? `<h3 style="margin-top:18px">${escapeHtml(page.heading)}</h3>` : ""}<div style="white-space:pre-wrap;line-height:1.7;margin-top:12px">${escapeHtml(page.body || "")}</div>${images}<div class="admin-actions" style="margin-top:18px"><button class="secondary" ${pageIndex === 0 ? "disabled" : ""} onclick="renderLibraryArticlePage(window.libraryArticleCache.article,window.libraryArticleCache.pages,window.libraryArticleCache.assets,${pageIndex - 1})">← PREVIOUS</button><button class="secondary" ${pageIndex >= pages.length - 1 ? "disabled" : ""} onclick="renderLibraryArticlePage(window.libraryArticleCache.article,window.libraryArticleCache.pages,window.libraryArticleCache.assets,${pageIndex + 1})">NEXT →</button></div></div>`;
     window.libraryArticleCache = { article: article, pages: pages, assets: assets };
   }
 
@@ -6466,7 +6498,16 @@
     target.innerHTML = `<div class="empty">Loading articles…</div>`;
     const { data, error } = await supabaseClient.from("training_library_articles").select("id,title,summary,content_type,status,sort_order").eq("category_id",categoryId).order("sort_order").order("created_at",{ascending:false});
     if (error) { target.innerHTML = `<div class="card"><div class="message error">${escapeHtml(error.message)}</div></div>`; return; }
-    target.innerHTML = (data || []).map(article => `<div class="card"><div style="display:flex;justify-content:space-between;gap:12px"><div><strong>${escapeHtml(article.title)}</strong><div class="muted small">${escapeHtml(article.content_type)} · ${escapeHtml(article.status)}</div></div></div><div class="muted small" style="margin-top:6px">${escapeHtml(article.summary || "")}</div><div class="admin-actions"><button class="secondary" onclick="renderLibraryEditor('${article.id}')">EDIT</button><button class="danger" onclick="deleteLibraryArticle('${article.id}')">DELETE</button></div></div>`).join("") || `<div class="card"><div class="empty">No articles in this category yet.</div></div>`;
+    let viewerCounts = new Map();
+    let viewCountError = "";
+    if (data?.length) {
+      const { data: counts, error: countsError } = await supabaseClient.rpc("get_training_library_article_view_counts", { article_ids: data.map(article => article.id) });
+      if (countsError) viewCountError = countsError.message || String(countsError);
+      else viewerCounts = new Map((counts || []).map(row => [row.article_id, Number(row.viewer_count || 0)]));
+    }
+    const viewsLabel = window.currentLanguage === "de" ? "Eindeutige Leser" : window.currentLanguage === "uk" ? "Унікальні читачі" : "Unique readers";
+    const errorNotice = viewCountError ? `<div class="message error small">Article view counts unavailable. Apply the training-library article views migration. ${escapeHtml(viewCountError)}</div>` : "";
+    target.innerHTML = errorNotice + ((data || []).map(article => `<div class="card"><div style="display:flex;justify-content:space-between;gap:12px"><div><strong>${escapeHtml(article.title)}</strong><div class="muted small">${escapeHtml(article.content_type)} · ${escapeHtml(article.status)}</div></div></div><div class="muted small" style="margin-top:6px">${escapeHtml(article.summary || "")}</div><div class="muted small" style="margin-top:8px">👁 ${escapeHtml(viewsLabel)}: ${viewerCounts.get(article.id) ?? 0}</div><div class="admin-actions"><button class="secondary" onclick="renderLibraryEditor('${article.id}')">EDIT</button><button class="danger" onclick="deleteLibraryArticle('${article.id}')">DELETE</button></div></div>`).join("") || `<div class="card"><div class="empty">No articles in this category yet.</div></div>`);
   }
 
   function libraryPageEditorHtml(page = {}) {
