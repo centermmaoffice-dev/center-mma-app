@@ -6443,10 +6443,21 @@
       supabaseClient.from("training_library_assets").select("*").eq("article_id",articleId).order("sort_order")
     ]);
     if (error || pageError || assetError) { viewer.innerHTML = `<div class="card"><div class="message error">${escapeHtml((error || pageError || assetError).message)}</div></div>`; return; }
-    if (article.status === "published" && currentUser) {
-      const { error: viewError } = await supabaseClient.rpc("record_training_library_article_view", { p_article_id: articleId });
-      if (viewError) console.warn("Could not record training library article view:", viewError);
+    let viewTrackingError = "";
+    if (article.status === "published") {
+      if (!currentUser) {
+        if (isAdmin) viewTrackingError = "No signed-in user was found, so this visit was not recorded.";
+      } else {
+        const { error: viewError } = await supabaseClient.rpc("record_training_library_article_view", { p_article_id: articleId });
+        if (viewError) {
+          console.warn("Could not record training library article view:", viewError);
+          if (isAdmin) viewTrackingError = `This visit was not recorded: ${viewError.message || String(viewError)}`;
+        }
+      }
     }
+    const viewTrackingNotice = viewTrackingError
+      ? `<div class="message error small" style="margin-bottom:12px">${escapeHtml(viewTrackingError)}</div>`
+      : "";
     let coverMarkup = "";
     if (article.cover_path) {
       try {
@@ -6460,11 +6471,12 @@
       const pdf = (assets || []).find(item => item.role === "pdf");
       try {
         const url = await librarySignedUrl(pdf?.object_path);
-        viewer.innerHTML = `<button class="secondary" onclick="openLibraryCategory('${libraryCurrentCategoryId}')">← BACK TO ARTICLES</button><div class="card">${coverMarkup}<h2>${escapeHtml(article.title)}</h2><p class="muted small">${escapeHtml(article.summary || "")}</p>${url ? `<iframe title="${escapeHtml(article.title)}" src="${escapeHtml(url)}#toolbar=1" style="width:100%;height:70vh;border:0;border-radius:10px;background:#fff"></iframe><a href="${escapeHtml(url)}" target="_blank" rel="noopener">Open or download PDF</a>` : `<div class="empty">PDF is not attached.</div>`}</div>`;
+        viewer.innerHTML = `${viewTrackingNotice}<button class="secondary" onclick="openLibraryCategory('${libraryCurrentCategoryId}')">← BACK TO ARTICLES</button><div class="card">${coverMarkup}<h2>${escapeHtml(article.title)}</h2><p class="muted small">${escapeHtml(article.summary || "")}</p>${url ? `<iframe title="${escapeHtml(article.title)}" src="${escapeHtml(url)}#toolbar=1" style="width:100%;height:70vh;border:0;border-radius:10px;background:#fff"></iframe><a href="${escapeHtml(url)}" target="_blank" rel="noopener">Open or download PDF</a>` : `<div class="empty">PDF is not attached.</div>`}</div>`;
       } catch (urlError) { viewer.innerHTML = `<div class="message error">Could not open PDF: ${escapeHtml(urlError.message)}</div>`; }
       return;
     }
-    renderLibraryArticlePage(article, pages || [], assets || [], 0);
+    await renderLibraryArticlePage(article, pages || [], assets || [], 0);
+    if (viewTrackingNotice) viewer.insertAdjacentHTML("afterbegin", viewTrackingNotice);
   }
 
   async function renderLibraryArticlePage(article, pages, assets, pageIndex) {
