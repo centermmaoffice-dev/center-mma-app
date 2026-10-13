@@ -6382,9 +6382,18 @@
     target.innerHTML = `<div class="empty">Loading library…</div>`;
     const { data, error } = await supabaseClient.from("training_library_categories").select("id,slug,title,description,sort_order").eq("is_active", true).order("sort_order");
     if (error) { target.innerHTML = `<div class="card"><div class="message error">Library is not ready yet. Apply the library database setup first. ${escapeHtml(error.message)}</div></div>`; return; }
+    const { data: publishedArticles, error: articleCountError } = await supabaseClient.from("training_library_articles").select("category_id").eq("status", "published");
+    const articleCounts = new Map();
+    if (!articleCountError) {
+      (publishedArticles || []).forEach(article => articleCounts.set(article.category_id, (articleCounts.get(article.category_id) || 0) + 1));
+    }
+    const materialCountLabel = window.currentLanguage === "de" ? "Materialien" : window.currentLanguage === "uk" ? "Матеріали" : "materials";
     target.innerHTML = (data || []).map(function (category) {
-      return `<button class="secondary" style="text-align:left;margin:0 0 10px" onclick="openLibraryCategory('${category.id}')"><strong>${escapeHtml(category.title)}</strong><div class="muted small" style="margin-top:5px">${escapeHtml(category.description || "Read articles and guides")}</div></button>`;
+      const count = articleCounts.get(category.id) || 0;
+      const countText = articleCountError ? "" : `<span class="muted small" style="white-space:nowrap">${count} ${escapeHtml(materialCountLabel)}</span>`;
+      return `<button class="secondary" style="text-align:left;margin:0 0 10px;width:100%" onclick="openLibraryCategory('${category.id}')"><span style="display:flex;justify-content:space-between;align-items:center;gap:12px"><strong>${escapeHtml(category.title)}</strong>${countText}</span><span class="muted small" style="display:block;margin-top:5px">${escapeHtml(category.description || "Read articles and guides")}</span></button>`;
     }).join("") || `<div class="card"><div class="empty">No library categories are available.</div></div>`;
+    if (articleCountError) console.warn("Could not load training-library category counts:", articleCountError);
   }
 
   async function openLibraryCategory(categoryId) {
@@ -6533,7 +6542,7 @@
       if (error || pageError) { target.innerHTML = `<div class="message error">${escapeHtml((error || pageError).message)}</div>`; return; }
       article = data; pages = pageRows || [];
     }
-    target.innerHTML = `<div class="card" id="adminLibraryEditorForm" data-article-id="${escapeHtml(article?.id || "")}"><h3>${article ? "Edit material" : "New material"}</h3><label>Title</label><input id="libraryEditTitle" maxlength="180" value="${escapeHtml(article?.title || "")}"><label>Short description</label><textarea id="libraryEditSummary" maxlength="600">${escapeHtml(article?.summary || "")}</textarea><label>Category</label><select id="libraryEditCategory">${Array.from(document.getElementById("adminLibraryCategory")?.options || []).map(option => `<option value="${escapeHtml(option.value)}" ${option.value === (article?.category_id || categoryId) ? "selected" : ""}>${escapeHtml(option.textContent)}</option>`).join("")}</select><label>Format</label><select id="libraryEditType" onchange="toggleLibraryEditorType()"><option value="article" ${article?.content_type === "article" ? "selected" : ""}>Article</option><option value="booklet" ${article?.content_type === "booklet" ? "selected" : ""}>Multi-page booklet</option><option value="pdf" ${article?.content_type === "pdf" ? "selected" : ""}>PDF document</option></select><label>Publication status</label><select id="libraryEditStatus"><option value="draft" ${!article || article.status === "draft" ? "selected" : ""}>Draft</option><option value="published" ${article?.status === "published" ? "selected" : ""}>Published</option><option value="archived" ${article?.status === "archived" ? "selected" : ""}>Archived</option></select><label>Cover photo (optional)</label><input id="libraryCoverFile" type="file" accept="image/jpeg,image/png,image/webp"><div id="libraryPdfEditorFields"><label>PDF file (for PDF format)</label><input id="libraryPdfFile" type="file" accept="application/pdf"></div><div id="adminLibraryPages">${(pages.length ? pages : article?.content_type === "pdf" ? [] : [{}]).map(libraryPageEditorHtml).join("")}</div><button class="secondary" id="libraryAddPageButton" onclick="addLibraryPageEditor()">＋ ADD PAGE</button><button class="success" onclick="saveLibraryArticle()">SAVE MATERIAL</button><button class="secondary" onclick="document.getElementById('adminLibraryEditor').innerHTML=''">CANCEL</button><div id="libraryEditorMessage" class="message"></div></div>`;
+    target.innerHTML = `<div class="card" id="adminLibraryEditorForm" data-article-id="${escapeHtml(article?.id || "")}" data-original-status="${escapeHtml(article?.status || "")}"><h3>${article ? "Edit material" : "New material"}</h3><label>Title</label><input id="libraryEditTitle" maxlength="180" value="${escapeHtml(article?.title || "")}"><label>Short description</label><textarea id="libraryEditSummary" maxlength="600">${escapeHtml(article?.summary || "")}</textarea><label>Category</label><select id="libraryEditCategory">${Array.from(document.getElementById("adminLibraryCategory")?.options || []).map(option => `<option value="${escapeHtml(option.value)}" ${option.value === (article?.category_id || categoryId) ? "selected" : ""}>${escapeHtml(option.textContent)}</option>`).join("")}</select><label>Format</label><select id="libraryEditType" onchange="toggleLibraryEditorType()"><option value="article" ${article?.content_type === "article" ? "selected" : ""}>Article</option><option value="booklet" ${article?.content_type === "booklet" ? "selected" : ""}>Multi-page booklet</option><option value="pdf" ${article?.content_type === "pdf" ? "selected" : ""}>PDF document</option></select><label>Publication status</label><select id="libraryEditStatus"><option value="draft" ${!article || article.status === "draft" ? "selected" : ""}>Draft</option><option value="published" ${article?.status === "published" ? "selected" : ""}>Published</option><option value="archived" ${article?.status === "archived" ? "selected" : ""}>Archived</option></select><label>Cover photo (optional)</label><input id="libraryCoverFile" type="file" accept="image/jpeg,image/png,image/webp"><div id="libraryPdfEditorFields"><label>PDF file (for PDF format)</label><input id="libraryPdfFile" type="file" accept="application/pdf"></div><div id="adminLibraryPages">${(pages.length ? pages : article?.content_type === "pdf" ? [] : [{}]).map(libraryPageEditorHtml).join("")}</div><button class="secondary" id="libraryAddPageButton" onclick="addLibraryPageEditor()">＋ ADD PAGE</button><button class="success" onclick="saveLibraryArticle()">SAVE MATERIAL</button><button class="secondary" onclick="document.getElementById('adminLibraryEditor').innerHTML=''">CANCEL</button><div id="libraryEditorMessage" class="message"></div></div>`;
     toggleLibraryEditorType();
   }
 
@@ -6560,6 +6569,31 @@
     return { object_path:path,file_name:file.name,mime_type:file.type };
   }
 
+  async function createLibraryPublicationNotification(title, summary) {
+    const { data: notification, error } = await supabaseClient.from("notifications").insert({
+      user_id: null,
+      group_id: null,
+      title: "📚 Neues Material in der Trainingsbibliothek",
+      message: [title, summary].filter(Boolean).join("\n\n"),
+      type: "document",
+      link_section: "library",
+      created_by: currentUser.id
+    }).select("id").single();
+    if (error) throw error;
+
+    try {
+      const { data: pushResult, error: pushError } = await supabaseClient.functions.invoke("send-push", { body: { notificationId: notification.id } });
+      if (pushError) return `The in-app notification was created, but push failed: ${pushError.message || String(pushError)}`;
+      const sent = Number(pushResult?.sent || 0);
+      const failures = Number(pushResult?.failures || 0);
+      if (sent > 0) return `Push accepted for ${sent} device(s)${failures ? `; ${failures} failed` : ""}.`;
+      return "The in-app notification was created, but no active push device was found.";
+    } catch (pushError) {
+      console.error("Could not send library publication push:", pushError);
+      return `The in-app notification was created, but push failed: ${pushError?.message || String(pushError)}`;
+    }
+  }
+
   async function saveLibraryArticle() {
     if (!isAdmin) return;
     const form = document.getElementById("adminLibraryEditorForm");
@@ -6568,6 +6602,7 @@
     const categoryId = document.getElementById("libraryEditCategory")?.value;
     const contentType = document.getElementById("libraryEditType")?.value || "article";
     const status = document.getElementById("libraryEditStatus")?.value || "draft";
+    const shouldNotifyMembers = status === "published" && form.dataset.originalStatus !== "published";
     if (!title || !categoryId) { if (message) { message.textContent = "Enter a title and choose a category."; message.className = "message error"; } return; }
     if (contentType === "pdf" && !document.getElementById("libraryPdfFile")?.files?.[0] && !form.dataset.articleId) { if (message) { message.textContent = "Choose the PDF file."; message.className = "message error"; } return; }
     const button = form.querySelector("button.success"); if (button) button.disabled = true;
@@ -6651,7 +6686,20 @@
       if (status === "published") {
         const { error } = await supabaseClient.from("training_library_articles").update({published_at:new Date().toISOString()}).eq("id",articleId); if (error) throw error;
       }
-      if (message) { message.textContent = "Material saved."; message.className = "message success-text"; }
+      form.dataset.articleId = articleId;
+      let publicationNotice = "";
+      if (shouldNotifyMembers) {
+        try {
+          publicationNotice = await createLibraryPublicationNotification(title, document.getElementById("libraryEditSummary")?.value.trim() || "");
+          form.dataset.originalStatus = status;
+        } catch (notificationError) {
+          console.error("Could not create library publication notification:", notificationError);
+          publicationNotice = `Members were not notified: ${notificationError.message || String(notificationError)}`;
+        }
+      } else {
+        form.dataset.originalStatus = status;
+      }
+      if (message) { message.textContent = `Material saved.${publicationNotice ? ` ${publicationNotice}` : ""}`; message.className = publicationNotice.startsWith("Members were not notified:") ? "message error" : "message success-text"; }
       await renderAdminLibraryArticles();
     } catch (error) {
       if (message) { message.textContent = "Could not save the material: " + error.message; message.className = "message error"; }
