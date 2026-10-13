@@ -16720,8 +16720,10 @@
       return;
     }
 
-    if (insertedNotification?.id) {
+    let pushSummary = "Push delivery result is unavailable.";
+    let pushFailed = false;
 
+    if (insertedNotification?.id) {
       if (pollEnabled) {
         const { error: pollError } = await supabaseClient
           .from("notification_polls")
@@ -16733,37 +16735,40 @@
         }
       }
 
-      const pushResult =
-        await supabaseClient
-          .functions
-          .invoke(
-            "send-push",
-            {
-              body: {
-                notificationId:
-                  insertedNotification.id
-              }
-            }
-          );
-
-      if (pushResult.error) {
-        console.error(
-          "Could not trigger push notification:",
-          pushResult.error
+      try {
+        const { data: pushData, error: pushError } = await supabaseClient.functions.invoke(
+          "send-push",
+          { body: { notificationId: insertedNotification.id } }
         );
+
+        if (pushError) {
+          console.error("Could not trigger push notification:", pushError);
+          pushSummary = "Push failed: " + (pushError.message || String(pushError));
+          pushFailed = true;
+        } else {
+          const sent = Number(pushData?.sent || 0);
+          const failures = Number(pushData?.failures || 0);
+          const activeSubscriptions = Number(pushData?.activeSubscriptions ?? pushData?.recipients ?? 0);
+          const eligibleSubscriptions = Number(pushData?.eligibleSubscriptions ?? activeSubscriptions);
+          const removed = Number(pushData?.removed || 0);
+          if (sent > 0) {
+            pushSummary = `Push accepted by ${sent} device${sent === 1 ? "" : "s"}${failures ? `; ${failures} failed` : ""}.`;
+            pushFailed = failures > 0;
+          } else {
+            pushSummary = `No push reached a device (active subscriptions: ${activeSubscriptions}; eligible: ${eligibleSubscriptions}; failures: ${failures}; expired removed: ${removed}).`;
+            pushFailed = true;
+          }
+        }
+      } catch (pushError) {
+        console.error("Could not trigger push notification:", pushError);
+        pushSummary = "Push failed: " + (pushError?.message || String(pushError));
+        pushFailed = true;
       }
     }
 
     status.textContent =
-      `Notification sent to ${userIds.length} recipient${
-        userIds.length === 1
-          ? ""
-          : "s"
-      } using 1 notification record.`;
-
-    status.className =
-      "message success-text";
-
+      `Notification saved for ${userIds.length} recipient${userIds.length === 1 ? "" : "s"}. ${pushSummary}`;
+    status.className = pushFailed ? "message error" : "message success-text";
     document
       .getElementById(
         "adminNotificationTitle"
