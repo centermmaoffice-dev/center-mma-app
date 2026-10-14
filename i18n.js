@@ -426,7 +426,22 @@
     "MY PREPARATION & JOURNAL": "MEINE WETTKAMPFVORBEREITUNG & JOURNAL",
     "Library is not ready yet. Apply the library database setup first.": "Die Bibliothek ist noch nicht eingerichtet. Bitte wende dich an den Administrator.",
     "Library database is not ready. Apply training-library-setup.sql first.": "Die Bibliotheksdatenbank ist noch nicht eingerichtet. Bitte wende dich an den Administrator.",
-    "Journal storage is not ready. Apply journal-setup.sql first.": "Der Journalspeicher ist noch nicht eingerichtet. Bitte wende dich an den Administrator."
+    "Journal storage is not ready. Apply journal-setup.sql first.": "Der Journalspeicher ist noch nicht eingerichtet. Bitte wende dich an den Administrator.",
+    "Performance metrics": "Leistungswerte",
+    "Create your own strength, speed, endurance, or custom metrics. Record results regularly and use the weekly, monthly, and yearly charts to see how your progress changes over time.": "Erstelle eigene Kraft-, Geschwindigkeits-, Ausdauer- oder individuelle Werte. Trage regelmäßig Ergebnisse ein und verfolge deine Entwicklung in Wochen-, Monats- und Jahresdiagrammen.",
+    "Strength": "Kraft",
+    "Track any exercise with the weight lifted and number of repetitions. Compare either value over time.": "Erfasse jede Übung mit gehobenem Gewicht und Wiederholungszahl. Verfolge beide Werte im Zeitverlauf.",
+    "Speed": "Geschwindigkeit",
+    "Record distance and time for a full effort or repeated intervals, then follow how your distance and time change.": "Erfasse Strecke und Zeit für eine ganze Einheit oder wiederholte Intervalle und verfolge, wie sich Strecke und Zeit verändern.",
+    "Endurance": "Ausdauer",
+    "Track one long effort or a circuit with the duration and any other values that matter to you.": "Erfasse eine längere Belastung oder einen Zirkel mit der Dauer und weiteren Werten, die dir wichtig sind.",
+    "Create a metric": "Wert erstellen", "Metric name": "Name des Werts", "e.g. My training goal": "z. B. Mein Trainingsziel", "Category": "Kategorie", "Other / custom": "Sonstiges / individuell",
+    "Measurement name": "Name der Messgröße", "e.g. Repetitions": "z. B. Wiederholungen", "Unit": "Einheit", "kg, min, km": "kg, Min., km",
+    "＋ ADD MEASUREMENT": "＋ MESSGRÖSSE HINZUFÜGEN", "CREATE METRIC": "WERT ERSTELLEN", "Your metrics will appear here.": "Deine Werte erscheinen hier.", "Loading metrics...": "Werte werden geladen...", "No metrics yet. Create your first one above.": "Noch keine Werte. Erstelle oben deinen ersten.",
+    "Enter a metric name and at least one measurement.": "Gib einen Namen und mindestens eine Messgröße ein.", "Could not create metric:": "Wert konnte nicht erstellt werden:", "Metric created.": "Wert erstellt.",
+    "Add your result for a date. Repeating this over a month helps you see your progress.": "Trage dein Ergebnis mit Datum ein. Regelmäßige Einträge über einen Monat machen deinen Fortschritt sichtbar.", "Date": "Datum", "Notes (optional)": "Notizen (optional)", "SAVE RESULT": "ERGEBNIS SPEICHERN", "Progress chart": "Fortschrittsdiagramm", "Show on chart": "Im Diagramm anzeigen", "CLOSE": "SCHLIESSEN",
+    "No results in this period yet. Add entries regularly to see your progress.": "In diesem Zeitraum gibt es noch keine Ergebnisse. Trage regelmäßig Werte ein, um deinen Fortschritt zu sehen.", "Add a measurement to see a chart.": "Füge eine Messgröße hinzu, um ein Diagramm zu sehen.", "Choose a date and enter at least one value.": "Wähle ein Datum und gib mindestens einen Wert ein.", "Could not save result:": "Ergebnis konnte nicht gespeichert werden:", "Result saved.": "Ergebnis gespeichert.",
+    "Weight": "Gewicht", "Repetitions": "Wiederholungen", "Distance": "Strecke", "Time": "Zeit", "Repeats": "Wiederholungen", "Distance per repeat": "Strecke pro Wiederholung", "Time per repeat": "Zeit pro Wiederholung", "Duration": "Dauer", "Rounds": "Runden", "Value": "Wert"
   });
 
   Object.assign(dictionaries.uk, {
@@ -538,7 +553,19 @@
     "MY PREPARATION & JOURNAL": "МОЯ ПІДГОТОВКА ДО ЗМАГАНЬ І ЖУРНАЛ",
     "Library is not ready yet. Apply the library database setup first.": "Бібліотеку ще не налаштовано. Зверніться до адміністратора.",
     "Library database is not ready. Apply training-library-setup.sql first.": "Базу даних бібліотеки ще не налаштовано. Зверніться до адміністратора.",
-    "Journal storage is not ready. Apply journal-setup.sql first.": "Сховище журналу ще не налаштовано. Зверніться до адміністратора."
+    "Journal storage is not ready. Apply journal-setup.sql first.": "Сховище журналу ще не налаштовано. Зверніться до адміністратора.",
+    "Performance metrics": "Показники результативності",
+    "Create your own strength, speed, endurance, or custom metrics. Record results regularly and use the weekly, monthly, and yearly charts to see how your progress changes over time.": "Створюйте власні показники сили, швидкості, витривалості або інші. Регулярно записуйте результати й відстежуйте прогрес на тижневих, місячних і річних графіках.",
+    "Strength": "Сила", "Track any exercise with the weight lifted and number of repetitions. Compare either value over time.": "Записуйте будь-яку вправу, вагу та кількість повторень. Відстежуйте зміни кожного показника з часом.",
+    "Speed": "Швидкість", "Record distance and time for a full effort or repeated intervals, then follow how your distance and time change.": "Записуйте дистанцію й час для всієї пробіжки або повторюваних інтервалів і відстежуйте їхні зміни.",
+    "Endurance": "Витривалість", "Track one long effort or a circuit with the duration and any other values that matter to you.": "Записуйте тривалу вправу або колове тренування, його тривалість та інші важливі для вас показники.",
+    "Create a metric": "Створити показник", "Metric name": "Назва показника", "e.g. My training goal": "наприклад, Моя тренувальна ціль", "Category": "Категорія", "Other / custom": "Інше / власне",
+    "Measurement name": "Назва вимірювання", "e.g. Repetitions": "наприклад, Повторення", "Unit": "Одиниця вимірювання", "kg, min, km": "кг, хв, км",
+    "＋ ADD MEASUREMENT": "＋ ДОДАТИ ВИМІРЮВАННЯ", "CREATE METRIC": "СТВОРИТИ ПОКАЗНИК", "Your metrics will appear here.": "Ваші показники з’являться тут.", "Loading metrics...": "Завантаження показників...", "No metrics yet. Create your first one above.": "Показників поки немає. Створіть перший вище.",
+    "Enter a metric name and at least one measurement.": "Вкажіть назву показника та принаймні одне вимірювання.", "Could not create metric:": "Не вдалося створити показник:", "Metric created.": "Показник створено.",
+    "Add your result for a date. Repeating this over a month helps you see your progress.": "Додавайте результати з датами. Регулярні записи протягом місяця допоможуть побачити прогрес.", "Date": "Дата", "Notes (optional)": "Примітки (необов’язково)", "SAVE RESULT": "ЗБЕРЕГТИ РЕЗУЛЬТАТ", "Progress chart": "Графік прогресу", "Show on chart": "Показати на графіку", "CLOSE": "ЗАКРИТИ",
+    "No results in this period yet. Add entries regularly to see your progress.": "За цей період результатів ще немає. Регулярно додавайте записи, щоб бачити прогрес.", "Add a measurement to see a chart.": "Додайте вимірювання, щоб побачити графік.", "Choose a date and enter at least one value.": "Виберіть дату й введіть принаймні одне значення.", "Could not save result:": "Не вдалося зберегти результат:", "Result saved.": "Результат збережено.",
+    "Weight": "Вага", "Repetitions": "Повторення", "Distance": "Дистанція", "Time": "Час", "Repeats": "Повторення", "Distance per repeat": "Дистанція за повторення", "Time per repeat": "Час за повторення", "Duration": "Тривалість", "Rounds": "Раунди", "Value": "Значення"
   });
 
   Object.assign(dictionaries.de, {
@@ -576,7 +603,12 @@
     "Could not save the material:": "Material konnte nicht gespeichert werden:",
     "Could not list files:": "Dateien konnten nicht aufgelistet werden:",
     "Could not delete uploaded files:": "Hochgeladene Dateien konnten nicht gelöscht werden:",
-    "Could not delete article:": "Artikel konnte nicht gelöscht werden:"
+    "Could not delete article:": "Artikel konnte nicht gelöscht werden:",
+    "Performance metrics are not set up yet. Apply athlete-performance-setup.sql first.": "Die Leistungswerte sind noch nicht eingerichtet. Bitte wende dich an den Administrator.",
+    "Could not load metric history:": "Der Leistungsverlauf konnte nicht geladen werden:",
+    "Could not load metrics:": "Leistungswerte konnten nicht geladen werden:",
+    "Could not create metric:": "Wert konnte nicht erstellt werden:",
+    "Could not save result:": "Ergebnis konnte nicht gespeichert werden:"
   });
   Object.assign(prefixes.uk, {
     "Page ": "Сторінка ",
@@ -591,7 +623,12 @@
     "Could not save the material:": "Не вдалося зберегти матеріал:",
     "Could not list files:": "Не вдалося отримати список файлів:",
     "Could not delete uploaded files:": "Не вдалося видалити завантажені файли:",
-    "Could not delete article:": "Не вдалося видалити статтю:"
+    "Could not delete article:": "Не вдалося видалити статтю:",
+    "Performance metrics are not set up yet. Apply athlete-performance-setup.sql first.": "Показники ще не налаштовані. Зверніться до адміністратора.",
+    "Could not load metric history:": "Не вдалося завантажити історію показника:",
+    "Could not load metrics:": "Не вдалося завантажити показники:",
+    "Could not create metric:": "Не вдалося створити показник:",
+    "Could not save result:": "Не вдалося зберегти результат:"
   });
 
   Object.assign(dictionaries.de, {
