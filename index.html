@@ -3034,6 +3034,26 @@
         <div id="journalSaveMessage" class="message" aria-live="polite"></div>
       </div>
       <div class="card"><h3>Day scores</h3><div class="community-hall-periods"><button class="secondary active" onclick="renderJournalChart(7,this)">Week</button><button class="secondary" onclick="renderJournalChart(30,this)">Month</button><button class="secondary" onclick="renderJournalChart(90,this)">3 months</button><button class="secondary" onclick="renderJournalChart(365,this)">Year</button><button class="secondary" onclick="renderJournalChart(0,this)">Season</button></div><div id="journalScoreChart" class="empty">Add day scores to see your history.</div></div>
+      <div class="card" id="athleteMetricsSection">
+        <h3>Performance metrics</h3>
+        <p class="muted small">Create your own strength, speed, endurance, or custom metrics. Record results regularly and use the weekly, monthly, and yearly charts to see how your progress changes over time.</p>
+        <div class="community-hall-grid">
+          <div><strong>Strength</strong><p class="muted small">Track any exercise with the weight lifted and number of repetitions. Compare either value over time.</p></div>
+          <div><strong>Speed</strong><p class="muted small">Record distance and time for a full effort or repeated intervals, then follow how your distance and time change.</p></div>
+          <div><strong>Endurance</strong><p class="muted small">Track one long effort or a circuit with the duration and any other values that matter to you.</p></div>
+        </div>
+        <div style="border-top:1px solid #292929;margin-top:14px;padding-top:14px">
+          <h4>Create a metric</h4>
+          <label for="athleteMetricName">Metric name</label><input id="athleteMetricName" maxlength="100" placeholder="e.g. My training goal">
+          <label for="athleteMetricCategory">Category</label><select id="athleteMetricCategory" onchange="setAthleteMetricTemplate(this.value)"><option value="strength">Strength</option><option value="speed">Speed</option><option value="endurance">Endurance</option><option value="custom">Other / custom</option></select>
+          <div id="athleteMetricFields"></div>
+          <button type="button" class="secondary" onclick="addAthleteMetricField()">＋ ADD MEASUREMENT</button>
+          <button type="button" onclick="createAthleteMetric()">CREATE METRIC</button>
+          <div id="athleteMetricCreateMessage" class="message" aria-live="polite"></div>
+        </div>
+        <div id="athleteMetricList" style="margin-top:14px"><div class="empty">Your metrics will appear here.</div></div>
+        <div id="athleteMetricDetail" class="hidden" style="margin-top:14px"></div>
+      </div>
       <div class="card"><h3>Competition preparation</h3><p class="muted small">Your daily entries can be linked to a competition you have entered. Choose it here to view your journal in that preparation context.</p><label for="journalCompetition">My competition</label><select id="journalCompetition"><option value="">No competition selected</option></select></div>
     </div>
 
@@ -6210,6 +6230,16 @@
   const journalFields = ["journalSleep","journalSleepQuality","journalStress","journalStressNote","journalWeight","journalFood","journalWater","journalNote","journalDayScore"];
   let journalRequestedCompetitionId = "";
   let journalTrainingOptions = [];
+  let athleteMetrics = [];
+  let selectedAthleteMetric = null;
+  let athleteMetricLogs = [];
+  let athleteMetricPeriod = "month";
+  const athleteMetricTemplates = {
+    strength: [{label:"Weight",unit:"kg"},{label:"Repetitions",unit:"reps"}],
+    speed: [{label:"Distance",unit:"km"},{label:"Time",unit:"min"},{label:"Repeats",unit:"times"},{label:"Distance per repeat",unit:"km"},{label:"Time per repeat",unit:"min"}],
+    endurance: [{label:"Duration",unit:"min"},{label:"Rounds",unit:"rounds"}],
+    custom: [{label:"Value",unit:""}]
+  };
   let libraryCurrentCategoryId = "";
   let libraryCurrentArticleId = "";
   let libraryCurrentPage = 0;
@@ -6219,6 +6249,8 @@
   async function loadJournalScreen(date) {
     await loadJournalCompetitions();
     await loadAthleteJournalEntry(date);
+    if (!document.querySelector("#athleteMetricFields .athlete-metric-field")) setAthleteMetricTemplate(document.getElementById("athleteMetricCategory")?.value || "strength");
+    await loadAthleteMetrics();
   }
 
   async function loadAthleteJournalEntry(date) {
@@ -6343,7 +6375,7 @@
   async function renderJournalChart(days, button) {
     const target = document.getElementById("journalScoreChart");
     if (!target) return;
-    document.querySelectorAll("#journalSection .community-hall-periods button").forEach(function (item) { item.classList.toggle("active", item === button); });
+    target.closest(".card")?.querySelectorAll(".community-hall-periods button").forEach(function (item) { item.classList.toggle("active", item === button); });
     const today = getLocalDateString();
     const startDate = days === 0 ? `${today.slice(0,4)}-08-01` : addDaysToDateString(today,-days + 1);
     target.className = "empty"; target.textContent = "Loading scores…";
@@ -6355,6 +6387,122 @@
       const score = Number(entry.day_score);
       return `<button type="button" class="community-hall-bar-wrap" title="${escapeHtml(entry.log_date)} · ${score}/10" style="width:42px;flex:0 0 42px;margin:0;padding:0;background:transparent;border-radius:0" onclick="openJournalForDate('${escapeHtml(entry.log_date)}')"><div class="community-hall-bar" style="height:${score * 10}%"></div><div class="community-hall-bar-label">${escapeHtml(entry.log_date.slice(5))}</div></button>`;
     }).join("");
+  }
+
+  function setAthleteMetricTemplate(category) {
+    const target = document.getElementById("athleteMetricFields");
+    if (!target) return;
+    const fields = athleteMetricTemplates[category] || athleteMetricTemplates.custom;
+    target.innerHTML = fields.map((field, index) => athleteMetricFieldHtml(field, index)).join("");
+  }
+
+  function athleteMetricFieldHtml(field = {}, index = 0) {
+    return `<div class="community-hall-grid athlete-metric-field" style="align-items:end"><div><label>Measurement name</label><input class="athlete-metric-field-label" maxlength="50" value="${escapeHtml(field.label || "")}" placeholder="e.g. Repetitions"></div><div><label>Unit</label><input class="athlete-metric-field-unit" maxlength="16" value="${escapeHtml(field.unit || "")}" placeholder="kg, min, km"></div><button type="button" class="danger" style="width:auto;margin:0;padding:8px" onclick="this.closest('.athlete-metric-field').remove()">REMOVE</button></div>`;
+  }
+
+  function addAthleteMetricField() {
+    const target = document.getElementById("athleteMetricFields");
+    if (!target) return;
+    target.insertAdjacentHTML("beforeend", athleteMetricFieldHtml({}, target.children.length));
+  }
+
+  async function loadAthleteMetrics() {
+    const target = document.getElementById("athleteMetricList");
+    if (!target || !currentUser) return;
+    target.innerHTML = `<div class="empty">Loading metrics...</div>`;
+    const { data, error } = await supabaseClient.from("athlete_performance_metrics").select("id,name,category,fields,created_at").eq("user_id", currentUser.id).order("created_at");
+    if (error) {
+      target.innerHTML = `<div class="message error">Performance metrics are not set up yet. Apply athlete-performance-setup.sql first. ${escapeHtml(error.message)}</div>`;
+      return;
+    }
+    athleteMetrics = data || [];
+    if (selectedAthleteMetric && !athleteMetrics.some(metric => metric.id === selectedAthleteMetric.id)) selectedAthleteMetric = null;
+    target.innerHTML = athleteMetrics.length ? athleteMetrics.map(metric => `<button type="button" class="secondary" style="text-align:left;width:100%;margin:0 0 8px" onclick="selectAthleteMetric('${escapeHtml(metric.id)}')"><strong>${escapeHtml(metric.name)}</strong><span class="muted small" style="display:block;margin-top:4px">${escapeHtml(athleteMetricCategoryName(metric.category))} · ${(metric.fields || []).map(field => `${escapeHtml(field.label)}${field.unit ? ` (${escapeHtml(field.unit)})` : ""}`).join(" · ")}</span></button>`).join("") : `<div class="empty">No metrics yet. Create your first one above.</div>`;
+    if (selectedAthleteMetric) await selectAthleteMetric(selectedAthleteMetric.id);
+  }
+
+  function athleteMetricCategoryName(category) {
+    return ({strength:"Strength",speed:"Speed",endurance:"Endurance",custom:"Other / custom"})[category] || "Other / custom";
+  }
+
+  async function createAthleteMetric() {
+    const nameInput = document.getElementById("athleteMetricName");
+    const category = document.getElementById("athleteMetricCategory")?.value || "custom";
+    const message = document.getElementById("athleteMetricCreateMessage");
+    const name = String(nameInput?.value || "").trim();
+    const fields = Array.from(document.querySelectorAll("#athleteMetricFields .athlete-metric-field")).map((row, index) => ({key:`value_${index + 1}`,label:row.querySelector(".athlete-metric-field-label")?.value.trim() || "",unit:row.querySelector(".athlete-metric-field-unit")?.value.trim() || ""})).filter(field => field.label);
+    if (!name || !fields.length) { if (message) { message.textContent = "Enter a metric name and at least one measurement."; message.className = "message error"; } return; }
+    const { error } = await supabaseClient.from("athlete_performance_metrics").insert({user_id:currentUser.id,name,category,fields});
+    if (error) { if (message) { message.textContent = "Could not create metric: " + error.message; message.className = "message error"; } return; }
+    nameInput.value = "";
+    if (message) { message.textContent = "Metric created."; message.className = "message success-text"; }
+    await loadAthleteMetrics();
+  }
+
+  async function selectAthleteMetric(metricId) {
+    selectedAthleteMetric = athleteMetrics.find(metric => metric.id === metricId) || null;
+    const target = document.getElementById("athleteMetricDetail");
+    if (!target || !selectedAthleteMetric) return;
+    target.classList.remove("hidden");
+    const fields = selectedAthleteMetric.fields || [];
+    target.innerHTML = `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h4>${escapeHtml(selectedAthleteMetric.name)}</h4><button type="button" class="secondary" style="width:auto;margin:0;padding:7px 10px" onclick="closeAthleteMetric()">CLOSE</button></div><p class="muted small" style="margin:8px 0 12px">Add your result for a date. Repeating this over a month helps you see your progress.</p><label for="athleteMetricLogDate">Date</label><input id="athleteMetricLogDate" type="date" value="${escapeHtml(getLocalDateString())}" onchange="loadAthleteMetricLogForDate(this.value)">${fields.map(field => `<label>${escapeHtml(field.label)}${field.unit ? ` (${escapeHtml(field.unit)})` : ""}</label><input class="athlete-metric-log-value" data-key="${escapeHtml(field.key)}" type="number" step="any" inputmode="decimal">`).join("")}<label>Notes (optional)</label><input id="athleteMetricLogNotes" maxlength="240"><button type="button" onclick="saveAthleteMetricLog()">SAVE RESULT</button><div id="athleteMetricLogMessage" class="message" aria-live="polite"></div></div><div class="card"><h4>Progress chart</h4><div class="community-hall-periods"><button class="secondary ${athleteMetricPeriod === "week" ? "active" : ""}" onclick="setAthleteMetricPeriod('week',this)">Week</button><button class="secondary ${athleteMetricPeriod === "month" ? "active" : ""}" onclick="setAthleteMetricPeriod('month',this)">Month</button><button class="secondary ${athleteMetricPeriod === "year" ? "active" : ""}" onclick="setAthleteMetricPeriod('year',this)">Year</button></div><label for="athleteMetricChartField">Show on chart</label><select id="athleteMetricChartField" onchange="renderAthleteMetricChart()">${fields.map(field => `<option value="${escapeHtml(field.key)}">${escapeHtml(field.label)}${field.unit ? ` (${escapeHtml(field.unit)})` : ""}</option>`).join("")}</select><div id="athleteMetricChart" class="empty">Loading history...</div><div id="athleteMetricHistory" class="muted small" style="margin-top:10px"></div></div></div>`;
+    const { data, error } = await supabaseClient.from("athlete_performance_entries").select("id,log_date,measurements,notes").eq("user_id",currentUser.id).eq("metric_id",selectedAthleteMetric.id).order("log_date");
+    if (error) { document.getElementById("athleteMetricChart").textContent = "Could not load metric history: " + error.message; return; }
+    athleteMetricLogs = data || [];
+    loadAthleteMetricLogForDate(getLocalDateString());
+    renderAthleteMetricChart();
+  }
+
+  function loadAthleteMetricLogForDate(date) {
+    const entry = athleteMetricLogs.find(row => row.log_date === date);
+    document.querySelectorAll("#athleteMetricDetail .athlete-metric-log-value").forEach(input => { input.value = entry?.measurements?.[input.dataset.key] ?? ""; });
+    const notes = document.getElementById("athleteMetricLogNotes");
+    if (notes) notes.value = entry?.notes || "";
+  }
+
+  function closeAthleteMetric() {
+    selectedAthleteMetric = null;
+    document.getElementById("athleteMetricDetail")?.classList.add("hidden");
+  }
+
+  function setAthleteMetricPeriod(period, button) {
+    athleteMetricPeriod = period;
+    document.querySelectorAll("#athleteMetricDetail .community-hall-periods button").forEach(item => item.classList.toggle("active", item === button));
+    renderAthleteMetricChart();
+  }
+
+  async function saveAthleteMetricLog() {
+    if (!selectedAthleteMetric) return;
+    const date = document.getElementById("athleteMetricLogDate")?.value;
+    const message = document.getElementById("athleteMetricLogMessage");
+    const measurements = {};
+    document.querySelectorAll("#athleteMetricDetail .athlete-metric-log-value").forEach(input => { if (input.value !== "") measurements[input.dataset.key] = Number(input.value); });
+    if (!date || !Object.keys(measurements).length) { if (message) { message.textContent = "Choose a date and enter at least one value."; message.className = "message error"; } return; }
+    const payload = {user_id:currentUser.id,metric_id:selectedAthleteMetric.id,log_date:date,measurements,notes:document.getElementById("athleteMetricLogNotes")?.value.trim() || null};
+    const { error } = await supabaseClient.from("athlete_performance_entries").upsert(payload,{onConflict:"metric_id,user_id,log_date"});
+    if (error) { if (message) { message.textContent = "Could not save result: " + error.message; message.className = "message error"; } return; }
+    if (message) { message.textContent = "Result saved."; message.className = "message success-text"; }
+    await selectAthleteMetric(selectedAthleteMetric.id);
+    document.getElementById("athleteMetricLogDate").value = date;
+  }
+
+  function renderAthleteMetricChart() {
+    const target = document.getElementById("athleteMetricChart");
+    if (!target || !selectedAthleteMetric) return;
+    const field = (selectedAthleteMetric.fields || []).find(item => item.key === document.getElementById("athleteMetricChartField")?.value) || selectedAthleteMetric.fields?.[0];
+    if (!field) { target.className = "empty"; target.textContent = "Add a measurement to see a chart."; return; }
+    const today = getLocalDateString();
+    const start = athleteMetricPeriod === "year" ? `${today.slice(0,4)}-01-01` : athleteMetricPeriod === "month" ? `${today.slice(0,7)}-01` : addDaysToDateString(today,-6);
+    const rows = athleteMetricLogs.filter(row => row.log_date >= start && row.log_date <= today && Number.isFinite(Number(row.measurements?.[field.key]))).sort((a,b) => a.log_date.localeCompare(b.log_date));
+    if (!rows.length) { target.className = "empty"; target.textContent = "No results in this period yet. Add entries regularly to see your progress."; document.getElementById("athleteMetricHistory").textContent = ""; return; }
+    const values = rows.map(row => Number(row.measurements[field.key]));
+    const min = Math.min(...values); const max = Math.max(...values); const span = max - min || Math.max(Math.abs(max) * 0.1,1);
+    const w=640,h=230,padL=44,padR=16,padT=16,padB=38;
+    const points = rows.map((row,index) => ({row,value:values[index],x:padL+(rows.length===1?(w-padL-padR)/2:index*(w-padL-padR)/(rows.length-1)),y:padT+(max+span*0.1-values[index])/(span*1.2)*(h-padT-padB)}));
+    const polyline=points.map(point=>`${point.x},${point.y}`).join(" ");
+    target.className = "";
+    target.innerHTML = `<div style="overflow-x:auto"><svg role="img" aria-label="${escapeHtml(field.label)} progress chart" viewBox="0 0 ${w} ${h}" style="width:100%;min-width:320px;height:auto"><line x1="${padL}" y1="${h-padB}" x2="${w-padR}" y2="${h-padB}" stroke="#555"/><line x1="${padL}" y1="${padT}" x2="${padL}" y2="${h-padB}" stroke="#555"/><polyline points="${polyline}" fill="none" stroke="#e33" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${points.map(point=>`<circle cx="${point.x}" cy="${point.y}" r="4" fill="#f44"><title>${escapeHtml(point.row.log_date)}: ${point.value} ${escapeHtml(field.unit || "")}</title></circle>`).join("")}<text x="${padL}" y="${h-10}" fill="#aaa" font-size="12">${escapeHtml(rows[0].log_date)}</text><text x="${w-padR}" y="${h-10}" text-anchor="end" fill="#aaa" font-size="12">${escapeHtml(rows[rows.length-1].log_date)}</text><text x="${padL-6}" y="${padT+8}" text-anchor="end" fill="#aaa" font-size="12">${max}</text><text x="${padL-6}" y="${h-padB}" text-anchor="end" fill="#aaa" font-size="12">${min}</text></svg></div>`;
+    document.getElementById("athleteMetricHistory").textContent = `${rows.length} results · ${field.label}: ${values[0]} → ${values[values.length-1]} ${field.unit || ""}`;
   }
 
   async function loadJournalCompetitions() {
