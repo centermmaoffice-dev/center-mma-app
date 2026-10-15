@@ -6560,7 +6560,7 @@
       if (article.cover_path) {
         try {
           const coverUrl = await librarySignedUrl(article.cover_path);
-          if (coverUrl) cover = `<img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(article.title)}" style="width:88px;height:68px;object-fit:cover;border-radius:8px;flex:0 0 auto">`;
+          if (coverUrl) cover = `<img loading="lazy" decoding="async" src="${escapeHtml(coverUrl)}" alt="${escapeHtml(article.title)}" style="width:88px;height:68px;object-fit:cover;border-radius:8px;flex:0 0 auto">`;
         } catch (coverError) {
           console.warn("Could not load training library cover:", coverError);
         }
@@ -6610,7 +6610,7 @@
     if (article.cover_path) {
       try {
         const coverUrl = await librarySignedUrl(article.cover_path);
-        if (coverUrl) coverMarkup = `<img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(article.title)}" style="display:block;width:100%;max-height:380px;object-fit:contain;border-radius:10px;margin:0 0 16px;background:#0b0b0b">`;
+        if (coverUrl) coverMarkup = `<img loading="lazy" decoding="async" src="${escapeHtml(coverUrl)}" alt="${escapeHtml(article.title)}" style="display:block;width:100%;max-height:380px;object-fit:contain;border-radius:10px;margin:0 0 16px;background:#0b0b0b">`;
       } catch (coverError) {
         console.warn("Could not load training library cover:", coverError);
       }
@@ -6636,7 +6636,7 @@
     if (pageIndex === 0 && article.cover_path) {
       try {
         const coverUrl = await librarySignedUrl(article.cover_path);
-        if (coverUrl) coverMarkup = `<img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(article.title)}" style="display:block;width:100%;max-height:380px;object-fit:contain;border-radius:10px;margin:0 0 16px;background:#0b0b0b">`;
+        if (coverUrl) coverMarkup = `<img loading="lazy" decoding="async" src="${escapeHtml(coverUrl)}" alt="${escapeHtml(article.title)}" style="display:block;width:100%;max-height:380px;object-fit:contain;border-radius:10px;margin:0 0 16px;background:#0b0b0b">`;
       } catch (coverError) {
         console.warn("Could not load training library cover:", coverError);
       }
@@ -6644,7 +6644,7 @@
     const pageAssets = assets.filter(item => item.page_id === page.id && item.role === "image");
     let images = "";
     try {
-      images = (await Promise.all(pageAssets.map(async item => `<img src="${escapeHtml(await librarySignedUrl(item.object_path))}" alt="${escapeHtml(item.file_name)}" style="width:100%;height:auto;border-radius:10px;margin-top:12px">`))).join("");
+      images = (await Promise.all(pageAssets.map(async item => `<img loading="lazy" decoding="async" src="${escapeHtml(await librarySignedUrl(item.object_path))}" alt="${escapeHtml(item.file_name)}" style="width:100%;height:auto;border-radius:10px;margin-top:12px">`))).join("");
     } catch (urlError) { images = `<div class="message error">Could not load an image: ${escapeHtml(urlError.message)}</div>`; }
     viewer.innerHTML = `<button class="secondary" onclick="openLibraryCategory('${libraryCurrentCategoryId}')">← BACK TO ARTICLES</button><div class="card">${coverMarkup}<div class="muted small">${escapeHtml(article.summary || "")}</div><h2 style="margin-top:12px">${escapeHtml(article.title)}</h2><div class="muted small">Page ${pageIndex + 1} of ${pages.length}</div>${page.heading ? `<h3 style="margin-top:18px">${escapeHtml(page.heading)}</h3>` : ""}<div style="white-space:pre-wrap;line-height:1.7;margin-top:12px">${escapeHtml(page.body || "")}</div>${images}<div class="admin-actions" style="margin-top:18px"><button class="secondary" ${pageIndex === 0 ? "disabled" : ""} onclick="renderLibraryArticlePage(window.libraryArticleCache.article,window.libraryArticleCache.pages,window.libraryArticleCache.assets,${pageIndex - 1})">← PREVIOUS</button><button class="secondary" ${pageIndex >= pages.length - 1 ? "disabled" : ""} onclick="renderLibraryArticlePage(window.libraryArticleCache.article,window.libraryArticleCache.pages,window.libraryArticleCache.assets,${pageIndex + 1})">NEXT →</button></div></div>`;
     window.libraryArticleCache = { article: article, pages: pages, assets: assets };
@@ -7988,7 +7988,7 @@
       const name = String(member.first_name || "Athlete").trim();
       const isHallAdmin = member.role === "admin" || member.id === communityHallAdminId || (isAdmin && member.id === currentMember?.id);
       const photo = member.profile.photo_url
-        ? `<img src="${escapeHtml(member.profile.photo_url)}" alt="">`
+        ? `<img loading="lazy" decoding="async" src="${escapeHtml(member.profile.photo_url)}" alt="">`
         : escapeHtml(name.charAt(0).toUpperCase());
       return `<button type="button" class="community-athlete-card ${isHallAdmin ? "community-hall-card" : ""}" data-community-member-id="${escapeHtml(member.id)}" onclick="openCommunityAthlete('${escapeHtml(member.id)}')"><div class="community-athlete-avatar">${photo}</div><div><div class="community-athlete-name">${escapeHtml(name)}</div>${isHallAdmin ? `<div class="community-hall-card-subtitle">${escapeHtml(communityText("hallCardBadge"))}</div>` : ""}</div></button>`;
     }).join("");
@@ -8245,6 +8245,8 @@
           item.image_url
             ? `
               <img
+                loading="lazy"
+                decoding="async"
                 src="${escapeHtml(item.image_url)}"
                 alt=""
                 class="news-card-image"
@@ -19358,6 +19360,8 @@
                   ${item.image_url ? `
                     <div style="margin:12px 0;">
                       <img
+                        loading="lazy"
+                        decoding="async"
                         src="${escapeHtml(item.image_url)}"
                         alt="News image"
                         style="
@@ -26080,6 +26084,8 @@
               ? `
                 <img
                   class="shop-product-image"
+                  loading="lazy"
+                  decoding="async"
                   src="${escapeHtml(product.image_url)}"
                   alt="${escapeHtml(product.title || "Product")}"
                 >
@@ -26329,6 +26335,8 @@
               ? `
                 <img
                   class="shop-cart-thumb"
+                  loading="lazy"
+                  decoding="async"
                   src="${escapeHtml(item.image_url)}"
                   alt=""
                 >
@@ -27320,6 +27328,8 @@
               ${product.image_url ? `
                 <img
                   class="shop-admin-product-thumb"
+                  loading="lazy"
+                  decoding="async"
                   src="${escapeHtml(product.image_url)}"
                   alt=""
                 >
