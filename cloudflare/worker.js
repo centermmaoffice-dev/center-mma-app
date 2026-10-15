@@ -175,12 +175,24 @@ async function handle(request, env, ctx) {
           controller.enqueue(chunk);
         },
       }));
-      await env.ASSETS.put(key, countedBody, {
-        httpMetadata: {
-          contentType: source.headers.get("Content-Type") || "application/octet-stream",
-          cacheControl: "public, max-age=31536000, immutable",
-        },
-      });
+      const httpMetadata = {
+        contentType: source.headers.get("Content-Type") || "application/octet-stream",
+        cacheControl: "public, max-age=31536000, immutable",
+      };
+      if (contentLength > 0) {
+        const fixed = new FixedLengthStream(contentLength);
+        const pump = countedBody.pipeTo(fixed.writable);
+        const [putResult, pumpResult] = await Promise.allSettled([
+          env.ASSETS.put(key, fixed.readable, { httpMetadata }),
+          pump,
+        ]);
+        if (putResult.status === "rejected") throw putResult.reason;
+        if (pumpResult.status === "rejected") throw pumpResult.reason;
+      } else {
+        // Some storage responses omit Content-Length; buffer only that one object so R2 receives a known size.
+        const bytes = await new Response(countedBody).arrayBuffer();
+        await env.ASSETS.put(key, bytes, { httpMetadata });
+      }
       const stored = await env.ASSETS.head(key);
       if (!stored || stored.size !== byteCount || (contentLength && contentLength !== byteCount)) {
         await env.ASSETS.delete(key);
