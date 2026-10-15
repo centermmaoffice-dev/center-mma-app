@@ -7,6 +7,14 @@ const BUCKETS = new Set([
   "member-photos",
 ]);
 const PUBLIC_BUCKETS = new Set(["news-images", "shop-images"]);
+const UPLOAD_POLICIES = {
+  "training-library": { maxBytes: 20 * 1024 * 1024, types: new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]) },
+  "member-contracts": { maxBytes: 15 * 1024 * 1024, types: new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]) },
+  "shop-images": { maxBytes: 8 * 1024 * 1024, types: new Set(["image/jpeg", "image/png", "image/webp"]) },
+  "news-images": { maxBytes: 8 * 1024 * 1024, types: new Set(["image/jpeg", "image/png", "image/webp"]) },
+  "club-documents": { maxBytes: 20 * 1024 * 1024, types: new Set(["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "text/plain", "image/jpeg", "image/png", "image/webp", "image/gif"]) },
+  "member-photos": { maxBytes: 5 * 1024 * 1024, types: new Set(["image/jpeg", "image/png", "image/webp"]) },
+};
 
 function response(body, status, origin, extra = {}) {
   const headers = new Headers(extra);
@@ -111,11 +119,26 @@ async function handle(request, env, ctx) {
     const path = url.searchParams.get("path") || "";
     const upsert = url.searchParams.get("upsert") === "true";
     const key = objectPath(bucket, path);
+    const policy = UPLOAD_POLICIES[bucket];
+    const contentType = (request.headers.get("Content-Type") || "application/octet-stream").split(";")[0].trim().toLowerCase();
+    const contentLength = Number(request.headers.get("Content-Length") || 0);
+    if (!policy || !policy.types.has(contentType)) throw new Error("This file type is not allowed in this bucket");
+    if (contentLength > policy.maxBytes) throw new Error("This file exceeds the size limit for this bucket");
     await authorizeStorage(env, bearer, bucket, path, "write", upsert);
     if (!upsert && await env.ASSETS.head(key)) return response(JSON.stringify({ error: "Object already exists" }), 409, origin, { "Content-Type": "application/json", "Cache-Control": "no-store" });
-    const bytes = await request.arrayBuffer();
-    const mime = request.headers.get("Content-Type") || "application/octet-stream";
-    await env.ASSETS.put(key, bytes, { httpMetadata: { contentType: mime, cacheControl: "public, max-age=31536000, immutable" } });
+    let byteCount = 0;
+    const uploadBody = request.body
+      ? request.body.pipeThrough(new TransformStream({
+        transform(chunk, controller) {
+          byteCount += chunk.byteLength;
+          if (byteCount > policy.maxBytes) throw new Error("This file exceeds the size limit for this bucket");
+          controller.enqueue(chunk);
+        },
+      }))
+      : new Uint8Array(0);
+    await env.ASSETS.put(key, uploadBody, { httpMetadata: { contentType, cacheControl: "public, max-age=31536000, immutable" } });
+    const stored = await env.ASSETS.head(key);
+    if (!stored || stored.size !== byteCount || (contentLength && contentLength !== byteCount)) throw new Error("R2 upload verification failed");
     const marker = await fetch(`${env.SUPABASE_URL}/storage/v1/object/${bucket}/${path.split("/").map(encodeURIComponent).join("/")}`, {
       method: "POST",
       headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: bearer, "Content-Type": "application/octet-stream", "x-upsert": String(upsert) },
@@ -124,6 +147,48 @@ async function handle(request, env, ctx) {
     // Keep the R2 copy if metadata creation fails: an upsert may have replaced a previous object.
     if (!marker.ok) throw new Error("Could not preserve Supabase access policy for this file");
     return response(JSON.stringify({ path }), 200, origin, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+  }
+
+  if (url.pathname === "/v1/migrate" && request.method === "POST") {
+    const bearer = await verifyUser(request, env);
+    const { bucket, paths } = await request.json();
+    if (!BUCKETS.has(bucket) || !Array.isArray(paths) || paths.length > 20) throw new Error("Invalid migration request");
+    const results = [];
+    for (const path of paths) {
+      const key = objectPath(bucket, path);
+      if (await env.ASSETS.head(key)) {
+        results.push({ path, status: "already-present" });
+        continue;
+      }
+      const authorization = await authorizeStorage(env, bearer, bucket, path, "read");
+      const signedUrl = authorization.signedURL || authorization.signedUrl;
+      if (!signedUrl) throw new Error("Supabase did not return a signed file URL");
+      const source = await fetch(legacySignedUrl(env, signedUrl));
+      if (!source.ok) throw new Error(`Could not read ${path} from Supabase (${source.status})`);
+      const contentLength = Number(source.headers.get("Content-Length") || 0);
+      if (contentLength > 100 * 1024 * 1024) throw new Error(`File is too large to migrate in one request: ${path}`);
+      let byteCount = 0;
+      const countedBody = source.body.pipeThrough(new TransformStream({
+        transform(chunk, controller) {
+          byteCount += chunk.byteLength;
+          if (byteCount > 100 * 1024 * 1024) throw new Error(`File is too large to migrate in one request: ${path}`);
+          controller.enqueue(chunk);
+        },
+      }));
+      await env.ASSETS.put(key, countedBody, {
+        httpMetadata: {
+          contentType: source.headers.get("Content-Type") || "application/octet-stream",
+          cacheControl: "public, max-age=31536000, immutable",
+        },
+      });
+      const stored = await env.ASSETS.head(key);
+      if (!stored || stored.size !== byteCount || (contentLength && contentLength !== byteCount)) {
+        await env.ASSETS.delete(key);
+        throw new Error(`R2 verification failed for ${path}; no partial copy was kept`);
+      }
+      results.push({ path, status: "copied", bytes: byteCount });
+    }
+    return response(JSON.stringify({ bucket, results }), 200, origin, { "Content-Type": "application/json", "Cache-Control": "no-store" });
   }
 
   if (url.pathname === "/v1/remove" && request.method === "POST") {
