@@ -8,7 +8,7 @@ binding = "ASSETS"
 bucket_name = "centermma-assets"
 
 [vars]
-APP_ORIGINS = "https://center-mma-app.vercel.app"
+APP_ORIGINS = "https://center-mma-app.vercel.app,https://app.centermma.at"
 SUPABASE_URL = "https://klzyuczbvixodgvtsimq.supabase.co"
 SUPABASE_ANON_KEY = "sb_publishable_hTRZXpcPQLvwjBpVUru1Jw_HN3Wua2E"
 
