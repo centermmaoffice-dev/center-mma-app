@@ -3469,6 +3469,69 @@
       SUPABASE_KEY
     );
 
+  // R2 media endpoint. Set this to the deployed Cloudflare Worker URL.
+  const R2_MEDIA_WORKER_URL = "https://center-mma-media.centermmaoffice.workers.dev";
+  function r2ResolvePublicImageUrl(value) {
+    const source = String(value || "");
+    const match = source.match(/\/storage\/v1\/object\/public\/(news-images|shop-images)\/(.+)$/);
+    if (!match) return source;
+    const query = new URLSearchParams({ bucket: match[1], path: decodeURIComponent(match[2]) });
+    return `${R2_MEDIA_WORKER_URL}/v1/public?${query}`;
+  }
+  const r2StorageClient = {
+    from(bucket) {
+      async function token() {
+        const { data, error } = await supabaseClient.auth.getSession();
+        if (error || !data?.session?.access_token) throw new Error("Please sign in again.");
+        return data.session.access_token;
+      }
+      async function api(path, options = {}) {
+        const bearer = await token();
+        const result = await fetch(`${R2_MEDIA_WORKER_URL}${path}`, {
+          ...options,
+          headers: { Authorization: `Bearer ${bearer}`, ...(options.headers || {}) }
+        });
+        const payload = await result.json().catch(() => ({}));
+        if (!result.ok) throw new Error(payload.error || `R2 request failed (${result.status})`);
+        return payload;
+      }
+      return {
+        async createSignedUrl(path, expiresIn = 300) {
+          try { return { data: await api("/v1/sign", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bucket, path, expiresIn }) }), error: null }; }
+          catch (error) { return { data: null, error }; }
+        },
+        async createSignedUrls(paths, expiresIn = 300) {
+          const rows = await Promise.all((paths || []).map(async path => {
+            const { data, error } = await this.createSignedUrl(path, expiresIn);
+            return error ? { path, error } : { path, signedUrl: data.signedUrl };
+          }));
+          return { data: rows, error: rows.find(row => row.error)?.error || null };
+        },
+        async upload(path, file, options = {}) {
+          try {
+            const query = new URLSearchParams({ bucket, path, upsert: String(options.upsert === true) });
+            await api(`/v1/upload?${query}`, { method: "POST", headers: { "Content-Type": options.contentType || file.type || "application/octet-stream" }, body: file });
+            return { data: { path }, error: null };
+          } catch (error) { return { data: null, error }; }
+        },
+        async download(path) {
+          const { data, error } = await this.createSignedUrl(path, 300);
+          if (error) return { data: null, error };
+          try { const response = await fetch(data.signedUrl); if (!response.ok) throw new Error("Could not download file"); return { data: await response.blob(), error: null }; }
+          catch (downloadError) { return { data: null, error: downloadError }; }
+        },
+        async remove(paths) {
+          try { await api("/v1/remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bucket, paths }) }); return { data: paths.map(name => ({ name })), error: null }; }
+          catch (error) { return { data: null, error }; }
+        },
+        getPublicUrl(path) {
+          const query = new URLSearchParams({ bucket, path });
+          return { data: { publicUrl: `${R2_MEDIA_WORKER_URL}/v1/public?${query}` } };
+        }
+      };
+    }
+  };
+
   let isPasswordRecoveryFlow = false;
   let recoveryLoginEmail = "";
   supabaseClient.auth.onAuthStateChange((event, session) => {
@@ -6572,7 +6635,7 @@
 
   async function librarySignedUrl(path) {
     if (!path) return "";
-    const { data, error } = await supabaseClient.storage.from("training-library").createSignedUrl(path, 1800);
+    const { data, error } = await r2StorageClient.from("training-library").createSignedUrl(path, 1800);
     if (error) throw error;
     return data.signedUrl;
   }
@@ -6724,7 +6787,7 @@
     if (!file) return null;
     if (file.size > 20 * 1024 * 1024) throw new Error("Each file must be 20 MB or smaller.");
     const path = `${articleId}/${crypto.randomUUID()}_${safeLibraryFilename(file.name)}`;
-    const { error } = await supabaseClient.storage.from("training-library").upload(path,file,{contentType:file.type,upsert:false});
+    const { error } = await r2StorageClient.from("training-library").upload(path,file,{contentType:file.type,upsert:false});
     if (error) throw error;
     return { object_path:path,file_name:file.name,mime_type:file.type };
   }
@@ -6797,7 +6860,7 @@
       const coverFile = document.getElementById("libraryCoverFile")?.files?.[0];
       if (coverFile) {
         const uploaded = await uploadLibraryFile(articleId,coverFile);
-        if (oldCover) { await supabaseClient.storage.from("training-library").remove([oldCover.object_path]); await supabaseClient.from("training_library_assets").delete().eq("id",oldCover.id); }
+        if (oldCover) { await r2StorageClient.from("training-library").remove([oldCover.object_path]); await supabaseClient.from("training_library_assets").delete().eq("id",oldCover.id); }
         coverPath = uploaded.object_path;
         const { error } = await supabaseClient.from("training_library_assets").insert({...uploaded,article_id:articleId,role:"cover",sort_order:0});
         if (error) throw error;
@@ -6808,10 +6871,10 @@
       const pdfFile = document.getElementById("libraryPdfFile")?.files?.[0];
       if (pdfFile) {
         const uploaded = await uploadLibraryFile(articleId,pdfFile);
-        if (oldPdf) { await supabaseClient.storage.from("training-library").remove([oldPdf.object_path]); await supabaseClient.from("training_library_assets").delete().eq("id",oldPdf.id); }
+        if (oldPdf) { await r2StorageClient.from("training-library").remove([oldPdf.object_path]); await supabaseClient.from("training_library_assets").delete().eq("id",oldPdf.id); }
         const { error } = await supabaseClient.from("training_library_assets").insert({...uploaded,article_id:articleId,role:"pdf",sort_order:0}); if (error) throw error;
       } else if (oldPdf && contentType !== "pdf") {
-        await supabaseClient.storage.from("training-library").remove([oldPdf.object_path]);
+        await r2StorageClient.from("training-library").remove([oldPdf.object_path]);
         const { error } = await supabaseClient.from("training_library_assets").delete().eq("id",oldPdf.id); if (error) throw error;
       }
       const pageBlocks = contentType === "pdf" ? [] : Array.from(document.querySelectorAll("#adminLibraryPages .library-page-editor"));
@@ -6840,7 +6903,7 @@
       }
       const obsolete = pageAssets.filter(asset => !retainedAssetIds.has(asset.id));
       if (obsolete.length) {
-        await supabaseClient.storage.from("training-library").remove(obsolete.map(asset => asset.object_path));
+        await r2StorageClient.from("training-library").remove(obsolete.map(asset => asset.object_path));
         const { error } = await supabaseClient.from("training_library_assets").delete().in("id",obsolete.map(asset => asset.id)); if (error) throw error;
       }
       if (status === "published") {
@@ -6871,7 +6934,7 @@
     const { data: assets, error: listError } = await supabaseClient.from("training_library_assets").select("object_path").eq("article_id",articleId);
     if (listError) { alert("Could not list files: " + listError.message); return; }
     const paths = (assets || []).map(item => item.object_path);
-    if (paths.length) { const { error } = await supabaseClient.storage.from("training-library").remove(paths); if (error) { alert("Could not delete uploaded files: " + error.message); return; } }
+    if (paths.length) { const { error } = await r2StorageClient.from("training-library").remove(paths); if (error) { alert("Could not delete uploaded files: " + error.message); return; } }
     const { error } = await supabaseClient.from("training_library_articles").delete().eq("id",articleId);
     if (error) { alert("Could not delete article: " + error.message); return; }
     await renderAdminLibraryArticles();
@@ -7200,7 +7263,7 @@
     });
     for (let offset = 0; offset < missing.length; offset += 100) {
       const batch = missing.slice(offset, offset + 100);
-      const { data, error } = await supabaseClient.storage.from("member-photos").createSignedUrls(batch, 3600);
+      const { data, error } = await r2StorageClient.from("member-photos").createSignedUrls(batch, 3600);
       if (error) {
         console.error("Could not load Community photos:", error);
         continue;
@@ -8247,7 +8310,7 @@
               <img
                 loading="lazy"
                 decoding="async"
-                src="${escapeHtml(item.image_url)}"
+                src="${escapeHtml(r2ResolvePublicImageUrl(item.image_url))}"
                 alt=""
                 class="news-card-image"
               >
@@ -9323,8 +9386,7 @@
     const {
       data,
       error
-    } = await supabaseClient
-      .storage
+    } = await r2StorageClient
       .from("member-photos")
       .createSignedUrl(
         currentMember.photo_path,
@@ -9435,8 +9497,7 @@
 
     const {
       error: uploadError
-    } = await supabaseClient
-      .storage
+    } = await r2StorageClient
       .from("member-photos")
       .upload(
         photoPath,
@@ -11184,8 +11245,7 @@
     const {
       data,
       error: signedError
-    } = await supabaseClient
-      .storage
+    } = await r2StorageClient
       .from("club-documents")
       .createSignedUrl(
         documentItem.file_path,
@@ -16010,8 +16070,7 @@
         }
       );
 
-      const uploadResult = await supabaseClient
-        .storage
+      const uploadResult = await r2StorageClient
         .from("club-documents")
         .upload(
           filePath,
@@ -16114,8 +16173,7 @@
         insertError
       );
 
-      await supabaseClient
-        .storage
+      await r2StorageClient
         .from("club-documents")
         .remove([
           filePath
@@ -16170,8 +16228,7 @@
 
     const {
       error: storageError
-    } = await supabaseClient
-      .storage
+    } = await r2StorageClient
       .from("club-documents")
       .remove([
         filePath
@@ -17184,8 +17241,7 @@
 
     const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const photoPath = `${member.user_id}/profile-${suffix}.${extensions[file.type]}`;
-    const { error: uploadError } = await supabaseClient
-      .storage
+    const { error: uploadError } = await r2StorageClient
       .from("member-photos")
       .upload(photoPath, file, { upsert: false, contentType: file.type });
 
@@ -17203,14 +17259,14 @@
 
     if (updateError) {
       console.error("Could not update member profile photo:", updateError);
-      await supabaseClient.storage.from("member-photos").remove([photoPath]);
+      await r2StorageClient.from("member-photos").remove([photoPath]);
       setStatus("Photo uploaded, but the member profile could not be updated.", "message error small");
       input.value = "";
       return;
     }
 
     if (member.photo_path && member.photo_path !== photoPath && member.photo_path.startsWith(`${member.user_id}/`)) {
-      await supabaseClient.storage.from("member-photos").remove([member.photo_path]);
+      await r2StorageClient.from("member-photos").remove([member.photo_path]);
       communityPhotoUrlCache.delete(member.photo_path);
     }
 
@@ -19362,7 +19418,7 @@
                       <img
                         loading="lazy"
                         decoding="async"
-                        src="${escapeHtml(item.image_url)}"
+                        src="${escapeHtml(r2ResolvePublicImageUrl(item.image_url))}"
                         alt="News image"
                         style="
                           width:100%;
@@ -19562,8 +19618,7 @@
 
     const {
       error: uploadError
-    } = await supabaseClient
-      .storage
+    } = await r2StorageClient
       .from(NEWS_IMAGE_BUCKET)
       .upload(
         filePath,
@@ -19582,8 +19637,7 @@
 
     const {
       data
-    } = supabaseClient
-      .storage
+    } = r2StorageClient
       .from(NEWS_IMAGE_BUCKET)
       .getPublicUrl(filePath);
 
@@ -19591,8 +19645,7 @@
       data?.publicUrl || null;
 
     if (!publicUrl) {
-      await supabaseClient
-        .storage
+      await r2StorageClient
         .from(NEWS_IMAGE_BUCKET)
         .remove([filePath]);
 
@@ -19618,8 +19671,7 @@
 
     const {
       error
-    } = await supabaseClient
-      .storage
+    } = await r2StorageClient
       .from(NEWS_IMAGE_BUCKET)
       .remove([imagePath]);
 
@@ -26337,7 +26389,7 @@
                   class="shop-cart-thumb"
                   loading="lazy"
                   decoding="async"
-                  src="${escapeHtml(item.image_url)}"
+                  src="${escapeHtml(r2ResolvePublicImageUrl(item.image_url))}"
                   alt=""
                 >
               `
@@ -26895,8 +26947,7 @@
 
     const {
       error: uploadError
-    } = await supabaseClient
-      .storage
+    } = await r2StorageClient
       .from(SHOP_IMAGE_BUCKET)
       .upload(
         filePath,
@@ -26915,16 +26966,14 @@
 
     const {
       data
-    } = supabaseClient
-      .storage
+    } = r2StorageClient
       .from(SHOP_IMAGE_BUCKET)
       .getPublicUrl(
         filePath
       );
 
     if (!data?.publicUrl) {
-      await supabaseClient
-        .storage
+      await r2StorageClient
         .from(SHOP_IMAGE_BUCKET)
         .remove([filePath]);
 
@@ -27222,8 +27271,7 @@
 
       if (error) {
         if (image.image_path) {
-          await supabaseClient
-            .storage
+          await r2StorageClient
             .from(SHOP_IMAGE_BUCKET)
             .remove([
               image.image_path
@@ -27568,8 +27616,7 @@
     }
 
     if (imagePath) {
-      await supabaseClient
-        .storage
+      await r2StorageClient
         .from(SHOP_IMAGE_BUCKET)
         .remove([imagePath]);
     }
@@ -28084,7 +28131,7 @@ async function cmOpenDocument(index) {
  if(!tab){cmDocMessage(cmDT().popupBlocked,true);return;}
  tab.opener=null;
  try {
-  const {data,error}=await supabaseClient.storage.from('member-contracts').download(d.file_path);
+  const {data,error}=await r2StorageClient.from('member-contracts').download(d.file_path);
   if(error)throw error;
   const url=URL.createObjectURL(data);tab.location.href=url;setTimeout(()=>URL.revokeObjectURL(url),300000);
  } catch(e) {tab.close();cmDocMessage(e.message,true);}
@@ -28110,7 +28157,7 @@ async function cmUploadDocument() {
   if(error)throw error;
   const d=Array.isArray(data)?data[0]:data;
   if(!d?.id||!d.file_path)throw new Error('Upload could not be initialized');
-  const up=await supabaseClient.storage.from('member-contracts').upload(d.file_path,file,{contentType:mime,upsert:false});
+  const up=await r2StorageClient.from('member-contracts').upload(d.file_path,file,{contentType:mime,upsert:false});
   if(up.error)throw up.error;
   const done=await supabaseClient.rpc('cm_document_finish',{p_id:d.id});if(done.error)throw done.error;
   document.getElementById('cmDocFile').value='';await cmLoadDocuments(memberId);cmDocMessage(cmDT().success);

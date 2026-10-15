@@ -1,0 +1,16 @@
+name = "center-mma-media"
+main = "worker.js"
+compatibility_date = "2026-10-15"
+preview_urls = true
+
+[[r2_buckets]]
+binding = "ASSETS"
+bucket_name = "centermma-assets"
+
+[vars]
+APP_ORIGINS = "https://center-mma-app.vercel.app"
+SUPABASE_URL = "https://klzyuczbvixodgvtsimq.supabase.co"
+SUPABASE_ANON_KEY = "sb_publishable_hTRZXpcPQLvwjBpVUru1Jw_HN3Wua2E"
+
+[observability]
+enabled = false
