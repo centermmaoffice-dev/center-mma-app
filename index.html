@@ -6896,6 +6896,9 @@
       if (!form.dataset.articleId) {
         const { error } = await supabaseClient.from("training_library_articles").insert({...payload,id:articleId,created_by:currentUser.id});
         if (error) throw error;
+        // Retain the draft ID even if a later R2 upload fails, so retrying
+        // this form edits the same article instead of inserting a duplicate.
+        form.dataset.articleId = articleId;
       } else {
         const { error } = await supabaseClient.from("training_library_articles").update(payload).eq("id",articleId);
         if (error) throw error;
