@@ -26371,7 +26371,7 @@
                   class="shop-product-image"
                   loading="lazy"
                   decoding="async"
-                  src="${escapeHtml(product.image_url)}"
+                  src="${escapeHtml(r2ResolvePublicImageUrl(product.image_url))}"
                   alt="${escapeHtml(product.title || "Product")}"
                 >
               `
@@ -27611,7 +27611,7 @@
                   class="shop-admin-product-thumb"
                   loading="lazy"
                   decoding="async"
-                  src="${escapeHtml(product.image_url)}"
+                  src="${escapeHtml(r2ResolvePublicImageUrl(product.image_url))}"
                   alt=""
                 >
               ` : ""}
