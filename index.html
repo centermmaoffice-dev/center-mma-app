@@ -4787,6 +4787,49 @@
   }
 
 
+  function normalizeCompetitionDisciplines(value) {
+    let values = value;
+
+    if (typeof values === "string") {
+      const trimmed = values.trim();
+      if (trimmed.startsWith("[")) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) values = parsed;
+        } catch (error) {
+          // Keep legacy plain-text discipline values readable.
+        }
+      }
+    }
+
+    if (Array.isArray(values)) {
+      return [...new Map(values
+        .map(function (item) { return String(item || "").trim(); })
+        .filter(function (item) { return item && item.toLowerCase() !== "competition"; })
+        .map(function (item) { return [item.toLocaleLowerCase(), item]; })
+      ).values()];
+    }
+
+    const text = String(values || "").trim();
+    if (!text || text.toLowerCase() === "competition") return [];
+
+    // New values are stored one discipline per line. Older values may be a
+    // comma- or semicolon-separated list, so keep supporting that format.
+    const separator = /\r?\n/.test(text) ? /\r?\n/ : (text.includes(";") ? /;/ : /,/);
+    return [...new Map(text.split(separator)
+      .map(function (item) { return item.trim(); })
+      .filter(function (item) { return item && item.toLowerCase() !== "competition"; })
+      .map(function (item) { return [item.toLocaleLowerCase(), item]; })
+    ).values()];
+  }
+
+
+  function serializeCompetitionDisciplines(value) {
+    const disciplines = normalizeCompetitionDisciplines(value);
+    return disciplines.length ? disciplines.join("\n") : "Competition";
+  }
+
+
   async function ensureTomorrowCompetitionDeadlineNotifications() {
     // An administrator starts the idempotent check; reminders are sent to all
     // active members.
@@ -10608,7 +10651,7 @@
                   competition.discipline
                     ? `
                       <div class="muted small" style="margin-top:6px;">
-                        🥋 ${escapeHtml(competition.discipline)}
+                        🥋 ${escapeHtml(normalizeCompetitionDisciplines(competition.discipline).join(", "))}
                       </div>
                     `
                     : ""
@@ -13455,6 +13498,8 @@
     const renderCompetitionCard =
           function (competition) {
 
+            const competitionDisciplines = normalizeCompetitionDisciplines(competition.discipline);
+
             const registration =
               registrations.find(
                 function (item) {
@@ -13499,8 +13544,18 @@
                   <label>Weight (kg) *</label>
                   <input id="requestWeight-${competition.id}" type="number" step="0.1" min="0" placeholder="e.g. 77.5">
 
-                  <label>Style / discipline *</label>
-                  <input id="requestDivision-${competition.id}" type="text" placeholder="e.g. MMA, Grappling, No-Gi">
+                  <label>Discipline *</label>
+                  <select id="requestDivision-${competition.id}" ${competitionDisciplines.length ? "" : "disabled"}>
+                    ${competitionDisciplines.length > 1
+                      ? `<option value="">Choose a discipline</option>`
+                      : ""}
+                    ${competitionDisciplines.map(function (discipline) {
+                      return `<option value="${escapeHtml(discipline)}">${escapeHtml(discipline)}</option>`;
+                    }).join("")}
+                  </select>
+                  ${competitionDisciplines.length
+                    ? ""
+                    : `<div class="muted small">The administrator has not added any disciplines yet.</div>`}
 
                   <label>Age category *</label>
                   <input id="requestAge-${competition.id}" type="text" placeholder="e.g. Adult, U18">
@@ -13816,10 +13871,35 @@
 
     if (!isTrainerRequest && (!division || !ageCategory || !experience)) {
       if (message) {
-        message.textContent = "Please complete style, age category and experience.";
+        message.textContent = "Please select a discipline and complete age category and experience.";
         message.className = "message error";
       }
       return;
+    }
+
+    if (!isTrainerRequest) {
+      const { data: competition, error: competitionError } = await supabaseClient
+        .from("competitions")
+        .select("discipline")
+        .eq("id", competitionId)
+        .maybeSingle();
+
+      if (competitionError) {
+        if (message) {
+          message.textContent = "Could not verify the competition disciplines: " + competitionError.message;
+          message.className = "message error";
+        }
+        return;
+      }
+
+      const allowedDisciplines = normalizeCompetitionDisciplines(competition?.discipline);
+      if (!allowedDisciplines.some(function (item) { return item === division; })) {
+        if (message) {
+          message.textContent = "Please choose one of the disciplines set by the administrator.";
+          message.className = "message error";
+        }
+        return;
+      }
     }
 
 
@@ -21868,11 +21948,12 @@
           Discipline
         </label>
 
-        <input
+        <textarea
           id="adminCompetitionDiscipline"
-          type="text"
-          placeholder="e.g. Grappling, MMA or Multi-discipline"
-        >
+          rows="3"
+          placeholder="Enter one discipline per line, e.g.\nBoxing\nKickboxing"
+        ></textarea>
+        <div class="muted small">Add one discipline per line. Athletes will choose one from this list.</div>
 
 
         <label>
@@ -22469,7 +22550,7 @@
           competition.discipline
             ? `
               <div class="muted small" style="margin-bottom:4px;">
-                🥋 ${escapeHtml(competition.discipline)}
+                🥋 ${escapeHtml(normalizeCompetitionDisciplines(competition.discipline).join(", "))}
               </div>
             `
             : ""
@@ -22545,12 +22626,12 @@
               Discipline
             </label>
 
-            <input
+            <textarea
               id="editCompetitionDiscipline-${competition.id}"
-              type="text"
-              placeholder="e.g. Grappling, MMA or Multi-discipline"
-              value="${escapeHtml(competition.discipline || "")}"
-            >
+              rows="3"
+              placeholder="Enter one discipline per line"
+            >${escapeHtml(normalizeCompetitionDisciplines(competition.discipline).join("\n"))}</textarea>
+            <div class="muted small">Add one discipline per line. Athletes will choose one from this list.</div>
 
 
             <label>
@@ -23007,6 +23088,8 @@
         .value
         .trim();
 
+    const disciplines = normalizeCompetitionDisciplines(discipline);
+
 
     const date =
       document
@@ -23047,10 +23130,10 @@
     }
 
 
-    if (!title || !date) {
+    if (!title || !date || !disciplines.length) {
 
       message.textContent =
-        "Title and date are required.";
+        "Title, date and at least one discipline are required.";
 
       message.className =
         "message error";
@@ -23076,7 +23159,7 @@
           title,
 
         discipline:
-          discipline || "Competition",
+          serializeCompetitionDisciplines(discipline),
 
         date:
           date,
@@ -23214,6 +23297,8 @@
         .value
         .trim();
 
+    const disciplines = normalizeCompetitionDisciplines(discipline);
+
 
     const date =
       document
@@ -23257,10 +23342,10 @@
     }
 
 
-    if (!title || !date) {
+    if (!title || !date || !disciplines.length) {
 
       message.textContent =
-        "Title and date are required.";
+        "Title, date and at least one discipline are required.";
 
       message.className =
         "message error";
@@ -23286,7 +23371,7 @@
           title,
 
         discipline:
-          discipline || "Competition",
+          serializeCompetitionDisciplines(discipline),
 
         date:
           date,
