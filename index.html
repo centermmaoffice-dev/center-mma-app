@@ -13544,15 +13544,12 @@
                   <label>Weight (kg) *</label>
                   <input id="requestWeight-${competition.id}" type="number" step="0.1" min="0" placeholder="e.g. 77.5">
 
-                  <label>Discipline *</label>
-                  <select id="requestDivision-${competition.id}" ${competitionDisciplines.length ? "" : "disabled"}>
-                    ${competitionDisciplines.length > 1
-                      ? `<option value="">Choose a discipline</option>`
-                      : ""}
+                  <label>Discipline${competitionDisciplines.length > 1 ? "s" : ""} *</label>
+                  <div id="requestDisciplines-${competition.id}" style="display:grid;gap:8px;">
                     ${competitionDisciplines.map(function (discipline) {
-                      return `<option value="${escapeHtml(discipline)}">${escapeHtml(discipline)}</option>`;
+                      return `<label style="display:flex;align-items:center;gap:10px;margin:0;"><input type="checkbox" name="requestDivision-${competition.id}" value="${escapeHtml(discipline)}" ${competitionDisciplines.length === 1 ? "checked" : ""} style="width:auto;margin:0;">${escapeHtml(discipline)}</label>`;
                     }).join("")}
-                  </select>
+                  </div>
                   ${competitionDisciplines.length
                     ? ""
                     : `<div class="muted small">The administrator has not added any disciplines yet.</div>`}
@@ -13621,7 +13618,7 @@
 
                     <div style="margin-top:10px;line-height:1.7;">
                       <div><strong>Weight:</strong> ${registration.weight != null ? escapeHtml(registration.weight) + " kg" : "-"}</div>
-                      <div><strong>Style:</strong> ${escapeHtml(registration.division || "-")}</div>
+                      <div><strong>Disciplines:</strong> ${escapeHtml(normalizeCompetitionDisciplines(registration.division).join(", ") || "-")}</div>
                       <div><strong>Age category:</strong> ${escapeHtml(registration.age_category || "-")}</div>
                       <div><strong>Level:</strong> ${escapeHtml(registration.belt || "-")}</div>
                       <div><strong>Experience:</strong> ${escapeHtml(registration.experience || "-")}</div>
@@ -13807,7 +13804,7 @@
           <div class="detail-box"><div class="detail-label">Role</div><div class="detail-value">${isTrainerParticipation ? "Trainer" : "Athlete"}</div></div>
           ${!isTrainerParticipation ? `
             <div class="detail-box"><div class="detail-label">Weight</div><div class="detail-value">${registration.weight != null ? escapeHtml(registration.weight) + " kg" : "-"}</div></div>
-            <div class="detail-box"><div class="detail-label">Style</div><div class="detail-value">${escapeHtml(registration.division || "-")}</div></div>
+            <div class="detail-box"><div class="detail-label">Disciplines</div><div class="detail-value">${escapeHtml(normalizeCompetitionDisciplines(registration.division).join(", ") || "-")}</div></div>
             <div class="detail-box"><div class="detail-label">Age</div><div class="detail-value">${escapeHtml(registration.age_category || "-")}</div></div>
             <div class="detail-box"><div class="detail-label">Level</div><div class="detail-value">${escapeHtml(registration.belt || "-")}</div></div>
             <div class="detail-box"><div class="detail-label">Experience</div><div class="detail-value">${escapeHtml(registration.experience || "-")}</div></div>
@@ -13854,7 +13851,10 @@
       );
 
     const weightRaw = document.getElementById("requestWeight-" + competitionId)?.value.trim() || "";
-    const division = document.getElementById("requestDivision-" + competitionId)?.value.trim() || "";
+    const selectedDisciplines = Array.from(
+      document.querySelectorAll(`#requestDisciplines-${competitionId} input[type="checkbox"]:checked`)
+    ).map(function (input) { return input.value.trim(); }).filter(Boolean);
+    const division = selectedDisciplines.join("\n");
     const ageCategory = document.getElementById("requestAge-" + competitionId)?.value.trim() || "";
     const belt = document.getElementById("requestBelt-" + competitionId)?.value.trim() || "";
     const experience = document.getElementById("requestExperience-" + competitionId)?.value.trim() || "";
@@ -13869,9 +13869,9 @@
       return;
     }
 
-    if (!isTrainerRequest && (!division || !ageCategory || !experience)) {
+    if (!isTrainerRequest && (!selectedDisciplines.length || !ageCategory || !experience)) {
       if (message) {
-        message.textContent = "Please select a discipline and complete age category and experience.";
+        message.textContent = "Please select at least one discipline and complete age category and experience.";
         message.className = "message error";
       }
       return;
@@ -13893,9 +13893,9 @@
       }
 
       const allowedDisciplines = normalizeCompetitionDisciplines(competition?.discipline);
-      if (!allowedDisciplines.some(function (item) { return item === division; })) {
+      if (!selectedDisciplines.every(function (item) { return allowedDisciplines.includes(item); })) {
         if (message) {
-          message.textContent = "Please choose one of the disciplines set by the administrator.";
+          message.textContent = "Please choose disciplines set by the administrator.";
           message.className = "message error";
         }
         return;
@@ -22893,6 +22893,12 @@
     const entries = Array.isArray(registration.competition_entries)
       ? [...registration.competition_entries].sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")))
       : [];
+    const selectedDisciplines = normalizeCompetitionDisciplines(registration.division);
+    const nextEntryDiscipline = selectedDisciplines.find(function (discipline) {
+      return !entries.some(function (entry) {
+        return String(entry.discipline || "").trim().toLocaleLowerCase() === discipline.toLocaleLowerCase();
+      });
+    }) || selectedDisciplines[0] || "";
 
     const entryResultText = function (entry) {
       if (entry.medal === "gold") return "🥇 Gold";
@@ -22912,7 +22918,7 @@
         <div class="detail-grid">
           <div class="detail-box"><div class="detail-label">Role</div><div class="detail-value">${isTrainerParticipation ? "Trainer" : "Athlete"}</div></div>
           ${!isTrainerParticipation ? `<div class="detail-box"><div class="detail-label">Weight</div><div class="detail-value">${registration.weight != null ? escapeHtml(registration.weight) + " kg" : "-"}</div></div>` : ""}
-          ${!isTrainerParticipation ? `<div class="detail-box"><div class="detail-label">Style</div><div class="detail-value">${escapeHtml(registration.division || "-")}</div></div>` : ""}
+          ${!isTrainerParticipation ? `<div class="detail-box"><div class="detail-label">Disciplines</div><div class="detail-value">${escapeHtml(normalizeCompetitionDisciplines(registration.division).join(", ") || "-")}</div></div>` : ""}
           <div class="detail-box"><div class="detail-label">Age</div><div class="detail-value">${escapeHtml(registration.age_category || "-")}</div></div>
           <div class="detail-box"><div class="detail-label">Belt</div><div class="detail-value">${escapeHtml(registration.belt || "-")}</div></div>
           <div class="detail-box"><div class="detail-label">Experience</div><div class="detail-value">${escapeHtml(registration.experience || "-")}</div></div>
@@ -23012,10 +23018,10 @@
             <div style="border-top:1px solid #292929; margin-top:16px; padding-top:14px;">
               <h3>Add category</h3>
 
-              <p class="muted small">The athlete's application data is prefilled. Add the result after the competition.</p>
+              <p class="muted small">The athlete's selected disciplines are prefilled. Add a separate entry for each discipline to record its category and result.</p>
 
               <label>Discipline</label>
-              <input id="newEntryDiscipline-${registration.id}" value="${escapeHtml(registration.division || "")}" placeholder="e.g. Grappling, MMA, Kickboxing, Boxing">
+              <input id="newEntryDiscipline-${registration.id}" value="${escapeHtml(nextEntryDiscipline)}" placeholder="e.g. Grappling, MMA, Kickboxing, Boxing">
 
               <label>Category</label>
               <input id="newEntryCategory-${registration.id}" value="${escapeHtml(registration.age_category || "")}" placeholder="e.g. -90 kg, Absolute, Adult Advanced">
