@@ -1,4 +1,101 @@
-const CENTER_MMA_SW_VERSION = '20261012-1';
+const CENTER_MMA_SW_VERSION = '20261017-1';
+
+// A private-message push is sent once per message and once per subscribed
+// device. Collect short bursts so the device shows one summary notification.
+let privateMessagePushQueue = [];
+let privateMessagePushTimer = null;
+let privateMessagePushFlush = null;
+
+function acknowledgePrivateMessagePush(data) {
+  if (!data.deliveryAckToken || !data.deliveryAckUrl || !data.deliveryAckKey) {
+    return Promise.resolve();
+  }
+  return fetch(data.deliveryAckUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': data.deliveryAckKey,
+      'Authorization': 'Bearer ' + data.deliveryAckKey
+    },
+    body: JSON.stringify({ p_token: data.deliveryAckToken })
+  }).then(function (response) {
+    if (!response.ok) {
+      throw new Error('Private-message push receipt acknowledgement failed: ' + response.status);
+    }
+  });
+}
+
+async function flushPrivateMessagePushes() {
+  if (privateMessagePushFlush) {
+    await privateMessagePushFlush;
+    if (privateMessagePushQueue.length) return flushPrivateMessagePushes();
+    return;
+  }
+
+  const batch = privateMessagePushQueue.splice(0);
+  if (!batch.length) return;
+  privateMessagePushFlush = (async function () {
+    const notificationTag = 'center-mma-private-messages';
+    const latest = batch[batch.length - 1].data;
+    const existing = await self.registration.getNotifications({ tag: notificationTag });
+    const previousCount = Number(existing[0]?.data?.messageCount || 0);
+    const messageCount = previousCount + batch.length;
+    const latestBody = latest.message || latest.body || '';
+    const body = messageCount === 1
+      ? latestBody
+      : messageCount + ' новых сообщений. Последнее: ' + latestBody;
+
+    await self.registration.showNotification(
+      messageCount === 1 ? (latest.title || 'CENTER MMA') : 'CENTER MMA — новые сообщения',
+      {
+        body: body,
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        tag: notificationTag,
+        renotify: false,
+        data: {
+          notificationId: latest.notificationId || null,
+          linkSection: latest.linkSection || null,
+          messageId: latest.messageId || null,
+          messageCount: messageCount,
+          url: latest.url || '/'
+        }
+      }
+    );
+
+    // The displayed summary represents every push in this batch. Acknowledge
+    // each message separately so delivery receipts remain accurate.
+    await Promise.all(batch.map(function (item) {
+      return acknowledgePrivateMessagePush(item.data);
+    }));
+  })();
+
+  try {
+    await privateMessagePushFlush;
+    batch.forEach(function (item) { item.resolve(); });
+  } catch (error) {
+    batch.forEach(function (item) { item.reject(error); });
+    throw error;
+  } finally {
+    privateMessagePushFlush = null;
+    if (privateMessagePushQueue.length) {
+      return flushPrivateMessagePushes();
+    }
+  }
+}
+
+function queuePrivateMessagePush(data) {
+  return new Promise(function (resolve, reject) {
+    privateMessagePushQueue.push({ data: data, resolve: resolve, reject: reject });
+    if (privateMessagePushTimer) clearTimeout(privateMessagePushTimer);
+    privateMessagePushTimer = setTimeout(function () {
+      privateMessagePushTimer = null;
+      void flushPrivateMessagePushes().catch(function (error) {
+        console.error('Could not show grouped private-message notification:', error);
+      });
+    }, 900);
+  });
+}
 
 self.addEventListener('install', function (event) {
   // Activate the current push handler immediately after deployment.
@@ -41,25 +138,11 @@ self.addEventListener('push', function (event) {
     }
   };
 
-  event.waitUntil((async function () {
-    // Only acknowledge after the browser has successfully displayed the push.
-    await self.registration.showNotification(title, options);
+  const delivery = data.messageId && data.deliveryAckToken
+    ? queuePrivateMessagePush(data)
+    : self.registration.showNotification(title, options);
 
-    if (data.deliveryAckToken && data.deliveryAckUrl && data.deliveryAckKey) {
-      const response = await fetch(data.deliveryAckUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': data.deliveryAckKey,
-          'Authorization': 'Bearer ' + data.deliveryAckKey
-        },
-        body: JSON.stringify({ p_token: data.deliveryAckToken })
-      });
-      if (!response.ok) {
-        console.error('Private-message push receipt acknowledgement failed:', response.status);
-      }
-    }
-  })().catch(function (error) {
+  event.waitUntil(Promise.resolve(delivery).catch(function (error) {
     console.error('Could not display or acknowledge push notification:', error);
   }));
 });
