@@ -138,25 +138,17 @@ async function handle(request, env, ctx) {
       : new Uint8Array(0);
     const httpMetadata = { contentType, cacheControl: "public, max-age=31536000, immutable" };
     try {
-      if (contentLength > 0) {
-        // R2 requires the length of a readable stream. Forward through a
-        // FixedLengthStream so streaming uploads do not need to be buffered.
-        const fixed = new FixedLengthStream(contentLength);
-        const [putResult, pumpResult] = await Promise.allSettled([
-          env.ASSETS.put(key, fixed.readable, { httpMetadata }),
-          uploadBody.pipeTo(fixed.writable),
-        ]);
-        if (putResult.status === "rejected") throw putResult.reason;
-        if (pumpResult.status === "rejected") throw pumpResult.reason;
-      } else {
-        // Some clients omit Content-Length; buffer this one bounded upload so
-        // R2 receives a body with a known size.
-        const bytes = await new Response(uploadBody).arrayBuffer();
-        await env.ASSETS.put(key, bytes, { httpMetadata });
+      // Buffer within the per-bucket size cap before writing to R2. This
+      // avoids runtime-dependent stream-length handling and gives R2 a body
+      // with a known byte length for every browser upload.
+      const bytes = await new Response(uploadBody).arrayBuffer();
+      if (contentLength && contentLength !== bytes.byteLength) {
+        throw new Error("Uploaded file length did not match Content-Length");
       }
+      await env.ASSETS.put(key, bytes, { httpMetadata });
 
       const stored = await env.ASSETS.head(key);
-      if (!stored || stored.size !== byteCount || (contentLength && contentLength !== byteCount)) {
+      if (!stored || stored.size !== byteCount || stored.size !== bytes.byteLength) {
         throw new Error("R2 upload verification failed");
       }
     } catch (error) {
