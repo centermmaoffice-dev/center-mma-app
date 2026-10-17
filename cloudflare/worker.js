@@ -158,7 +158,9 @@ async function handle(request, env, ctx) {
     }
     const marker = await fetch(`${env.SUPABASE_URL}/storage/v1/object/${bucket}/${path.split("/").map(encodeURIComponent).join("/")}`, {
       method: "POST",
-      headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: bearer, "Content-Type": "application/octet-stream", "x-upsert": String(upsert) },
+      // Match the original file's allowed MIME type so Supabase Storage accepts
+      // the metadata marker under the bucket's MIME restrictions.
+      headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: bearer, "Content-Type": contentType, "x-upsert": String(upsert) },
       // Supabase Storage may reject a zero-byte upload; this tiny marker keeps
       // the object row and RLS path without duplicating the actual media.
       body: new Uint8Array([0]),
