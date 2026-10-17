@@ -159,10 +159,16 @@ async function handle(request, env, ctx) {
     const marker = await fetch(`${env.SUPABASE_URL}/storage/v1/object/${bucket}/${path.split("/").map(encodeURIComponent).join("/")}`, {
       method: "POST",
       headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: bearer, "Content-Type": "application/octet-stream", "x-upsert": String(upsert) },
-      body: new Uint8Array(0),
+      // Supabase Storage may reject a zero-byte upload; this tiny marker keeps
+      // the object row and RLS path without duplicating the actual media.
+      body: new Uint8Array([0]),
     });
     // Keep the R2 copy if metadata creation fails: an upsert may have replaced a previous object.
-    if (!marker.ok) throw new Error("Could not preserve Supabase access policy for this file");
+    if (!marker.ok) {
+      const markerError = (await marker.text().catch(() => "")).slice(0, 300);
+      if (!upsert) await env.ASSETS.delete(key).catch(() => {});
+      throw new Error(`Could not preserve Supabase access policy for this file (Storage ${marker.status}${markerError ? `: ${markerError}` : ""})`);
+    }
     return response(JSON.stringify({ path }), 200, origin, { "Content-Type": "application/json", "Cache-Control": "no-store" });
   }
 

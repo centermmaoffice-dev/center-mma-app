@@ -1,6 +1,6 @@
 # Center MMA media Worker
 
-This Worker stores file bytes in the private `centermma-assets` R2 bucket under `{bucket}/{path}`. It checks Supabase Storage RLS before private reads, uploads, and deletes. New uploads put the bytes in R2 and leave only a zero-byte marker in Supabase so the existing access policies continue to work.
+This Worker stores file bytes in the private `centermma-assets` R2 bucket under `{bucket}/{path}`. It checks Supabase Storage RLS before private reads, uploads, and deletes. New uploads put the bytes in R2 and leave only a one-byte metadata marker in Supabase so the existing access policies continue to work without duplicating the media file.
 
 ## Existing files during cutover
 
