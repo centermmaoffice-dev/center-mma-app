@@ -1,4 +1,4 @@
-const CENTER_MMA_SW_VERSION = '20261017-1';
+const CENTER_MMA_SW_VERSION = '20261018-1';
 
 // A private-message push is sent once per message and once per subscribed
 // device. Collect short bursts so the device shows one summary notification.
