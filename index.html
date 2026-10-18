@@ -3461,7 +3461,7 @@
   const VAPID_PUBLIC_KEY =
     "BIJi6qQE8PfytW7crRpWCDtNu9N2i31_rRZ2mQScR4hPTtGM7RjyuuzWqLbw97bJnuFkbVkCJthO3YpKH0gPlHw";
 
-  const SERVICE_WORKER_URL = "/sw.js?v=20261017-1";
+  const SERVICE_WORKER_URL = "/sw.js?v=20261018-1";
 
   const supabaseClient =
     supabase.createClient(
@@ -3471,6 +3471,64 @@
 
   // R2 media endpoint. Set this to the deployed Cloudflare Worker URL.
   const R2_MEDIA_WORKER_URL = "https://center-mma-media.centermmaoffice.workers.dev";
+  async function r2PrepareImageUpload(bucket, file) {
+    const policies = {
+      "member-photos": { maxDimension: 1200, targetBytes: 1024 * 1024, maxBytes: 5 * 1024 * 1024 },
+      "news-images": { maxDimension: 1920, targetBytes: 1536 * 1024, maxBytes: 8 * 1024 * 1024 },
+      "shop-images": { maxDimension: 1920, targetBytes: 1536 * 1024, maxBytes: 8 * 1024 * 1024 },
+      "training-library": { maxDimension: 1920, targetBytes: 2 * 1024 * 1024, maxBytes: 20 * 1024 * 1024 }
+    };
+    const policy = policies[bucket];
+    if (!policy || !file?.type || !["image/jpeg", "image/png", "image/webp"].includes(file.type)) return file;
+    if (file.size > 30 * 1024 * 1024) throw new Error("Choose an image smaller than 30 MB before optimization.");
+
+    let bitmap;
+    try {
+      if (typeof createImageBitmap !== "function") return file;
+      bitmap = await createImageBitmap(file);
+      const longestSide = Math.max(bitmap.width, bitmap.height);
+      const scale = Math.min(1, policy.maxDimension / longestSide);
+      const width = Math.max(1, Math.round(bitmap.width * scale));
+      const height = Math.max(1, Math.round(bitmap.height * scale));
+      if (scale === 1 && file.size <= policy.targetBytes) return file;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d", { alpha: file.type !== "image/jpeg" });
+      if (!context) return file;
+      if (file.type === "image/jpeg") {
+        context.fillStyle = "#fff";
+        context.fillRect(0, 0, width, height);
+      }
+      context.drawImage(bitmap, 0, 0, width, height);
+
+      const qualities = file.type === "image/png" ? [undefined] : [0.82, 0.72, 0.62, 0.52];
+      let best = null;
+      for (const quality of qualities) {
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, file.type, quality));
+        if (!blob || blob.type !== file.type) break;
+        if (!best || blob.size < best.size) best = blob;
+        if (blob.size <= policy.targetBytes) break;
+      }
+      canvas.width = 0;
+      canvas.height = 0;
+      if (!best || best.size >= file.size) return file;
+      if (best.size > policy.maxBytes) {
+        throw new Error("This image is still too large after resizing. Choose a smaller image or save it as JPG/WebP.");
+      }
+      if (typeof File === "function" && file.name) {
+        return new File([best], file.name, { type: file.type, lastModified: file.lastModified || Date.now() });
+      }
+      return best;
+    } catch (error) {
+      if (error?.message?.includes("still too large")) throw error;
+      console.warn("Could not optimize image; uploading the original instead.", error);
+      return file;
+    } finally {
+      bitmap?.close?.();
+    }
+  }
   function r2ResolvePublicImageUrl(value) {
     const source = String(value || "");
     const match = source.match(/\/storage\/v1\/object\/public\/(news-images|shop-images)\/(.+)$/);
@@ -3509,9 +3567,12 @@
         },
         async upload(path, file, options = {}) {
           try {
+            const uploadBody = await r2PrepareImageUpload(bucket, file);
+            const maxBytes = bucket === "member-photos" ? 5 * 1024 * 1024 : bucket === "news-images" || bucket === "shop-images" ? 8 * 1024 * 1024 : bucket === "training-library" ? 20 * 1024 * 1024 : Infinity;
+            if (uploadBody.size > maxBytes) throw new Error("The image is too large after optimization. Choose a smaller image.");
             const query = new URLSearchParams({ bucket, path, upsert: String(options.upsert === true) });
-            await api(`/v1/upload?${query}`, { method: "POST", headers: { "Content-Type": options.contentType || file.type || "application/octet-stream" }, body: file });
-            return { data: { path }, error: null };
+            await api(`/v1/upload?${query}`, { method: "POST", headers: { "Content-Type": options.contentType || uploadBody.type || file.type || "application/octet-stream" }, body: uploadBody });
+            return { data: { path, size: uploadBody.size, originalSize: file.size, optimized: uploadBody.size < file.size }, error: null };
           } catch (error) { return { data: null, error }; }
         },
         async download(path) {
@@ -9521,11 +9582,11 @@
 
     if (
       file.size >
-      5 * 1024 * 1024
+      30 * 1024 * 1024
     ) {
 
       message.textContent =
-        "Photo must be smaller than 5 MB.";
+        "Photo must be smaller than 30 MB before optimization.";
 
       message.className =
         "message error";
@@ -17384,7 +17445,7 @@
       const memberId = escapeHtml(member.id);
       const name = [member.first_name, member.last_name].filter(Boolean).join(" ").trim() || "Member";
       const assignedGroups = groupsByMember.get(member.id) || [];
-      return `<div class="card" style="padding:15px;margin-bottom:10px;"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;"><strong>${escapeHtml(name)}</strong><span class="muted small">${member.is_active === false ? "Inactive" : "Active"}</span></div>${member.user_id ? `<div style="border-top:1px solid #292929;margin-top:12px;padding-top:12px;"><label style="display:block;">Set profile photo<input id="communityMemberPhoto-${memberId}" type="file" accept="image/jpeg,image/png,image/webp" onchange="uploadAdminMemberProfilePhoto(event,'${memberId}')" style="margin-top:7px;"></label><div class="muted small">JPG, PNG or WebP, up to 5 MB.</div><div id="communityMemberPhotoStatus-${memberId}" class="message small"></div></div>` : `<div class="muted small" style="margin-top:10px;">A login account is required to set a profile photo.</div>`}${checkbox(`communityVisible-${memberId}`, "Show in Community", member.community_visible !== false, "Hidden members and their pages are excluded from Community.")}${checkbox(`communityPhoto-${memberId}`, "Show photo", member.community_show_photo !== false)}${checkbox(`communityGroups-${memberId}`, "Show groups", member.community_show_groups !== false)}${checkbox(`communityCompetition-${memberId}`, "Show upcoming competition", member.community_show_upcoming_competition !== false)}<div class="community-admin-groups" style="border-top:1px solid #292929;margin-top:12px;padding-top:8px;"><div class="community-detail-heading">Groups shown on athlete page</div>${assignedGroups.length ? assignedGroups.map(group => checkbox(`communityGroup-${memberId}-${escapeHtml(group.id)}`, escapeHtml(group.name), !hiddenSet.has(`${member.id}:${group.id}`))).join("") : '<div class="muted small">No groups assigned.</div>'}</div><div id="communityAdminStatus-${memberId}" class="message small"></div></div>`;
+      return `<div class="card" style="padding:15px;margin-bottom:10px;"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;"><strong>${escapeHtml(name)}</strong><span class="muted small">${member.is_active === false ? "Inactive" : "Active"}</span></div>${member.user_id ? `<div style="border-top:1px solid #292929;margin-top:12px;padding-top:12px;"><label style="display:block;">Set profile photo<input id="communityMemberPhoto-${memberId}" type="file" accept="image/jpeg,image/png,image/webp" onchange="uploadAdminMemberProfilePhoto(event,'${memberId}')" style="margin-top:7px;"></label><div class="muted small">JPG, PNG or WebP, up to 30 MB before automatic optimization.</div><div id="communityMemberPhotoStatus-${memberId}" class="message small"></div></div>` : `<div class="muted small" style="margin-top:10px;">A login account is required to set a profile photo.</div>`}${checkbox(`communityVisible-${memberId}`, "Show in Community", member.community_visible !== false, "Hidden members and their pages are excluded from Community.")}${checkbox(`communityPhoto-${memberId}`, "Show photo", member.community_show_photo !== false)}${checkbox(`communityGroups-${memberId}`, "Show groups", member.community_show_groups !== false)}${checkbox(`communityCompetition-${memberId}`, "Show upcoming competition", member.community_show_upcoming_competition !== false)}<div class="community-admin-groups" style="border-top:1px solid #292929;margin-top:12px;padding-top:8px;"><div class="community-detail-heading">Groups shown on athlete page</div>${assignedGroups.length ? assignedGroups.map(group => checkbox(`communityGroup-${memberId}-${escapeHtml(group.id)}`, escapeHtml(group.name), !hiddenSet.has(`${member.id}:${group.id}`))).join("") : '<div class="muted small">No groups assigned.</div>'}</div><div id="communityAdminStatus-${memberId}" class="message small"></div></div>`;
     }).join("")}`;
 
     members.forEach(member => {
@@ -17444,8 +17505,8 @@
       input.value = "";
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setStatus("The photo must be 5 MB or smaller.", "message error small");
+    if (file.size > 30 * 1024 * 1024) {
+      setStatus("The photo must be 30 MB or smaller before optimization.", "message error small");
       input.value = "";
       return;
     }
@@ -19473,7 +19534,7 @@
         ></div>
 
         <p class="muted small" style="margin-top:8px;">
-          JPG, PNG or WebP. Maximum 8 MB.
+          JPG, PNG or WebP. Maximum 30 MB before automatic optimization.
         </p>
 
 
@@ -19764,8 +19825,8 @@
       return "Please select a JPG, PNG or WebP image.";
     }
 
-    if (file.size > 8 * 1024 * 1024) {
-      return "Image must be smaller than 8 MB.";
+    if (file.size > 30 * 1024 * 1024) {
+      return "Image must be smaller than 30 MB before automatic optimization.";
     }
 
     return null;
@@ -27154,8 +27215,8 @@
       return "Please select a JPG, PNG or WebP image.";
     }
 
-    if (file.size > 8 * 1024 * 1024) {
-      return "Image must be smaller than 8 MB.";
+    if (file.size > 30 * 1024 * 1024) {
+      return "Image must be smaller than 30 MB before automatic optimization.";
     }
 
     return null;
