@@ -16607,6 +16607,7 @@
 
     const [
       groupsResult,
+      membersResult,
       historyResult
     ] = await Promise.all([
 
@@ -16619,6 +16620,12 @@
             ascending: true
           }
         ),
+
+      supabaseClient
+        .from("members")
+        .select("user_id, first_name, last_name, is_active")
+        .not("user_id", "is", null)
+        .order("first_name", { ascending: true }),
 
       supabaseClient
         .from("notifications")
@@ -16653,6 +16660,12 @@
       return;
     }
 
+    if (membersResult.error) {
+      console.error("Could not load notification recipients:", membersResult.error);
+      element.innerHTML += `<div class="card"><div class="message error">Could not load members for targeted notifications: ${escapeHtml(membersResult.error.message)}</div></div>`;
+      return;
+    }
+
     if (historyResult.error) {
 
       console.error(
@@ -16662,6 +16675,14 @@
 
     const groups =
       groupsResult.data || [];
+
+    const notificationMembers = (membersResult.data || [])
+      .filter(member => member.user_id && member.is_active !== false)
+      .sort((a, b) => {
+        const nameA = [a.first_name, a.last_name].filter(Boolean).join(" ");
+        const nameB = [b.first_name, b.last_name].filter(Boolean).join(" ");
+        return nameA.localeCompare(nameB);
+      });
 
     const history =
       (historyResult.data || []).filter(function (item) {
@@ -16697,7 +16718,7 @@
         </h3>
 
         <p class="muted small">
-          Send a notification to all members or only one group.
+          Send to everyone, one or more groups, or selected members.
         </p>
 
         <label>
@@ -16706,6 +16727,7 @@
 
         <select
           id="adminNotificationRecipient"
+          onchange="toggleAdminNotificationRecipientFields()"
           style="
             width:100%;
             background:#0d0d0d;
@@ -16720,20 +16742,28 @@
           <option value="all">
             All Members
           </option>
-
-          ${
-            groups
-              .map(
-                group => `
-                  <option value="group:${group.id}">
-                    ${escapeHtml(group.name)}
-                  </option>
-                `
-              )
-              .join("")
-          }
+          <option value="groups">One or more groups</option>
+          <option value="people">Selected members</option>
 
         </select>
+
+        <div id="adminNotificationGroupsPanel" style="display:none;margin-top:10px;">
+          <div class="muted small" style="margin-bottom:6px;">Choose one or more groups:</div>
+          <div style="max-height:180px;overflow:auto;padding:8px 12px;border:1px solid #333;border-radius:9px;">
+            ${groups.map(group => `<label style="display:flex;gap:8px;align-items:center;margin:7px 0;"><input type="checkbox" name="adminNotificationGroup" value="${escapeHtml(group.id)}" style="width:18px;flex:0 0 18px;margin:0;"><span>${escapeHtml(group.name)}</span></label>`).join("") || '<div class="muted small">No groups are available.</div>'}
+          </div>
+        </div>
+
+        <div id="adminNotificationPeoplePanel" style="display:none;margin-top:10px;">
+          <input id="adminNotificationMemberSearch" type="search" placeholder="Search members..." oninput="filterAdminNotificationMembers()" style="width:100%;">
+          <div class="muted small" style="margin:6px 0;">Choose one or more active members:</div>
+          <div id="adminNotificationMemberList" style="max-height:220px;overflow:auto;padding:8px 12px;border:1px solid #333;border-radius:9px;">
+            ${notificationMembers.map(member => {
+              const name = [member.first_name, member.last_name].filter(Boolean).join(" ").trim() || "Member";
+              return `<label data-notification-member-row data-search="${escapeHtml(name.toLocaleLowerCase())}" style="display:flex;gap:8px;align-items:center;margin:7px 0;"><input type="checkbox" name="adminNotificationMember" value="${escapeHtml(member.user_id)}" style="width:18px;flex:0 0 18px;margin:0;"><span>${escapeHtml(name)}</span></label>`;
+            }).join("") || '<div class="muted small">No active members with accounts are available.</div>'}
+          </div>
+        </div>
 
 
         <label>
@@ -16760,7 +16790,7 @@
           <input type="checkbox" id="adminNotificationPollEnabled">
           Add private attendance poll (Yes / No / Unsure)
         </label>
-        <p class="muted small">You can send this poll to all members or limit it to one group. Only admins can see who voted and the totals.</p>
+        <p class="muted small">Polls can be sent to all members or one group. Only admins can see who voted and the totals.</p>
 
 
         <label>
@@ -17129,6 +17159,21 @@
   }
 
 
+  function toggleAdminNotificationRecipientFields() {
+    const recipient = document.getElementById("adminNotificationRecipient")?.value;
+    const groupsPanel = document.getElementById("adminNotificationGroupsPanel");
+    const peoplePanel = document.getElementById("adminNotificationPeoplePanel");
+    if (groupsPanel) groupsPanel.style.display = recipient === "groups" ? "block" : "none";
+    if (peoplePanel) peoplePanel.style.display = recipient === "people" ? "block" : "none";
+  }
+
+  function filterAdminNotificationMembers() {
+    const query = (document.getElementById("adminNotificationMemberSearch")?.value || "").trim().toLocaleLowerCase();
+    document.querySelectorAll("[data-notification-member-row]").forEach(row => {
+      row.style.display = !query || (row.dataset.search || "").includes(query) ? "flex" : "none";
+    });
+  }
+
   async function sendAdminNotification() {
 
     if (!isAdmin) {
@@ -17191,7 +17236,18 @@
       "message";
 
     let userIds = [];
-    let groupId = null;
+    const selectedGroupIds = recipient === "groups"
+      ? [...document.querySelectorAll('input[name="adminNotificationGroup"]:checked')].map(input => input.value)
+      : [];
+    const selectedPeopleIds = recipient === "people"
+      ? [...document.querySelectorAll('input[name="adminNotificationMember"]:checked')].map(input => input.value)
+      : [];
+
+    if (pollEnabled && (recipient === "people" || (recipient === "groups" && selectedGroupIds.length !== 1))) {
+      status.textContent = "For a poll, choose All Members or exactly one group.";
+      status.className = "message error";
+      return;
+    }
 
     if (recipient === "all") {
 
@@ -17233,16 +17289,12 @@
               member.user_id
           );
 
-    } else if (
-      recipient.startsWith(
-        "group:"
-      )
-    ) {
-
-      groupId =
-        recipient.slice(
-          "group:".length
-        );
+    } else if (recipient === "groups") {
+      if (selectedGroupIds.length === 0) {
+        status.textContent = "Choose at least one group.";
+        status.className = "message error";
+        return;
+      }
 
       const {
         data: groupMembers,
@@ -17256,10 +17308,7 @@
             is_active
           )
         `)
-        .eq(
-          "group_id",
-          groupId
-        );
+        .in("group_id", selectedGroupIds);
 
       if (error) {
 
@@ -17291,6 +17340,13 @@
             member =>
               member.user_id
           );
+    } else if (recipient === "people") {
+      if (selectedPeopleIds.length === 0) {
+        status.textContent = "Choose at least one member.";
+        status.className = "message error";
+        return;
+      }
+      userIds = selectedPeopleIds;
     }
 
     userIds =
@@ -17309,27 +17365,28 @@
       return;
     }
 
-    // One database row for a broadcast instead of one duplicate row per member.
-    // user_id = null + group_id = null means all members.
-    // user_id = null + group_id = <id> means one specific group.
-    const row = {
-      user_id: null,
-      group_id: groupId,
-      title: title,
-      message: message,
+    // Broadcasts and groups use one row each. Personal notices require one row
+    // per user so Supabase's existing user_id visibility rule keeps them private.
+    const commonRow = {
+      title,
+      message,
       type: "admin",
       link_section: linkSection,
       created_by: currentUser.id
     };
+    const notificationRows = recipient === "all"
+      ? [{ ...commonRow, user_id: null, group_id: null }]
+      : recipient === "groups" && selectedGroupIds.length === 1
+        ? [{ ...commonRow, user_id: null, group_id: selectedGroupIds[0] }]
+        : userIds.map(user_id => ({ ...commonRow, user_id, group_id: null }));
 
     const {
-      data: insertedNotification,
+      data: insertedNotifications,
       error
     } = await supabaseClient
       .from("notifications")
-      .insert(row)
-      .select("id")
-      .single();
+      .insert(notificationRows)
+      .select("id");
 
     if (error) {
 
@@ -17345,51 +17402,49 @@
       return;
     }
 
-    let pushSummary = "Push delivery result is unavailable.";
-    let pushFailed = false;
-
-    if (insertedNotification?.id) {
-      if (pollEnabled) {
-        const { error: pollError } = await supabaseClient
-          .from("notification_polls")
-          .insert({ notification_id: insertedNotification.id });
-        if (pollError) {
-          status.textContent = "Notification saved, but the poll could not be created: " + pollError.message;
-          status.className = "message error";
-          return;
-        }
-      }
-
-      try {
-        const { data: pushData, error: pushError } = await supabaseClient.functions.invoke(
-          "send-push",
-          { body: { notificationId: insertedNotification.id } }
-        );
-
-        if (pushError) {
-          console.error("Could not trigger push notification:", pushError);
-          pushSummary = "Push failed: " + (pushError.message || String(pushError));
-          pushFailed = true;
-        } else {
-          const sent = Number(pushData?.sent || 0);
-          const failures = Number(pushData?.failures || 0);
-          const activeSubscriptions = Number(pushData?.activeSubscriptions ?? pushData?.recipients ?? 0);
-          const eligibleSubscriptions = Number(pushData?.eligibleSubscriptions ?? activeSubscriptions);
-          const removed = Number(pushData?.removed || 0);
-          if (sent > 0) {
-            pushSummary = `Push accepted by ${sent} device${sent === 1 ? "" : "s"}${failures ? `; ${failures} failed` : ""}.`;
-            pushFailed = failures > 0;
-          } else {
-            pushSummary = `No push reached a device (active subscriptions: ${activeSubscriptions}; eligible: ${eligibleSubscriptions}; failures: ${failures}; expired removed: ${removed}).`;
-            pushFailed = true;
-          }
-        }
-      } catch (pushError) {
-        console.error("Could not trigger push notification:", pushError);
-        pushSummary = "Push failed: " + (pushError?.message || String(pushError));
-        pushFailed = true;
+    const notificationIds = (insertedNotifications || []).map(item => item.id).filter(Boolean);
+    if (pollEnabled && notificationIds.length) {
+      const { error: pollError } = await supabaseClient
+        .from("notification_polls")
+        .insert(notificationIds.map(notification_id => ({ notification_id })));
+      if (pollError) {
+        status.textContent = "Notification saved, but the poll could not be created: " + pollError.message;
+        status.className = "message error";
+        return;
       }
     }
+
+    let totalSent = 0;
+    let totalFailures = 0;
+    let totalEligible = 0;
+    let pushFailed = false;
+    for (let offset = 0; offset < notificationIds.length; offset += 5) {
+      const batch = notificationIds.slice(offset, offset + 5);
+      const results = await Promise.all(batch.map(async notificationId => {
+        try {
+          return await supabaseClient.functions.invoke("send-push", { body: { notificationId } });
+        } catch (pushError) {
+          return { error: pushError };
+        }
+      }));
+      for (const result of results) {
+        if (result.error) {
+          console.error("Could not trigger push notification:", result.error);
+          totalFailures++;
+          pushFailed = true;
+          continue;
+        }
+        const pushData = result.data || {};
+        totalSent += Number(pushData.sent || 0);
+        totalFailures += Number(pushData.failures || 0);
+        totalEligible += Number(pushData.eligibleSubscriptions ?? pushData.activeSubscriptions ?? pushData.recipients ?? 0);
+      }
+    }
+
+    if (totalSent === 0) pushFailed = true;
+    const pushSummary = totalSent
+      ? `Push accepted by ${totalSent} device${totalSent === 1 ? "" : "s"}${totalFailures ? `; ${totalFailures} failed` : ""}.`
+      : `No push reached a device (eligible subscriptions: ${totalEligible}; failures: ${totalFailures}).`;
 
     status.textContent =
       `Notification saved for ${userIds.length} recipient${userIds.length === 1 ? "" : "s"}. ${pushSummary}`;
@@ -17405,6 +17460,15 @@
         "adminNotificationMessage"
       )
       .value = "";
+
+    document.querySelectorAll('input[name="adminNotificationGroup"], input[name="adminNotificationMember"]')
+      .forEach(input => { input.checked = false; });
+    const search = document.getElementById("adminNotificationMemberSearch");
+    if (search) search.value = "";
+    filterAdminNotificationMembers();
+    const recipientSelect = document.getElementById("adminNotificationRecipient");
+    if (recipientSelect) recipientSelect.value = "all";
+    toggleAdminNotificationRecipientFields();
   }
 
 
