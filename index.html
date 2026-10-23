@@ -13222,9 +13222,13 @@
     if (error || !poll) return;
     const { data: ownVote } = await supabaseClient.from("notification_poll_votes")
       .select("choice").eq("poll_id", poll.id).eq("user_id", currentUser.id).maybeSingle();
-    const choices = [["yes", "Yes"], ["no", "No"], ["unsure", "Unsure"]];
+    const translate = phrase => window.translatePhrase?.(phrase) || phrase;
+    const choices = [
+      ["yes", translate("Yes")],
+      ["no", translate("No")],
+      ["unsure", translate("Unsure")]
+    ];
     element.innerHTML = `
-      <h3>Will you attend?</h3>
       <div class="admin-actions">
         ${choices.map(([value,label]) => `
           <button type="button" class="${ownVote?.choice === value ? "" : "secondary"}"
@@ -13232,7 +13236,7 @@
             ${label}</button>`).join("")}
       </div>
       <div class="muted small" style="margin-top:8px;">
-        ${ownVote ? "Your answer: " + (choices.find(c => c[0] === ownVote.choice)?.[1] || ownVote.choice) + ". You can change it." : "Only admins can see the results."}
+        ${ownVote ? `${translate("Your answer")}: ${choices.find(c => c[0] === ownVote.choice)?.[1] || ownVote.choice}. ${translate("You can change it.")}` : translate("Only admins can see the results.")}
       </div>
       ${isAdmin ? '<div id="notificationPollResults-' + poll.id + '"></div>' : ""}
     `;
@@ -13260,12 +13264,18 @@
       .select("user_id,first_name,last_name").in("user_id", ids) : { data: [] };
     const names = new Map((members.data || []).map(m =>
       [m.user_id, [m.first_name,m.last_name].filter(Boolean).join(" ")]));
+    const translate = phrase => window.translatePhrase?.(phrase) || phrase;
+    const choiceLabel = choice => ({
+      yes: translate("Yes"),
+      no: translate("No"),
+      unsure: translate("Unsure")
+    }[choice] || choice);
     element.innerHTML = `
-      <p><strong>Yes: ${votes.filter(v => v.choice === "yes").length} ·
-      No: ${votes.filter(v => v.choice === "no").length} ·
-      Unsure: ${votes.filter(v => v.choice === "unsure").length}</strong></p>
+      <p><strong>${translate("Yes")}: ${votes.filter(v => v.choice === "yes").length} ·
+      ${translate("No")}: ${votes.filter(v => v.choice === "no").length} ·
+      ${translate("Unsure")}: ${votes.filter(v => v.choice === "unsure").length}</strong></p>
       ${votes.map(v => `<div class="muted small">${escapeHtml(names.get(v.user_id) || v.user_id)}:
-      ${escapeHtml(v.choice)}</div>`).join("")}
+      ${escapeHtml(choiceLabel(v.choice))}</div>`).join("")}
     `;
   }
 
