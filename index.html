@@ -16750,7 +16750,7 @@
           <input type="checkbox" id="adminNotificationPollEnabled">
           Add private attendance poll (Yes / No / Unsure)
         </label>
-        <p class="muted small">Only admins can see who voted and the totals.</p>
+        <p class="muted small">You can send this poll to all members or limit it to one group. Only admins can see who voted and the totals.</p>
 
 
         <label>
@@ -17162,11 +17162,6 @@
       null;
 
     const pollEnabled = document.getElementById("adminNotificationPollEnabled")?.checked;
-    if (pollEnabled && !recipient.startsWith("group:")) {
-      status.textContent = "Choose a group for this poll.";
-      status.className = "message error";
-      return;
-    }
 
     if (!title || !message) {
 
