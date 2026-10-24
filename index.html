@@ -4766,7 +4766,7 @@
           title: "Birthday today",
           message: message,
           type: "birthday",
-          link_section: "home",
+          link_section: "birthday:" + birthdayMember.user_id,
           created_by: currentUser.id
         });
       });
@@ -13090,6 +13090,11 @@
       return;
     }
 
+    const birthdayRecipient =
+      item.type === "birthday" && item.title === "Birthday today"
+        ? await resolveBirthdayNotificationRecipient(item)
+        : null;
+
     if (isAdmin && isPaymentRequestNotification(item)) {
       await supabaseClient
         .from("notification_reads")
@@ -13181,7 +13186,15 @@
         </div>
 
         ${
-          item.link_section
+          birthdayRecipient
+            ? `
+              <button type="button" onclick="openBirthdayPrivateChat('${item.id}','${birthdayRecipient.user_id}')" style="margin-top:16px;">
+                Zum Geburtstag gratulieren
+              </button>
+            `
+            : item.type === "birthday" && item.title === "Birthday today"
+              ? `<div class="message" style="margin-top:16px;">Der Geburtstags-Empfänger konnte für diese Benachrichtigung nicht eindeutig ermittelt werden.</div>`
+          : item.link_section && !(item.type === "birthday" && item.title === "Birthday today")
             ? `
               <button
                 onclick="openNotificationRelatedSection(
@@ -13205,6 +13218,84 @@
 
     await renderNotificationPoll(item.id);
     await loadNotificationBadge();
+  }
+
+  async function resolveBirthdayNotificationRecipient(item) {
+    const linkedUser = /^birthday:([0-9a-f-]{36})$/i.exec(String(item.link_section || ""));
+    if (linkedUser) return { user_id: linkedUser[1] };
+
+    // Older notices did not store the celebrant's ID. Resolve only when one
+    // member had a birthday on that date; never guess from the message text.
+    const notificationDate = new Date(item.created_at);
+    if (Number.isNaN(notificationDate.getTime())) return null;
+    const { data: members, error } = await supabaseClient
+      .from("members")
+      .select("user_id,first_name,last_name,email,birth_date,is_active,role")
+      .not("birth_date", "is", null);
+    if (error) {
+      console.error("Could not resolve birthday notification recipient:", error);
+      return null;
+    }
+    const day = notificationDate.getDate();
+    const month = notificationDate.getMonth() + 1;
+    const matches = (members || []).filter(member => {
+      if (!member.user_id || member.is_active === false || member.role === "admin") return false;
+      const parts = String(member.birth_date || "").split("-").map(Number);
+      return parts.length === 3 && parts[1] === month && parts[2] === day;
+    });
+    return matches.length === 1 ? { user_id: matches[0].user_id } : null;
+  }
+
+  async function getBirthdayChatRecipient(notificationId, userId) {
+    if (!currentUser || !userId || userId === currentUser.id) {
+      alert(userId === currentUser?.id
+        ? "Du kannst bei deinem eigenen Geburtstag keine Glückwunsch-Nachricht an dich selbst öffnen."
+        : "Der Geburtstags-Empfänger ist nicht verfügbar.");
+      return null;
+    }
+    const profiles = await getChatProfiles([userId]);
+    const profile = profiles[userId];
+    if (!profile) {
+      alert("Der Geburtstags-Empfänger ist nicht mehr für private Nachrichten verfügbar.");
+      return null;
+    }
+    const { data: member, error } = await supabaseClient
+      .from("members")
+      .select("user_id,first_name,last_name,is_active")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error || !member || member.is_active === false) {
+      console.error("Could not verify birthday recipient:", error);
+      alert("Der Geburtstags-Empfänger ist nicht mehr aktiv oder nicht verfügbar.");
+      return null;
+    }
+    await supabaseClient.from("notification_reads").upsert({
+      notification_id: notificationId,
+      user_id: currentUser.id
+    }, { onConflict: "notification_id,user_id" });
+    const name = String(member.first_name || profile.first_name || member.last_name || "Freund").trim();
+    return { user_id: member.user_id, name };
+  }
+
+  async function openBirthdayPrivateChat(notificationId, userId) {
+    const recipient = await getBirthdayChatRecipient(notificationId, userId);
+    if (!recipient) return;
+    const { data: conversationId, error } = await supabaseClient.rpc(
+      "get_or_create_community_private_conversation",
+      { p_other_user_id: recipient.user_id }
+    );
+    if (error || !conversationId) {
+      console.error("Could not open birthday private chat:", error);
+      alert("Der private Chat konnte nicht geöffnet werden. Bitte später erneut versuchen.");
+      return;
+    }
+    openSection("community");
+    await openCommunityPrivateConversation(conversationId, recipient.user_id, recipient.name);
+    const input = document.getElementById("communityPrivateInput");
+    if (input && !input.value.trim()) {
+      input.value = `Alles Gute zum Geburtstag, ${recipient.name}! 🎉 Ich wünsche dir viel Gesundheit, Glück und Erfolg! 🥳`;
+      input.focus();
+    }
   }
 
   function isPaymentRequestNotification(item) {
