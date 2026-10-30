@@ -6406,6 +6406,7 @@
   let journalRequestedCompetitionId = "";
   let journalTrainingOptions = [];
   let adminSharedJournalMembers = [];
+  let adminSharedJournalDays = [];
   let adminSharedJournalSelectedUserId = "";
   let athleteMetrics = [];
   let selectedAthleteMetric = null;
@@ -14782,6 +14783,7 @@
   async function loadAdminSharedAthleteJournals(element) {
     if (!isAdmin || !element) return;
     adminSharedJournalMembers = [];
+    adminSharedJournalDays = [];
     adminSharedJournalSelectedUserId = "";
     element.innerHTML = `<div class="card"><h3>Shared Athlete Journals</h3><p class="muted small">Only athletes who enabled “Allow coach access to my journal” appear here. Entries are read-only, and access is checked again by Supabase when they are loaded.</p><div class="empty">Loading athletes who opted in…</div></div>`;
 
@@ -14850,18 +14852,21 @@
     if (!daysTarget || !entryTarget) return;
     entryTarget.innerHTML = "";
     daysTarget.innerHTML = `<div class="empty">Loading shared journal…</div>`;
-    const { data: days, error } = await supabaseClient
-      .from("athlete_journal_days")
-      .select("id,log_date,sleep_hours,sleep_quality,outside_stress,stress_source,weight_kg,food_notes,water_liters,daily_note,day_score,competition_id")
-      .eq("user_id", userId)
-      .order("log_date", {ascending:false});
+    const { data: days, error } = await supabaseClient.rpc("admin_get_shared_athlete_journal", {
+      p_athlete_user_id: userId
+    });
     if (adminSharedJournalSelectedUserId !== requestedUserId) return;
     if (error) {
       console.error("Could not load shared athlete journal:", error);
       daysTarget.innerHTML = `<div class="message error">The athlete's journal is unavailable. They may have revoked access. ${escapeHtml(error.message)}</div>`;
       return;
     }
-    if (!(days || []).length) {
+    if (!Array.isArray(days)) {
+      daysTarget.innerHTML = `<div class="message error">The journal service returned an unexpected response. Refresh the app and try again.</div>`;
+      return;
+    }
+    adminSharedJournalDays = days;
+    if (!days.length) {
       daysTarget.innerHTML = `<div class="empty">This athlete has not added any journal entries.</div>`;
       return;
     }
@@ -14870,42 +14875,33 @@
       <select id="adminSharedJournalDate" onchange="loadAdminSharedJournalDay(this.value)">
         ${days.map(day => `<option value="${escapeHtml(day.id)}">${escapeHtml(day.log_date)}</option>`).join("")}
       </select>`;
-    await loadAdminSharedJournalDay(days[0].id, days);
+    await loadAdminSharedJournalDay(days[0].id, true);
   }
 
-  async function loadAdminSharedJournalDay(dayId, knownDays) {
+  async function loadAdminSharedJournalDay(dayId, useCachedEntries = false) {
     if (!isAdmin || !adminSharedJournalSelectedUserId || !dayId) return;
     const requestedUserId = adminSharedJournalSelectedUserId;
     const target = document.getElementById("adminSharedJournalEntry");
     if (!target) return;
     target.innerHTML = `<div class="empty">Loading entry…</div>`;
-    let day = (knownDays || []).find(item => item.id === dayId);
-    if (!day) {
-      const { data, error } = await supabaseClient
-        .from("athlete_journal_days")
-        .select("id,log_date,sleep_hours,sleep_quality,outside_stress,stress_source,weight_kg,food_notes,water_liters,daily_note,day_score,competition_id")
-        .eq("id", dayId)
-        .eq("user_id", adminSharedJournalSelectedUserId)
-        .maybeSingle();
+    if (!useCachedEntries) {
+      const { data, error } = await supabaseClient.rpc("admin_get_shared_athlete_journal", {
+        p_athlete_user_id: requestedUserId
+      });
       if (adminSharedJournalSelectedUserId !== requestedUserId) return;
-      if (error || !data) {
-        target.innerHTML = `<div class="message error">This journal entry is unavailable. The athlete may have revoked access.</div>`;
+      if (error || !Array.isArray(data)) {
+        adminSharedJournalDays = [];
+        target.innerHTML = `<div class="message error">This journal is unavailable or access was revoked. ${escapeHtml(error?.message || "Unexpected journal response")}</div>`;
         return;
       }
-      day = data;
+      adminSharedJournalDays = data;
     }
-    const { data: sessions, error: sessionsError } = await supabaseClient
-      .from("athlete_journal_training_sessions")
-      .select("title,session_type,duration_minutes,rounds,effort,feeling_before,feeling_after,notes")
-      .eq("journal_day_id", day.id)
-      .eq("user_id", adminSharedJournalSelectedUserId)
-      .order("created_at", {ascending:true});
-    if (adminSharedJournalSelectedUserId !== requestedUserId) return;
-    if (sessionsError) {
-      console.error("Could not load shared journal training entries:", sessionsError);
-      target.innerHTML = `<div class="message error">Could not load training details: ${escapeHtml(sessionsError.message)}</div>`;
+    const day = adminSharedJournalDays.find(item => item.id === dayId);
+    if (!day || adminSharedJournalSelectedUserId !== requestedUserId) {
+      target.innerHTML = `<div class="message error">This journal entry is unavailable. The athlete may have revoked access.</div>`;
       return;
     }
+    const sessions = Array.isArray(day.training_sessions) ? day.training_sessions : [];
     const fields = [
       ["Sleep (hours)", day.sleep_hours], ["Sleep quality", day.sleep_quality],
       ["Outside stress", day.outside_stress], ["Stress note", day.stress_source],
@@ -14918,7 +14914,7 @@
         <h3>${escapeHtml(day.log_date)}</h3>
         ${fields.length ? fields.map(([label, value]) => `<div class="info-row"><span class="info-label">${escapeHtml(label)}</span><span class="info-value">${escapeHtml(String(value))}</span></div>`).join("") : `<p class="muted small">No wellbeing details were recorded for this date.</p>`}
         <h4 style="margin-top:18px">Training entries</h4>
-        ${(sessions || []).length ? sessions.map(session => `
+        ${sessions.length ? sessions.map(session => `
           <div class="card" style="margin:8px 0;padding:12px">
             <strong>${escapeHtml(session.title || "Training")}</strong>
             <div class="muted small">${escapeHtml(session.session_type || "")} · ${session.duration_minutes == null ? "" : `${Number(session.duration_minutes)} min`} ${session.rounds == null ? "" : `· ${Number(session.rounds)} rounds`} ${session.effort == null ? "" : `· effort ${Number(session.effort)}/10`}</div>

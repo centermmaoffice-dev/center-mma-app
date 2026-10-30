@@ -822,7 +822,10 @@
     "Pain or personal note": "Schmerzen oder persönliche Notiz",
     "No wellbeing details were recorded for this date.": "Für dieses Datum wurden keine Angaben zum Wohlbefinden erfasst.",
     "Training entries": "Trainingseinträge",
-    "No separate training entries for this date.": "Für dieses Datum gibt es keine separaten Trainingseinträge."
+    "No separate training entries for this date.": "Für dieses Datum gibt es keine separaten Trainingseinträge.",
+    "The journal service returned an unexpected response. Refresh the app and try again.": "Der Journaldienst hat eine unerwartete Antwort zurückgegeben. Lade die App neu und versuche es erneut.",
+    "This journal is unavailable or access was revoked.": "Dieses Journal ist nicht verfügbar oder der Zugriff wurde widerrufen.",
+    "Unexpected journal response": "Unerwartete Journalantwort"
   });
 
   Object.assign(dictionaries.uk, {
@@ -865,7 +868,10 @@
     "Pain or personal note": "Біль або особиста нотатка",
     "No wellbeing details were recorded for this date.": "За цей день немає записів про самопочуття.",
     "Training entries": "Записи тренувань",
-    "No separate training entries for this date.": "За цю дату немає окремих записів тренувань."
+    "No separate training entries for this date.": "За цю дату немає окремих записів тренувань.",
+    "The journal service returned an unexpected response. Refresh the app and try again.": "Служба журналу повернула неочікувану відповідь. Оновіть застосунок і спробуйте ще раз.",
+    "This journal is unavailable or access was revoked.": "Журнал недоступний або доступ відкликано.",
+    "Unexpected journal response": "Неочікувана відповідь журналу"
   });
 
   const originals = new WeakMap();
