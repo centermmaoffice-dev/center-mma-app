@@ -3014,7 +3014,15 @@
         <h2>Athlete Journal</h2>
       </div>
       <div class="card">
-        <p class="muted small">Saved to your account and visible only to you. Your journal is not shared with coaches or admins.</p>
+        <p class="muted small">Your journal is private by default. Turn on access only if you want an administrator to read it. You can change this setting at any time.</p>
+        <div class="notification-setting-row" style="margin-bottom:14px">
+          <div class="notification-setting-copy">
+            <label class="notification-setting-title" for="journalCoachAccess">Allow coach access to my journal</label>
+            <div class="notification-setting-text">If enabled, administrators can read your journal and training entries. They cannot edit them.</div>
+          </div>
+          <input id="journalCoachAccess" class="notification-checkbox" type="checkbox" onchange="saveAthleteJournalSharing(this.checked)" aria-describedby="journalCoachAccessMessage">
+        </div>
+        <div id="journalCoachAccessMessage" class="muted small" aria-live="polite"></div>
         <label for="journalDate">Day</label><input id="journalDate" type="date" onchange="loadAthleteJournalEntry(this.value)">
         <label for="journalSleep">Sleep (hours)</label><input id="journalSleep" type="number" min="0" max="24" step="0.25" placeholder="e.g. 8">
         <label for="journalSleepQuality">Sleep quality (1–10)</label><input id="journalSleepQuality" type="number" min="1" max="10" step="1">
@@ -6397,6 +6405,8 @@
   const journalFields = ["journalSleep","journalSleepQuality","journalStress","journalStressNote","journalWeight","journalFood","journalWater","journalNote","journalDayScore"];
   let journalRequestedCompetitionId = "";
   let journalTrainingOptions = [];
+  let adminSharedJournalMembers = [];
+  let adminSharedJournalSelectedUserId = "";
   let athleteMetrics = [];
   let selectedAthleteMetric = null;
   let athleteMetricLogs = [];
@@ -6415,9 +6425,60 @@
 
   async function loadJournalScreen(date) {
     await loadJournalCompetitions();
+    await loadAthleteJournalSharing();
     await loadAthleteJournalEntry(date);
     if (!document.querySelector("#athleteMetricFields .athlete-metric-field")) setAthleteMetricTemplate(document.getElementById("athleteMetricCategory")?.value || "strength");
     await loadAthleteMetrics();
+  }
+
+  async function loadAthleteJournalSharing() {
+    const checkbox = document.getElementById("journalCoachAccess");
+    const message = document.getElementById("journalCoachAccessMessage");
+    if (!checkbox || !currentUser) return;
+    checkbox.checked = false;
+    checkbox.disabled = true;
+    if (message) message.textContent = "Loading access preference…";
+    const { data, error } = await supabaseClient
+      .from("athlete_journal_sharing")
+      .select("allow_coach_access")
+      .eq("user_id", currentUser.id)
+      .maybeSingle();
+    if (error) {
+      if (message) {
+        message.textContent = "Journal sharing is not set up yet. Ask the administrator to apply 202610300001_opt_in_shared_athlete_journals.sql.";
+        message.className = "message error";
+      }
+      return;
+    }
+    checkbox.checked = data?.allow_coach_access === true;
+    checkbox.disabled = false;
+    if (message) {
+      message.textContent = checkbox.checked ? "Access is currently allowed. Turn the box off to revoke it." : "Your journal is currently private.";
+      message.className = "muted small";
+    }
+  }
+
+  async function saveAthleteJournalSharing(allowAccess) {
+    const checkbox = document.getElementById("journalCoachAccess");
+    const message = document.getElementById("journalCoachAccessMessage");
+    if (!checkbox || !currentUser) return;
+    checkbox.disabled = true;
+    if (message) { message.textContent = "Saving access preference…"; message.className = "muted small"; }
+    try {
+      const { error } = await supabaseClient
+        .from("athlete_journal_sharing")
+        .upsert({user_id:currentUser.id,allow_coach_access:allowAccess,updated_at:new Date().toISOString()},{onConflict:"user_id"});
+      if (error) throw error;
+      if (message) {
+        message.textContent = allowAccess ? "Journal access allowed for administrators. You can turn it off at any time." : "Journal access revoked. Administrators can no longer read your journal.";
+        message.className = "message success-text";
+      }
+    } catch (error) {
+      checkbox.checked = !allowAccess;
+      if (message) { message.textContent = "Could not update journal access: " + error.message; message.className = "message error"; }
+    } finally {
+      checkbox.disabled = false;
+    }
   }
 
   async function loadAthleteJournalEntry(date) {
@@ -13194,7 +13255,7 @@
             `
             : item.type === "birthday" && item.title === "Birthday today"
               ? `<div class="message" style="margin-top:16px;">Der Geburtstags-Empfänger konnte für diese Benachrichtigung nicht eindeutig ermittelt werden.</div>`
-          : item.link_section && !(item.type === "birthday" && item.title === "Birthday today")
+          : item.link_section
             ? `
               <button
                 onclick="openNotificationRelatedSection(
@@ -13224,8 +13285,9 @@
     const linkedUser = /^birthday:([0-9a-f-]{36})$/i.exec(String(item.link_section || ""));
     if (linkedUser) return { user_id: linkedUser[1] };
 
-    // Older notices did not store the celebrant's ID. Resolve only when one
-    // member had a birthday on that date; never guess from the message text.
+    // Older birthday notifications did not store the celebrant's ID. Resolve
+    // only when exactly one member had a birthday on that date; never infer
+    // an identity from the notification text or choose an ambiguous match.
     const notificationDate = new Date(item.created_at);
     if (Number.isNaN(notificationDate.getTime())) return null;
     const { data: members, error } = await supabaseClient
@@ -13241,7 +13303,8 @@
     const matches = (members || []).filter(member => {
       if (!member.user_id || member.is_active === false || member.role === "admin") return false;
       const parts = String(member.birth_date || "").split("-").map(Number);
-      return parts.length === 3 && parts[1] === month && parts[2] === day;
+      if (parts.length !== 3 || parts[1] !== month || parts[2] !== day) return false;
+      return true;
     });
     return matches.length === 1 ? { user_id: matches[0].user_id } : null;
   }
@@ -14603,6 +14666,15 @@
           <div class="feature-text">Private scoring list · administrator only</div>
         </div>
 
+        <div
+          class="feature"
+          onclick="openAdminSection('athlete-journals')"
+        >
+          <div class="feature-icon">📔</div>
+          <div class="feature-title">Shared Athlete Journals</div>
+          <div class="feature-text">View journals only when an athlete has allowed access</div>
+        </div>
+
         ${currentUser?.id === SHOP_ADMIN_USER_ID ? `
         <div
           class="feature"
@@ -14707,6 +14779,155 @@
       </div>`;
   }
 
+  async function loadAdminSharedAthleteJournals(element) {
+    if (!isAdmin || !element) return;
+    adminSharedJournalMembers = [];
+    adminSharedJournalSelectedUserId = "";
+    element.innerHTML = `<div class="card"><h3>Shared Athlete Journals</h3><p class="muted small">Only athletes who enabled “Allow coach access to my journal” appear here. Entries are read-only, and access is checked again by Supabase when they are loaded.</p><div class="empty">Loading athletes who opted in…</div></div>`;
+
+    const { data: sharingRows, error: sharingError } = await supabaseClient
+      .from("athlete_journal_sharing")
+      .select("user_id")
+      .eq("allow_coach_access", true);
+    if (sharingError) {
+      console.error("Could not load athlete journal sharing preferences:", sharingError);
+      element.innerHTML = `<div class="card"><h3>Shared Athlete Journals</h3><div class="message error">Journal sharing is not set up yet or the database could not load it. Apply 202610300001_opt_in_shared_athlete_journals.sql in Supabase, then try again.</div></div>`;
+      return;
+    }
+
+    const userIds = [...new Set((sharingRows || []).map(row => row.user_id).filter(Boolean))]
+      .filter(userId => userId !== currentUser?.id);
+    if (!userIds.length) {
+      element.innerHTML = `<div class="card"><h3>Shared Athlete Journals</h3><p class="muted small">Only athletes who explicitly allow access will appear here.</p><div class="empty">No athletes have shared their journal yet.</div></div>`;
+      return;
+    }
+
+    const { data: members, error: membersError } = await supabaseClient
+      .from("members")
+      .select("user_id,first_name,last_name,membership_number,role,is_active")
+      .in("user_id", userIds)
+      .order("last_name", {ascending:true})
+      .order("first_name", {ascending:true});
+    if (membersError) {
+      console.error("Could not load opted-in athlete names:", membersError);
+      element.innerHTML = `<div class="card"><h3>Shared Athlete Journals</h3><div class="message error">Could not load the athlete list: ${escapeHtml(membersError.message)}</div></div>`;
+      return;
+    }
+
+    adminSharedJournalMembers = (members || []).filter(member =>
+      member.user_id && member.role !== "admin" && member.is_active !== false
+    );
+    if (!adminSharedJournalMembers.length) {
+      element.innerHTML = `<div class="card"><h3>Shared Athlete Journals</h3><div class="empty">No active athletes have shared their journal yet.</div></div>`;
+      return;
+    }
+
+    adminSharedJournalSelectedUserId = adminSharedJournalMembers[0].user_id;
+    element.innerHTML = `
+      <div class="card">
+        <h3>Shared Athlete Journals</h3>
+        <p class="muted small">Only athletes who enabled “Allow coach access to my journal” appear here. Entries are read-only. If an athlete turns access off, Supabase blocks further reads immediately.</p>
+        <label for="adminSharedJournalAthlete">Choose an athlete</label>
+        <select id="adminSharedJournalAthlete" onchange="loadAdminSharedJournalDays(this.value)">
+          ${adminSharedJournalMembers.map(member => {
+            const name = `${member.first_name || ""} ${member.last_name || ""}`.trim() || "Athlete";
+            const label = member.membership_number ? `${name} · ${member.membership_number}` : name;
+            return `<option value="${escapeHtml(member.user_id)}">${escapeHtml(label)}</option>`;
+          }).join("")}
+        </select>
+        <div id="adminSharedJournalDays" style="margin-top:14px"></div>
+        <div id="adminSharedJournalEntry" style="margin-top:14px"></div>
+      </div>`;
+    await loadAdminSharedJournalDays(adminSharedJournalSelectedUserId);
+  }
+
+  async function loadAdminSharedJournalDays(userId) {
+    if (!isAdmin || !userId || !adminSharedJournalMembers.some(member => member.user_id === userId)) return;
+    adminSharedJournalSelectedUserId = userId;
+    const requestedUserId = userId;
+    const daysTarget = document.getElementById("adminSharedJournalDays");
+    const entryTarget = document.getElementById("adminSharedJournalEntry");
+    if (!daysTarget || !entryTarget) return;
+    entryTarget.innerHTML = "";
+    daysTarget.innerHTML = `<div class="empty">Loading shared journal…</div>`;
+    const { data: days, error } = await supabaseClient
+      .from("athlete_journal_days")
+      .select("id,log_date,sleep_hours,sleep_quality,outside_stress,stress_source,weight_kg,food_notes,water_liters,daily_note,day_score,competition_id")
+      .eq("user_id", userId)
+      .order("log_date", {ascending:false});
+    if (adminSharedJournalSelectedUserId !== requestedUserId) return;
+    if (error) {
+      console.error("Could not load shared athlete journal:", error);
+      daysTarget.innerHTML = `<div class="message error">The athlete's journal is unavailable. They may have revoked access. ${escapeHtml(error.message)}</div>`;
+      return;
+    }
+    if (!(days || []).length) {
+      daysTarget.innerHTML = `<div class="empty">This athlete has not added any journal entries.</div>`;
+      return;
+    }
+    daysTarget.innerHTML = `
+      <label for="adminSharedJournalDate">Journal date</label>
+      <select id="adminSharedJournalDate" onchange="loadAdminSharedJournalDay(this.value)">
+        ${days.map(day => `<option value="${escapeHtml(day.id)}">${escapeHtml(day.log_date)}</option>`).join("")}
+      </select>`;
+    await loadAdminSharedJournalDay(days[0].id, days);
+  }
+
+  async function loadAdminSharedJournalDay(dayId, knownDays) {
+    if (!isAdmin || !adminSharedJournalSelectedUserId || !dayId) return;
+    const requestedUserId = adminSharedJournalSelectedUserId;
+    const target = document.getElementById("adminSharedJournalEntry");
+    if (!target) return;
+    target.innerHTML = `<div class="empty">Loading entry…</div>`;
+    let day = (knownDays || []).find(item => item.id === dayId);
+    if (!day) {
+      const { data, error } = await supabaseClient
+        .from("athlete_journal_days")
+        .select("id,log_date,sleep_hours,sleep_quality,outside_stress,stress_source,weight_kg,food_notes,water_liters,daily_note,day_score,competition_id")
+        .eq("id", dayId)
+        .eq("user_id", adminSharedJournalSelectedUserId)
+        .maybeSingle();
+      if (adminSharedJournalSelectedUserId !== requestedUserId) return;
+      if (error || !data) {
+        target.innerHTML = `<div class="message error">This journal entry is unavailable. The athlete may have revoked access.</div>`;
+        return;
+      }
+      day = data;
+    }
+    const { data: sessions, error: sessionsError } = await supabaseClient
+      .from("athlete_journal_training_sessions")
+      .select("title,session_type,duration_minutes,rounds,effort,feeling_before,feeling_after,notes")
+      .eq("journal_day_id", day.id)
+      .eq("user_id", adminSharedJournalSelectedUserId)
+      .order("created_at", {ascending:true});
+    if (adminSharedJournalSelectedUserId !== requestedUserId) return;
+    if (sessionsError) {
+      console.error("Could not load shared journal training entries:", sessionsError);
+      target.innerHTML = `<div class="message error">Could not load training details: ${escapeHtml(sessionsError.message)}</div>`;
+      return;
+    }
+    const fields = [
+      ["Sleep (hours)", day.sleep_hours], ["Sleep quality", day.sleep_quality],
+      ["Outside stress", day.outside_stress], ["Stress note", day.stress_source],
+      ["Weight (kg)", day.weight_kg], ["Meals and food notes", day.food_notes],
+      ["Water (litres)", day.water_liters], ["Overall day score", day.day_score],
+      ["Pain or personal note", day.daily_note]
+    ].filter(([, value]) => value !== null && value !== undefined && value !== "");
+    target.innerHTML = `
+      <div class="card" style="margin:0">
+        <h3>${escapeHtml(day.log_date)}</h3>
+        ${fields.length ? fields.map(([label, value]) => `<div class="info-row"><span class="info-label">${escapeHtml(label)}</span><span class="info-value">${escapeHtml(String(value))}</span></div>`).join("") : `<p class="muted small">No wellbeing details were recorded for this date.</p>`}
+        <h4 style="margin-top:18px">Training entries</h4>
+        ${(sessions || []).length ? sessions.map(session => `
+          <div class="card" style="margin:8px 0;padding:12px">
+            <strong>${escapeHtml(session.title || "Training")}</strong>
+            <div class="muted small">${escapeHtml(session.session_type || "")} · ${session.duration_minutes == null ? "" : `${Number(session.duration_minutes)} min`} ${session.rounds == null ? "" : `· ${Number(session.rounds)} rounds`} ${session.effort == null ? "" : `· effort ${Number(session.effort)}/10`}</div>
+            ${session.notes ? `<p class="muted small">${escapeHtml(session.notes)}</p>` : ""}
+            ${(session.feeling_before != null || session.feeling_after != null) ? `<div class="muted small">Before: ${session.feeling_before == null ? "—" : `${Number(session.feeling_before)}/10`} · After: ${session.feeling_after == null ? "—" : `${Number(session.feeling_after)}/10`}</div>` : ""}
+          </div>`).join("") : `<p class="muted small">No separate training entries for this date.</p>`}
+      </div>`;
+  }
+
   function filterAdminAthleteScores() {
     const query = String(document.getElementById("adminAthleteScoreSearch")?.value || "").trim().toLocaleLowerCase();
     document.querySelectorAll("#adminAthleteScoreRows tr[data-athlete-search]").forEach(row => {
@@ -14781,6 +15002,8 @@
         "Community Management",
       "athlete-scores":
         "Athlete Points · Admin Only",
+      "athlete-journals":
+        "Shared Athlete Journals",
       shop:
         "Shop Management",
       notifications:
@@ -14905,6 +15128,10 @@
     } else if (section === "athlete-scores") {
 
       await loadAdminAthleteScores(content);
+
+    } else if (section === "athlete-journals") {
+
+      await loadAdminSharedAthleteJournals(content);
 
     } else if (
       section === "shop"
